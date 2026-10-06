@@ -184,6 +184,8 @@ Server đọc `.env` trong thư mục `server/` nếu có (file này bị `.giti
 - **Bốn bậc quyền** khai báo tập trung trong `server/src/access.js`: `user` 10 bài, `designer` 20, `master` 50, `admin` không giới hạn. Muốn đổi hạn mức chỉ sửa một chỗ này — dashboard, editor và trang quản trị đều lấy số từ API, không tự gõ lại.
 - Tài khoản tự đăng ký luôn nhận bậc thấp nhất `user`; bậc cao hơn do admin gán.
 - **Hạn mức tính theo số tên bài khác nhau** mà tài khoản sở hữu (một bài vừa có nháp vừa có bản publish chỉ tính 1). Hết hạn mức thì API trả `403` kèm thông báo nêu rõ bậc quyền, con số và cách xử lý (xóa bớt bài hoặc xin nâng quyền); editor và dashboard hiện `đã dùng/tối đa` ngay trên thanh công cụ để người dùng biết trước.
+- **Không cho chiếm dụng route của hệ thống.** `RESERVED_SLUGS` (`api`, `admin_panel`, `assets`, `src`, `gallery`, `dashboard`, `design`, `help`, `templates`, `show`, `health`, `favicon.svg`, `icons.svg`) được so sánh **không phân biệt hoa/thường** trong `isValidUsername` / `isValidSlug` / `resolveSlugDir`, vì Express cũng khớp đường dẫn không phân biệt hoa/thường — so đúng hoa thường thì tài khoản `Gallery` vẫn che mất trang `/gallery`. Cuối file có chốt chặn lúc khởi động: thêm route cấp một mà quên khai báo tên dự phòng thì server báo lỗi ngay thay vì âm thầm hở.
+- **Không hai tài khoản tranh một URL.** Tên đăng nhập và slug mới bị chặn trùng theo kiểu bỏ qua hoa/thường (`nameTaken`), kể cả trùng với slug của người khác. Lý do: trên điện thoại hệ tệp phân biệt hoa/thường nên `Phuc` và `PHUC` tạo được hai thư mục êm xuôi, nhưng `/Phuc/ten-bai.html` chỉ mở được bài của một trong hai người.
 
 ### Mật khẩu
 

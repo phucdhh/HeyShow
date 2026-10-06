@@ -117,6 +117,7 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
     const pub = await apiRequest(srv.url, 'POST', '/api/files/hist.html/publish', { token: tok });
     assert.equal(pub.status, 200);
     assert.ok(pub.json.url.startsWith('/show/tmaster/'), `url phải dạng /show/<slug>/…: ${pub.json.url}`);
+    assert.ok(!('legacyUrl' in pub.json), 'chỉ trả về một dạng URL duy nhất, không kèm link cũ');
 
     const slide = await fetch(srv.url + pub.json.url);
     assert.equal(slide.status, 200);
@@ -132,6 +133,58 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
     const landing = await fetch(srv.url + '/');
     assert.ok(!/sandbox/.test(landing.headers.get('content-security-policy') || ''), 'trang editor phải giữ được origin thật');
     assert.equal(landing.status, 200);
+});
+
+// Route cấp một được khớp không phân biệt hoa/thường, nên "Gallery" cũng che mất
+// /gallery y như "gallery". Kiểm cả hai kiểu viết để không ai chiếm được trang.
+test('không cho đăng ký tên trùng route hệ thống, kể cả viết hoa khác nhau', async () => {
+    for (const name of ['gallery', 'Gallery', 'GALLERY', 'api', 'API', 'health', 'Health', 'show', 'design']) {
+        const res = await apiRequest(srv.url, 'POST', '/api/auth/register', {
+            body: { username: name, password: 'matkhau123' }
+        });
+        assert.equal(res.status, 400, `"${name}" không được phép đăng ký`);
+        assert.match(res.json.error, /giữ riêng/, `"${name}" phải báo lý do giữ tên, không phải lý do khác`);
+    }
+    const adminSide = await srv.api('POST', '/api/admin/users', { body: { username: 'Admin_panel', password: 'matkhau123' } });
+    assert.equal(adminSide.status, 400, 'admin cũng không tạo được tài khoản trùng tên route');
+});
+
+// Hai thư mục user khác nhau trên đĩa nhưng chỉ một URL: phải chặn từ lúc nhận tên.
+test('hai tên chỉ khác nhau hoa thường không cùng chiếm một URL', async () => {
+    const created = await srv.api('POST', '/api/admin/users', { body: { username: 'CaseTest', password: 'matkhau123' } });
+    assert.equal(created.status, 200);
+
+    for (const dup of ['casetest', 'CASETEST', 'CaseTest']) {
+        const res = await apiRequest(srv.url, 'POST', '/api/auth/register', {
+            body: { username: dup, password: 'matkhau123' }
+        });
+        assert.equal(res.status, 400, `"${dup}" trùng "CaseTest" khi bỏ qua hoa/thường`);
+        assert.match(res.json.error, /đã tồn tại/);
+    }
+});
+
+test('đổi slug cũng bị chặn nếu trùng route hoặc trùng tên người khác', async () => {
+    // Dùng tài khoản riêng để không làm đổi slug của tuser mà các test khác đang tham chiếu
+    await srv.api('POST', '/api/admin/users', { body: { username: 'tslug', password: 'matkhau123' } });
+    const login = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tslug', password: 'matkhau123' } });
+    const tok = login.json.token;
+
+    for (const slug of ['Gallery', 'health', 'Show']) {
+        const res = await apiRequest(srv.url, 'POST', '/api/user/profile', { token: tok, body: { urlSlug: slug } });
+        assert.equal(res.status, 400, `slug "${slug}" là của hệ thống`);
+    }
+    const taken = await apiRequest(srv.url, 'POST', '/api/user/profile', { token: tok, body: { urlSlug: 'casetest' } });
+    assert.equal(taken.status, 400, 'không được lấy slug của người khác chỉ bằng cách đổi hoa/thường');
+    assert.match(taken.json.error, /đã được sử dụng/);
+
+    const ok = await apiRequest(srv.url, 'POST', '/api/user/profile', { token: tok, body: { urlSlug: 'tslug-moi' } });
+    assert.equal(ok.status, 200, 'slug hợp lệ và chưa ai dùng thì vẫn đổi được');
+
+    // Người khác không được lấy đúng slug đó chỉ bằng cách đổi hoa/thường
+    const steal = await apiRequest(srv.url, 'POST', '/api/user/profile', {
+        token: srv.users.user.login, body: { urlSlug: 'TSLUG-MOI' }
+    });
+    assert.equal(steal.status, 400, 'slug chỉ khác hoa/thường vẫn là của người khác');
 });
 
 test('mọi response mang header bảo mật chung', async () => {

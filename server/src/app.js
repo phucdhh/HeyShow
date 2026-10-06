@@ -50,8 +50,17 @@ const SLUG_RE = /^[a-zA-Z0-9_-]{3,40}$/;
 const USERNAME_RE = /^[a-zA-Z0-9@._-]{3,64}$/;
 const FORBIDDEN_USERNAMES = ['__proto__', 'constructor', 'prototype'];
 
-// Các slug dành riêng cho route hệ thống, không cho user chiếm dụng
-const RESERVED_SLUGS = ['api', 'admin_panel', 'assets', 'src', 'gallery', 'dashboard', 'design', 'help', 'templates', 'show', 'favicon.svg', 'icons.svg'];
+// Các slug dành riêng cho route hệ thống, không cho user chiếm dụng. Phải phủ mọi
+// route cấp một; chốt chặn ở cuối file kiểm lại điều này lúc khởi động. So sánh không
+// phân biệt hoa/thường vì Express khớp đường dẫn không phân biệt hoa/thường: user tên
+// "Gallery" cũng che mất trang gallery y như "gallery".
+const RESERVED_SLUGS = ['api', 'admin_panel', 'assets', 'src', 'gallery', 'dashboard', 'design', 'help', 'templates', 'show', 'health', 'favicon.svg', 'icons.svg'];
+
+function isReservedName(name) {
+    if (typeof name !== 'string') return false;
+    const lower = name.toLowerCase();
+    return RESERVED_SLUGS.some(r => r.toLowerCase() === lower);
+}
 
 // Slug mặc định suy ra từ tên đăng nhập (bỏ phần @domain, bỏ dấu)
 function defaultSlug(username) {
@@ -383,13 +392,25 @@ const JWT_SECRET = resolveJwtSecret();
 function isValidUsername(name) {
     return typeof name === 'string'
         && USERNAME_RE.test(name)
-        && !RESERVED_SLUGS.includes(name)
+        && !isReservedName(name)
         && !FORBIDDEN_USERNAMES.includes(name);
 }
 
 // Slug hiện ngay trong URL công khai: /<slug>/... nên không được trùng với route hệ thống
 function isValidSlug(slug) {
-    return typeof slug === 'string' && SLUG_RE.test(slug) && !RESERVED_SLUGS.includes(slug);
+    return typeof slug === 'string' && SLUG_RE.test(slug) && !isReservedName(slug);
+}
+
+// URL không phân biệt hoa/thường nên "Phuc" và "PHUC" là hai user tranh nhau một địa chỉ.
+// Trên điện thoại hệ tệp phân biệt hoa/thường, cả hai thư mục cùng tồn tại êm xuôi, vì vậy
+// chỉ có thể chặn ngay từ lúc nhận tên.
+function nameTaken(db, candidate, exceptLoginId) {
+    const lower = String(candidate).toLowerCase();
+    for (const [loginId, user] of Object.entries(db.users)) {
+        if (exceptLoginId && loginId === exceptLoginId) continue;
+        if (loginId.toLowerCase() === lower || slugOf(loginId, user).toLowerCase() === lower) return true;
+    }
+    return false;
 }
 
 // Tên file từ URL chỉ được là tên thuần, không chứa đường dẫn
@@ -877,7 +898,7 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
 
     const freshHash = await hashPassword(password);
 
-    if (Object.hasOwn(getDB().users, username)) {
+    if (nameTaken(getDB(), username)) {
         return res.status(400).json({ success: false, error: 'Tên đăng nhập đã tồn tại' });
     }
     mutateDB(db => {
@@ -1013,7 +1034,7 @@ app.post('/api/auth/register', rateLimitAuth, async (req, res) => {
 
     const freshHash = await hashPassword(password);
 
-    if (Object.hasOwn(getDB().users, username)) {
+    if (nameTaken(getDB(), username)) {
         return res.status(400).json({ success: false, error: 'Tên đăng nhập đã tồn tại' });
     }
     mutateDB(db => {
@@ -1082,8 +1103,7 @@ app.post('/api/user/profile', authenticateToken, async (req, res) => {
                     error: 'Username URL phải dài 3-40 ký tự, chỉ gồm chữ cái, số, gạch ngang và gạch dưới.'
                 });
             }
-            const clash = Object.entries(getDB().users)
-                .some(([otherId, other]) => otherId !== loginId && slugOf(otherId, other) === urlSlug);
+            const clash = nameTaken(getDB(), urlSlug, loginId);
             if (clash) return res.status(400).json({ success: false, error: 'Username này đã được sử dụng.' });
 
             mutateDB(db => { db.users[loginId].urlSlug = urlSlug; });
@@ -1442,8 +1462,7 @@ app.post('/api/files/:name/publish', authenticateToken, (req, res) => {
         res.json({
             success: true,
             message: 'Published successfully',
-            url: showUrl(urlSlug, fileName),
-            legacyUrl: `/${encodeURIComponent(urlSlug)}/${encodeURIComponent(fileName)}`
+            url: showUrl(urlSlug, fileName)
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -2272,6 +2291,15 @@ for (const [route, file] of PUBLIC_PAGES) {
     app.get(`${route}/`, (req, res) => res.sendFile(path.join(CLIENT_DIST, file)));
 }
 
+// Chốt chặn lúc khởi động: thêm route cấp một mà quên khai báo vào RESERVED_SLUGS thì
+// user có thể đăng ký đúng tên đó và chiếm mất địa chỉ của trang. Threw ở đây để bộ
+// test phát hiện ngay thay vì để trống một lỗ hổng âm thầm.
+for (const name of [...PUBLIC_PAGES.map(([route]) => route.slice(1)), 'api', 'health']) {
+    if (!isReservedName(name)) {
+        throw new Error(`RESERVED_SLUGS thiếu "${name}": thêm route cấp một thì phải thêm cả tên dự phòng`);
+    }
+}
+
 // Trang chủ: giới thiệu HeyShow
 app.get('/', (req, res) => res.sendFile(path.join(CLIENT_DIST, 'landing.html')));
 
@@ -2290,7 +2318,7 @@ app.get('/health', (req, res) => {
 // /show/<slug>/<file>.html là đường dẫn chính (có CSP sandbox).
 // /<slug>/<file>.html vẫn phục vụ y hệt vì nhiều link đã chia sẻ từ trước.
 function resolveSlugDir(slug) {
-    if (RESERVED_SLUGS.includes(slug)) return null;
+    if (isReservedName(slug)) return null;
     const currentDB = getDB();
     for (const [loginId, user] of Object.entries(currentDB.users)) {
         if (slugOf(loginId, user) === slug || loginId === slug) {
