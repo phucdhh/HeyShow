@@ -2259,12 +2259,15 @@ function slideSecurityHeaders(res) {
     res.setHeader('Content-Security-Policy', SLIDE_CSP);
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     // Republish phải có hiệu lực ngay, không chờ hết cache.
-    // no-transform: Cloudflare tự chèn beacon Web Analytics (beacon.min.js) vào mọi trang
-    // HTML, và beacon gọi /cdn-cgi/rum bằng XHR. Trang slide mang CSP sandbox nên origin là
-    // "null", request đó bị CORS chặn và bắn lỗi console cho MỖI bài trong gallery. Beacon ở
-    // đây vốn vô dụng (không bao giờ gửi được), nên chặn Cloudflare sửa body là sạch lỗi nhất
-    // mà không phải đụng vào thiết lập của cả zone; trang thường vẫn được đo bình thường.
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    //
+    // Không thêm `no-transform` dù đó là cách sạch nhất để Cloudflare ngừng chèn beacon Web
+    // Analytics vào trang slide. Beacon đó gọi /cdn-cgi/rum bằng XHR, mà trang slide mang CSP
+    // sandbox nên origin là "null" -> CORS chặn, mở gallery là thấy error cho từng bài. Tốn
+    // dung lượng chứ không hỏng gì, và đã đo: `no-transform` làm mất luôn Brotli của Cloudflare,
+    // một bài 44KB xuống thành 44KB thô thay vì ~9KB (origin không tự nén), gallery 12 iframe
+    // là nửa MB tải thêm trên mạng di động. Đổi lại thì vào dashboard: Web Analytics ->
+    // Manage site -> Advanced options -> Add rule, loại /show/ khỏi việc đo.
+    res.setHeader('Cache-Control', 'no-cache');
 }
 
 // Bộ đếm lượt xem gom trong RAM: một tiết học 40 em cùng mở link sẽ tạo 40 lượt ghi

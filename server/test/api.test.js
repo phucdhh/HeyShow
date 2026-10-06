@@ -122,10 +122,10 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
     const slide = await fetch(srv.url + pub.json.url);
     assert.equal(slide.status, 200);
     assert.match(slide.headers.get('content-security-policy'), /^sandbox\b/, 'slide phải chạy ở origin mờ');
-    // no-cache: republish có hiệu lực ngay. no-transform: keeps Cloudflare off injecting its
-    // Web Analytics beacon, which can never report from a sandboxed slide document.
-    assert.equal(slide.headers.get('cache-control'), 'no-cache, no-transform',
-        'slide phải không lưu cache và không cho Cloudflare chèn beacon vào trang');
+    // no-cache để republish có hiệu lực ngay. Cố ý KHÔNG có no-transform: nó chặn Cloudflare
+    // chèn beacon nhưng cũng chặn luôn Brotli, làm bài slide nặng gấp ~5 lần khi tải.
+    assert.equal(slide.headers.get('cache-control'), 'no-cache',
+        'republish phải có hiệu lực ngay, và không được thêm no-transform');
 
     // Chốt chặn chống CSS của bài viết làm mọi slide chồng lên nhau (vuốt trên điện thoại
     // không còn thay đổi gì). Ba bản template phải mang cùng một rule.
