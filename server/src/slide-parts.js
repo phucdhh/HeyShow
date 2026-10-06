@@ -94,7 +94,40 @@ function patchSlideHtml(html) {
     return { html: out, added };
 }
 
+// Khuôn mà buildFullHtml dùng để viết thẻ asset Reveal ở một phiên bản cụ thể.
+// So khớp cả thẻ chứ không chỉ chuỗi URL: bài của người dùng thỉnh thoảng tự nhúng
+// Reveal (4.5 dạng .min.js, theme dracula/white), so cả thẻ để không đụng nội dung đó.
+function revealAssetTags(version) {
+    const cdn = `https://cdnjs.cloudflare.com/ajax/libs/reveal.js/${version}`;
+    // 4.x/5.x để plugin math ở plugin/math/math.js, từ 6.0 rút lên plugin/math.js.
+    const major = Number(String(version).split('.')[0]);
+    const math = major >= 6 ? 'plugin/math.js' : 'plugin/math/math.js';
+    return [
+        `<link rel="stylesheet" href="${cdn}/reset.min.css">`,
+        `<link rel="stylesheet" href="${cdn}/reveal.min.css">`,
+        `<link rel="stylesheet" href="${cdn}/theme/black.min.css">`,
+        `<script src="${cdn}/reveal.js"></script>`,
+        `<script src="${cdn}/${math}"></script>`
+    ];
+}
+
+// Đổi phiên bản Reveal của một bài đã publish. Chỉ ghi khi tìm thấy đủ cả năm thẻ
+// của bản cũ: thiếu một thẻ là bài đó không theo khuôn (theme khác, bản cũ hơn), và
+// ghi nửa vời sẽ để lại CSS của bản này chạy cùng JS của bản kia.
+function bumpRevealVersion(html, { from, to }) {
+    if (from === to) return { html, missing: [], changed: false };
+    const oldTags = revealAssetTags(from);
+    const newTags = revealAssetTags(to);
+    const missing = oldTags.filter(tag => !html.includes(tag));
+    if (missing.length > 0) return { html, missing, changed: false };
+
+    let out = html;
+    oldTags.forEach((tag, i) => { out = out.split(tag).join(newTags[i]); });
+    return { html: out, missing: [], changed: true };
+}
+
 module.exports = {
     REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS,
-    SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER, patchSlideHtml
+    SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER,
+    patchSlideHtml, revealAssetTags, bumpRevealVersion
 };

@@ -13,7 +13,7 @@ const path = require('path');
 const access = require('../src/access');
 const history = require('../src/history');
 const { createJsonStore, atomicWrite } = require('../src/storage');
-const { patchSlideHtml, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER } = require('../src/slide-parts');
+const { patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER } = require('../src/slide-parts');
 
 function tmpDir(prefix) {
     return fs.mkdtempSync(path.join(os.tmpdir(), `heyshow-${prefix}-`));
@@ -334,6 +334,64 @@ test('slide-parts: bài đã có mảnh nào thì không chèn lại lần nữa
 
     const onlyShim = patchSlideHtml(oldDeck(`    <style>${SLIDE_HEAD_GUARD}</style>\n`));
     assert.deepEqual(onlyShim.added, ['shim'], 'đã có guard thì chỉ thiếu shim');
+});
+
+// Bài do buildFullHtml của bản 5.1.0 sinh ra, viết đúng khuôn năm thẻ asset — khuôn này
+// là thứ script bump so khớp, nên phải để nguyên văn trong test chứ đừng dựng bằng hàm.
+function deck510(body = '') {
+    const C = 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0';
+    return `<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="${C}/reset.min.css">
+    <link rel="stylesheet" href="${C}/reveal.min.css">
+    <link rel="stylesheet" href="${C}/theme/black.min.css">
+</head>
+<body>
+    <div class="reveal"><div class="slides">
+        <section><h1>MOT</h1></section>${body}
+        <section><h1>HAI</h1></section>
+    </div></div>
+    <script src="${C}/reveal.js"></script>
+    <script src="${C}/plugin/math/math.js"></script>
+    <script>Reveal.initialize({ hash: true });</script>
+</body>
+</html>`;
+}
+
+test('slide-parts: đổi phiên bản Reveal thì plugin math phải theo đường dẫn của bản mới', () => {
+    const { html, changed, missing } = bumpRevealVersion(deck510(), { from: '5.1.0', to: '6.0.2' });
+    assert.equal(changed, true);
+    assert.deepEqual(missing, []);
+    const C = 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/6.0.2';
+    for (const tag of [`${C}/reset.min.css`, `${C}/reveal.min.css`, `${C}/theme/black.min.css`, `${C}/reveal.js`]) {
+        assert.ok(html.includes(tag), `phải có ${tag}`);
+    }
+    assert.ok(html.includes(`${C}/plugin/math.js`), '6.x để plugin math ở plugin/math.js');
+    assert.ok(!html.includes('plugin/math/math.js'), 'còn đường dẫn 5.x là KaTeX chết không báo lỗi');
+    assert.equal((html.match(/reveal\.js\/5\.1\.0\//g) || []).length, 0, 'không được sót thẻ nào ở bản cũ');
+    assert.ok(html.includes('<h1>HAI</h1>'), 'nội dung bài giữ nguyên');
+});
+
+test('slide-parts: bump chạy lại lần hai không đổi gì, bài bản khác thì để nguyên', () => {
+    const once = bumpRevealVersion(deck510(), { from: '5.1.0', to: '6.0.2' }).html;
+    const twice = bumpRevealVersion(once, { from: '5.1.0', to: '6.0.2' });
+    assert.equal(twice.changed, false, 'đã lên bản mới rồi thì không còn gì để đổi');
+    assert.equal(twice.html, once);
+
+    // admin/test.html trên đĩa thật: bản 4.3.1 nhưng script là reveal.min.js, không phải
+    // khuôn hiện tại — thà báo thiếu thẻ còn hơn viết nửa CSS 6.x lên JS 4.x
+    const odd = deck510().replace('5.1.0/reveal.js"', '5.1.0/reveal.min.js"');
+    const r = bumpRevealVersion(odd, { from: '5.1.0', to: '6.0.2' });
+    assert.equal(r.changed, false);
+    assert.equal(r.missing.length, 1, 'phải chỉ đúng thẻ lệch khuôn');
+    assert.equal(r.html, odd, 'file lệch khuôn trả về phải còn nguyên');
+
+    // bài của AI tự nạp Reveal 4.5 ở phần nội dung: bản đó không liên quan, đừng đụng vào
+    const mine = deck510('\n        <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>');
+    assert.ok(bumpRevealVersion(mine, { from: '5.1.0', to: '6.0.2' }).html.includes('reveal.js/4.5.0/reveal.min.js'),
+        'nội dung người dùng tự nhúng phải giữ nguyên');
 });
 
 test('slide-parts: file lạ thì bỏ qua, không ghi bản vá nửa vời', () => {
