@@ -77,6 +77,14 @@ function contentOf(html) {
     return tail.slice(SLIDES_OPEN.length, Math.min(...anchors));
 }
 
+// Bài của người dùng thỉnh thoảng tự nạp Reveal (AI dán nguyên một trang HTML vào slide).
+// Chuỗi phiên bản ở đó không phải việc của script, nên khi hỏi "template còn nạp bản nào"
+// thì bỏ khoảng bài viết ra, chỉ xét phần do buildFullHtml sinh ra.
+function templateOf(html) {
+    const content = contentOf(html);
+    return content === null ? html : html.replace(content, '');
+}
+
 let patched = 0;
 let bumped = 0;
 let clean = 0;
@@ -111,12 +119,12 @@ for (const file of htmlFiles(dataDir).sort()) {
             next = b.html;
             bumped++;
             marks.push(`reveal ${FROM}->${TO}`);
-        } else if (next.includes(`reveal.js/${FROM}/`)) {
-            // còn dấu bản ${FROM} trên đĩa nhưng không ghép đủ năm thẻ theo khuôn
+        } else if (templateOf(next).includes(`reveal.js/${FROM}/`)) {
+            // template còn dấu bản ${FROM} trên đĩa nhưng không ghép đủ năm thẻ theo khuôn
             // buildFullHtml (theme khác, hoặc bài dán nguyên một trang HTML) -> để nguyên
-            giu.push(`${rel} — còn ${FROM} nhưng lệch khuôn (thiếu ${b.missing.length}/5 thẻ)`);
+            giu.push(`${rel} — template còn ${FROM} nhưng lệch khuôn (thiếu ${b.missing.length}/5 thẻ)`);
         }
-        // không còn thẻ FROM nào: bài đã ở bản khác, coi như sạch, không cần báo
+        // không còn thẻ FROM nào trong template: bài đã ở bản khác, coi như sạch, không cần báo
     }
 
     if (marks.length === 0) {
@@ -161,9 +169,7 @@ if (APPLY && patched > 0) {
             bad.push(`${rel} — thiếu guard/shim`);
             continue;
         }
-        const open = text.indexOf(SLIDES_OPEN);
-        const head = text.slice(0, open < 0 ? text.length : open);
-        const v = (head.match(/reveal\.js\/([\d.]+)\//) || [])[1] || 'không rõ';
+        const v = (templateOf(text).match(/reveal\.js\/([\d.]+)\//) || [])[1] || 'không rõ';
         versions.set(v, (versions.get(v) || 0) + 1);
     }
     console.log('   Template của các bài trên đĩa đang nạp: '
