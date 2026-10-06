@@ -16,7 +16,7 @@
   ```
   https://heyshow.pedu.vn/show/<username>/<ten-file>.html
   ```
-  Đường dẫn cũ `https://heyshow.pedu.vn/<username>/<ten-file>.html` vẫn chạy y hệt để không làm hỏng những link đã chia sẻ, nhưng slide mới nên dùng `/show/` vì chỉ đường dẫn này có cô lập origin (xem §14).
+  Đường dẫn cũ `https://heyshow.pedu.vn/<username>/<ten-file>.html` vẫn chạy y hệt để không làm hỏng những link đã chia sẻ — hai đường dẫn đi qua cùng một hàm phục vụ nên **đều nhận CSP sandbox như nhau**. Slide mới vẫn nên dùng `/show/` vì đó là đường dẫn ứng dụng tự sinh và là vùng riêng, không nằm lẫn với route của app (xem §9, §14).
 - **Phân cấp tài khoản** từ thấp tới cao: `user` (tối đa 10 bài) → `designer` (20) → `master` (50) → `admin` (không giới hạn). Hạn mức tính theo **số tên bài khác nhau** mà tài khoản sở hữu (nháp hoặc đã publish đều tính một lần) và được báo ngay trên editor/dashboard để người dùng biết trước khi bấm sai.
 - **Lịch sử phiên bản bản nháp**: mỗi lần lưu, nội dung cũ được cất lại, giữ **5 bản gần nhất**; xem và khôi phục từng bản từ dashboard.
 - **Bình luận theo luồng (thread) kiểu Facebook**: mỗi bình luận có thể nhận trả lời, trả lời hiển thị thụt lề dưới bình luận gốc; người dùng giới hạn **một cấp trả lời** để mạch hội thoại không bị thắt nút. Tác giả sửa/xóa bình luận của mình; chủ bài và admin xóa được bình luận của người khác.
@@ -282,7 +282,7 @@ Mọi route `/api/*` (trừ auth, stats, gallery, profile, `/api/p/:user/:file`,
 | GET | `/templates` | công khai | Thư viện 12 mẫu bài/slide, preview Reveal.js + nút "Dùng mẫu này" tạo bản nháp |
 | GET | `/show/<slug>/` · `/<slug>/` | công khai | Trang cá nhân của user (các bài đã publish) |
 | GET | `/show/<slug>/<file>.html` | công khai | **Slide đã publish, có CSP sandbox** (đường dẫn chính) |
-| GET | `/<slug>/<file>.html` | công khai | Slide đã publish không sandbox — chỉ để tương thích link cũ |
+| GET | `/<slug>/<file>.html` | công khai | Slide đã publish, cùng CSP sandbox — chỉ để tương thích link cũ |
 
 Quy chuẩn dữ liệu hồ sơ: `fullName` ≤ 80 ký tự; `phone` chỉ nhận chữ số và `+ - . ( )` cách trắng, ≤ 20 ký tự; `urlSlug` khớp `^[a-zA-Z0-9_-]{3,40}$` và không trùng slug hệ thống.
 
@@ -296,7 +296,7 @@ Quy chuẩn dữ liệu hồ sơ: `fullName` ≤ 80 ký tự; `phone` chỉ nh�
   Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups allow-modals
   Cache-Control: no-cache          # republish có hiệu lực ngay, không chờ hết cache
   ```
-  Chỉ định `sandbox` của CSP đưa trang slide vào **opaque origin**: script của người dùng trong slide không đọc được `localStorage`, cookie hay gọi API của HeyShow bằng token đang nằm trong `localStorage` của editor, dù tất cả chạy trên cùng `heyshow.pedu.vn`. Vì vậy **không cần tạo tên miền con riêng** (`slides.pedu.vn`) như dự tính ban đầu. Route `/<slug>/<file>.html` cũ vẫn phục vụ y hệt cho những link đã chia sẻ, chỉ thiếu lớp sandbox.
+  Chỉ định `sandbox` của CSP đưa trang slide vào **opaque origin**: script của người dùng trong slide không đọc được `localStorage`, cookie hay gọi API của HeyShow bằng token đang nằm trong `localStorage` của editor, dù tất cả chạy trên cùng `heyshow.pedu.vn`. Vì vậy **không cần tạo tên miền con riêng** (`slides.pedu.vn`) như dự tính ban đầu. Route `/<slug>/<file>.html` cũ vẫn phục vụ cho những link đã chia sẻ và nhận đúng bộ header này, vì cả hai đường dẫn cùng gọi `servePublishedSlide` (`server/src/app.js`).
 - **Lịch sử phiên bản bản nháp** (`server/src/history.js`): khi đã có nội dung trên đĩa mà người dùng lưu đè, bản cũ được chép vào `data/users/<loginId>/history/<tên-file>.d/<millis>-<ngẫu nhiên>.html` và **giữ 5 bản gần nhất** (bản thứ 6 tự xóa bản cũ nhất). Khôi phục một bản cũng cất bản hiện hành trước khi ghi đè, nên bấm nhầm không mất bài. Tên thư mục lịch sử đã làm sạch ký tự nên không thoát được khỏi thư mục user.
 - **Preview**: editor dựng lại đúng template đó trong một iframe, debounce 500ms khi gõ và 50ms khi chỉ di chuyển con trỏ; khi chỉ đổi vị trí con trỏ thì gọi `Reveal.slide(h, v)` thay vì tải lại iframe.
 
@@ -356,7 +356,7 @@ Mỗi user có một trang công khai tại **`/<urlSlug>/`** (ví dụ `https:/
 
 ## 14. Hạn chế đã biết
 
-- **Link cũ vẫn cùng origin.** Slide qua `/show/…` đã có CSP sandbox, nhưng `/<slug>/<file>.html` (link đã chia sẻ trước đây) vẫn phục vụ **không sandbox** để không làm hỏng link người dùng đang dùng. Muốn đóng hẳn khoảng này thì chuyển hết link sang `/show/` rồi bỏ route cũ.
+- **Hai đường dẫn cùng một vùng chứa.** `/show/<slug>/<file>.html` và `/<slug>/<file>.html` đi qua cùng `servePublishedSlide` nên cùng nhận CSP sandbox — link ngắn không kém an toàn hơn. Cái `/show/` mang lại là **tách namespace**: nội dung người dùng nằm ở một nhánh riêng, không lẫn với `/design`, `/gallery`, `/api`, `/assets`, nên không phải dựa vào danh sách `RESERVED_SLUGS` mỗi lần thêm route mới, và về sau có thể siết thêm (COOP/COEP, tên miền riêng không cookie) chỉ trên một mount duy nhất. Muốn hợp nhất link thì 301 route cũ sang `/show/` rồi bỏ route cũ.
 - **Slide là HTML/JS người dùng tự viết.** Sandbox cách ly khỏi dữ liệu của HeyShow nhưng không ngăn được nội dung độc hại *bên trong* slide (script tự chạy, link lừa đảo); bài publish là công khai nên vẫn cần kiểm duyệt bằng tay (admin gỡ bình luận, gỡ bài).
 - **Toàn bộ dữ liệu nằm trên một chiếc điện thoại**, không có database và không có bản sao tự động. `./scripts/backup-data.sh` mới là lệnh chạy tay — nên đặt vào cron/Shortcuts tự động trước khi có nhiều người dùng.
 - **Giới hạn tần suất đếm trong RAM của một tiến trình**: khởi động lại server là bộ đếm về 0, và nếu PM2 chạy nhiều instance thì mỗi instance đếm riêng. Đủ cho quy mô một trường, chưa đủ để chống tấn công trải đều.
@@ -391,5 +391,5 @@ Mỗi user có một trang công khai tại **`/<urlSlug>/`** (ví dụ `https:/
 - [x] Script deploy có kiểm tra `/health` và script sao lưu `data/`.
 - [ ] Chế độ điều khiển từ xa (Remote control).
 - [ ] Backup tự động có lịch (cron trên Mac hoặc Termux) + một bản copy off-device.
-- [ ] Kiểm thử lại toàn bộ đường dẫn cũ rồi bỏ route `/<slug>/<file>.html` không sandbox.
+- [ ] 301 đường dẫn cũ `/<slug>/<file>.html` sang `/show/...` cho link hội tụ về một dạng, kiểm thử lại rồi bỏ route cũ.
 - [ ] Đóng gói Reveal.js/KaTeX vào bản export để trình chiếu offline thật sự.
