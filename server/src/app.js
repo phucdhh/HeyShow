@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
 const { createJsonStore, atomicWrite } = require('./storage');
+const { SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM } = require('./slide-parts');
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
@@ -1385,45 +1386,8 @@ app.delete('/api/files/:name', authenticateToken, (req, res) => {
     }
 });
 
-// Mảnh CSS chèn vào đầu mọi file slide. Phải giống hệt bản client
-// (client/src/reveal-preview.js, client/src/main.js) để preview và bản publish không lệch nhau.
-const SLIDE_HEAD_GUARD = `
-        /* Bài viết (đặc biệt bài do AI sinh) hay ghi đại .reveal .slides section {
-           display:flex !important } để tô màu slide. !important của họ thắng quy tắc
-           "ẩn slide chưa tới" của Reveal, thành ra mọi slide cùng hiện và chồng lên nhau:
-           trên điện thoại vuốt không thấy gì chuyển. Rule này chỉ ẩn lại phần KHÔNG phải
-           slide hiện tại, độ đặc hiệu cao hơn, còn chế độ tổng quan (Esc) và in/PDF
-           (html.reveal-print) thì nhường lại cho Reveal. */
-        @media screen {
-            html:not(.reveal-print) .reveal:not(.overview) .slides>section:not(.present),
-            html:not(.reveal-print) .reveal:not(.overview) .slides>section>section:not(.present) {
-                display: none !important;
-            }
-        }`;
-
-// Trang slide mang CSP "sandbox" mà không có "allow-same-origin", nên vừa chạm vào
-// window.sessionStorage là trình ném SecurityError. Reveal 5.1 gọi thẳng chỗ đó mỗi lần
-// chuyển slide (store/restoreScrollPosition), lỗi làm chết luôn phần bắt động tác vuốt
-// trên điện thoại. Mảng này thế sessionStorage bằng bộ nhớ trong để Reveal chạy tiếp,
-// vẫn giữ nguyên origin mờ — KHÔNG thêm allow-same-origin, nếu không HTML của người dùng
-// sẽ đọc được token trong localStorage của editor.
-const SLIDE_STORAGE_SHIM = `
-    <script>
-        try {
-            window.sessionStorage;
-        } catch (err) {
-            const mem = new Map();
-            const store = {
-                getItem: key => (mem.has(key) ? mem.get(key) : null),
-                setItem: (key, value) => { mem.set(key, String(value)); },
-                removeItem: key => { mem.delete(key); },
-                clear: () => mem.clear(),
-                key: index => Array.from(mem.keys())[index] ?? null,
-                get length() { return mem.size; }
-            };
-            Object.defineProperty(window, 'sessionStorage', { configurable: true, get() { return store; } });
-        }
-    </script>`;
+// Guard CSS và shim sessionStorage cho mọi file slide định nghĩa ở slide-parts.js —
+// cùng nguồn với script vá những bài đã publish từ trước (scripts/repair-published-slides.cjs).
 
 // Dựng file HTML hoàn chỉnh (Reveal.js) từ nội dung nháp — dùng cho cả publish và export
 function buildFullHtml(fileName, rawHtml) {

@@ -1,5 +1,6 @@
-// Test đơn vị cho các module nền: phân cấp quyền, lịch sử phiên bản, tầng lưu trữ JSON.
-// Không khởi động server — chạy thẳng trên các hàm thuần và thư mục tạm.
+// Test đơn vị cho các module nền: phân cấp quyền, lịch sử phiên bản, tầng lưu trữ JSON,
+// mảnh ghép bắt buộc trong file slide. Không khởi động server — chạy thẳng trên các hàm
+// thuần và thư mục tạm.
 //
 // Chạy: node --test server/test/
 
@@ -12,6 +13,7 @@ const path = require('path');
 const access = require('../src/access');
 const history = require('../src/history');
 const { createJsonStore, atomicWrite } = require('../src/storage');
+const { patchSlideHtml, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER } = require('../src/slide-parts');
 
 function tmpDir(prefix) {
     return fs.mkdtempSync(path.join(os.tmpdir(), `heyshow-${prefix}-`));
@@ -288,4 +290,58 @@ test('atomicWrite: nội dung đầy đủ trên đĩa kể cả khi chuỗi dà
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
+});
+
+// ============================ slide-parts.js ============================
+
+// Bài đã publish từ trước là file tĩnh, không tự nhiên có guard + shim như bản
+// buildFullHtml hiện tại — script vá phải thêm đúng hai mảnh đó và không làm đổi bài.
+function oldDeck(extra = '') {
+    return `<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Bai cu</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.3.1/reveal.min.css">
+${extra}</head>
+<body>
+    <div class="reveal"><div class="slides">
+        <section><h1>MOT</h1></section>
+        <section><h1>HAI</h1></section>
+    </div></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.3.1/reveal.min.js"></script>
+    <script>Reveal.initialize({ hash: true });</script>
+</body>
+</html>`;
+}
+
+test('slide-parts: vá bài cũ thêm đủ guard + shim, shim đứng trước script Reveal', () => {
+    const { html, added } = patchSlideHtml(oldDeck());
+    assert.deepEqual(added, ['guard', 'shim']);
+    assert.ok(html.includes(SHIM_MARKER), 'phải có shim sessionStorage');
+    assert.ok(html.includes(GUARD_MARKER), 'phải có rule ẩn slide không hiện tại');
+    assert.ok(html.indexOf(SHIM_MARKER) < html.indexOf('<script src="https://cdnjs'),
+        'shim phải chạy trước Reveal thì mới đỡ được lỗi');
+    assert.ok(html.indexOf('<style>') < html.indexOf('</head>'), 'guard phải vào trước </head>');
+    assert.ok(html.includes('<h1>HAI</h1>'), 'nội dung bài giữ nguyên');
+});
+
+test('slide-parts: bài đã có mảnh nào thì không chèn lại lần nữa', () => {
+    const once = patchSlideHtml(oldDeck()).html;
+    const twice = patchSlideHtml(once);
+    assert.deepEqual(twice.added, [], 'vá lần hai phải không đổi gì');
+    assert.equal(twice.html, once);
+
+    const onlyShim = patchSlideHtml(oldDeck(`    <style>${SLIDE_HEAD_GUARD}</style>\n`));
+    assert.deepEqual(onlyShim.added, ['shim'], 'đã có guard thì chỉ thiếu shim');
+});
+
+test('slide-parts: file lạ thì bỏ qua, không ghi bản vá nửa vời', () => {
+    const noHead = patchSlideHtml('<html><body><div class="reveal"></div></body></html>');
+    assert.match(noHead.error, /<\/head>/);
+    assert.equal(noHead.html, '<html><body><div class="reveal"></div></body></html>', 'html trả về phải còn nguyên');
+
+    const noScript = patchSlideHtml('<html><head><title>x</title></head><body>bài viết thường</body></html>');
+    assert.match(noScript.error, /<script>/);
+    assert.ok(!noScript.html.includes(SHIM_MARKER));
 });

@@ -85,7 +85,8 @@ HeyShow/
 │           ├── history/           # <tên-file>.d/<millis>-<ngẫu nhiên>.html
 │           └── avatar/            # <file>.<png|jpg|gif|webp>
 ├── scripts/
-│   └── backup-data.sh             # Sao lưu data/ từ Fold 4 (hoặc --local), giữ N bản
+│   ├── backup-data.sh             # Sao lưu data/ từ Fold 4 (hoặc --local), giữ N bản
+│   └── repair-published-slides.cjs # Vá guard CSS + shim sessionStorage vào bài đã publish từ trước
 ├── cf_setup.js                    # Tạo/cập nhật Cloudflare Tunnel + DNS (chỉ nhận secret qua env)
 ├── sync2fold4.sh                  # (KHÔNG commit) test + build + rsync + pm2 reload + hỏi /health
 ├── sync2fold4.example.sh          # Bản mẫu của script trên, chứa placeholder thay vì địa chỉ thật
@@ -102,7 +103,7 @@ Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) �
 
 - **Backend:** Node.js + Express 5, `jsonwebtoken` (JWT có `tv` — phiên bản token để thu hồi), `axios` (gọi Groq / DeepSeek), `jszip` + `fast-xml-parser` (import .pptx tại `server/src/pptx.js`), `dotenv`; module import .md/.tex tại `server/src/textimport.js` (JS thuần, không thêm dependency)
 - **Frontend:** Vite (nhiều entry), CodeMirror 6 (editor), Reveal.js 5.1.0 + KaTeX (preview & trình chiếu, load từ CDN), `client/src/api.js` là tầng gọi API/auth dùng chung cho mọi trang
-- **Kiểm tra chất lượng:** ESLint 9 flat config (`no-undef: error`, `eqeqeq: smart`) + `node --test` (bộ 51 test: API tích hợp, module, import) — chạy bằng `npm run lint` và `npm test` ở thư mục gốc
+- **Kiểm tra chất lượng:** ESLint 9 flat config (`no-undef: error`, `eqeqeq: smart`) + `node --test` (bộ 54 test: API tích hợp, module, import) — chạy bằng `npm run lint` và `npm test` ở thư mục gốc
 - **Lưu trữ:** file JSON + thư mục trên đĩa (không có database), có cache trong bộ nhớ và hàng đợi ghi nguyên tử
 - **Quản lý tiến trình:** PM2 (giữ server luôn chạy trên Fold 4)
 - **Kết nối mạng:** Cloudflare Tunnel (cloudflared)
@@ -115,7 +116,7 @@ Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) �
    cd client && npm run dev     # editor với hot reload
    cd server && npm run dev     # backend (nodemon)
 
-   npm test                     # 51 test, chạy trên kho dữ liệu tạm (không đụng ./data)
+   npm test                     # 54 test, chạy trên kho dữ liệu tạm (không đụng ./data)
    npm run lint                 # ESLint toàn repo
    ```
    Muốn test giao diện trên một kho dữ liệu riêng: `HEYSHOW_DATA_DIR=/tmp/du-lieu-thu node server/src/app.js`.
@@ -301,6 +302,7 @@ Quy chuẩn dữ liệu hồ sơ: `fullName` ≤ 80 ký tự; `phone` chỉ nh�
   ```
   Chỉ định `sandbox` của CSP đưa trang slide vào **opaque origin**: script của người dùng trong slide không đọc được `localStorage`, cookie hay gọi API của HeyShow bằng token đang nằm trong `localStorage` của editor, dù tất cả chạy trên cùng `heyshow.pedu.vn`. Vì vậy **không cần tạo tên miền con riêng** (`slides.pedu.vn`) như dự tính ban đầu. Route `/<slug>/<file>.html` cũ vẫn phục vụ cho những link đã chia sẻ và nhận đúng bộ header này, vì cả hai đường dẫn cùng gọi `servePublishedSlide` (`server/src/app.js`).
   Giá phải trả của origin mờ: mọi lần chạm vào `window.sessionStorage` đều ném `SecurityError`, và Reveal 5.1 gọi đúng chỗ đó mỗi lần chuyển slide (`store/restoreScrollPosition`) — hệ quả là trên điện thoại **vuốt tới/vuốt lui chết hẳn**, chỉ mở được slide đầu. Bản publish vì thế có sẵn `SLIDE_STORAGE_SHIM` (`server/src/app.js`, nạp trước script Reveal.js): thử đọc `sessionStorage`, nếu bị chặn thì thay bằng bộ nhớ trong. **Không** dùng cách thêm `allow-same-origin` vào CSP — làm vậy là trả lại origin thật cho HTML người dùng tự viết, tức là phát cho họ chìa khóa `localStorage` chứa token của editor. Hai preview của client không cần shim vì iframe của chúng cùng origin (document.write / srcdoc không sandbox).
+- **Bài đã publish trước khi có guard/shim không tự nhiên được sửa** — chúng là file tĩnh trên đĩa. `scripts/repair-published-slides.cjs` chèn đúng hai mảnh đó vào từng file trong `data/users/*/published/` (mặc định là dry-run, thêm `--apply` mới ghi, đã có mảnh nào thì bỏ qua mảnh đó nên chạy lại vô hại; `--data-dir=` để trỏ kho khác). Hai mảnh và thuật toán chèn nằm ở `server/src/slide-parts.js` để bản publish mới và bản vá không lệch nhau.
 - **Lịch sử phiên bản bản nháp** (`server/src/history.js`): khi đã có nội dung trên đĩa mà người dùng lưu đè, bản cũ được chép vào `data/users/<loginId>/history/<tên-file>.d/<millis>-<ngẫu nhiên>.html` và **giữ 5 bản gần nhất** (bản thứ 6 tự xóa bản cũ nhất). Khôi phục một bản cũng cất bản hiện hành trước khi ghi đè, nên bấm nhầm không mất bài. Tên thư mục lịch sử đã làm sạch ký tự nên không thoát được khỏi thư mục user.
 - **Preview**: editor dựng lại đúng template đó trong một iframe, debounce 500ms khi gõ và 50ms khi chỉ di chuyển con trỏ; khi chỉ đổi vị trí con trỏ thì gọi `Reveal.slide(h, v)` thay vì tải lại iframe.
 
@@ -391,7 +393,7 @@ Mỗi user có một trang công khai tại **`/<urlSlug>/`** (ví dụ `https:/
 - [x] Avatar ra file riêng, không nhúng base64 vào db.json.
 - [x] Một token + một tầng API chung (`client/src/api.js`) cho mọi trang.
 - [x] Giới hạn tần suất cho AI và like/comment, security headers toàn cục.
-- [x] Bộ test (`node --test`, 51 test) + ESLint chạy được bằng `npm test` / `npm run lint`.
+- [x] Bộ test (`node --test`, 54 test) + ESLint chạy được bằng `npm test` / `npm run lint`.
 - [x] Script deploy có kiểm tra `/health` và script sao lưu `data/`.
 - [ ] Chế độ điều khiển từ xa (Remote control).
 - [ ] Backup tự động có lịch (cron trên Mac hoặc Termux) + một bản copy off-device.
