@@ -76,7 +76,9 @@ function createJsonStore(options) {
             parsed = typeof seed === 'function' ? seed() : (seed || {});
         }
 
-        if (!parsed || typeof parsed !== 'object') {
+        // Mảng cũng bị coi là hỏng: gán thêm thuộc tính lên mảng rồi stringify sẽ
+        // âm thầm bỏ hết mọi thứ vừa ghi, tức mất dữ liệu mà không báo lỗi.
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
             if (typeof onCorrupt === 'function') onCorrupt(new Error('không phải object JSON'), text);
             parsed = typeof seed === 'function' ? seed() : (seed || {});
         }

@@ -258,13 +258,11 @@ function buildDraftHtml(analysis, origName) {
         const lines = ['<section>\n'];
         const titleText = s.title || `Slide ${s.index}`;
         lines.push(i === 0 ? `<h1>${escapeHtml(titleText)}</h1>\n` : `<h2>${escapeHtml(titleText)}</h2>\n`);
-        if (s.title && s.bullets.length === 0 && i === 0) {
-            // slide phụ đề: phần bullets rỗng, nếu có thêm title phụ (subtitle) đã nằm trong bullets
-        }
         lines.push(bulletsHtml(s.bullets));
         const media = mediaHtml(s);
         if (media) lines.push(media);
-        if (s.notes) lines.push(`<!-- 📝 Ghi chú của bạn trong PowerPoint: ${escapeHtml(s.notes).replace(/--/g, '--')} -->\n`);
+        // '- -' ngắt chuỗi '--' để ghi chú không đóng comment sớm
+        if (s.notes) lines.push(`<!-- 📝 Ghi chú của bạn trong PowerPoint: ${escapeHtml(s.notes).replace(/--/g, '- -')} -->\n`);
         lines.push('</section>\n');
         return lines.join('');
     });
@@ -277,6 +275,9 @@ function draftNameFrom(origName) {
     // Bỏ cả ký tự điều khiển: tên file lấy từ .pptx người dùng tải lên, không tin được
     // eslint-disable-next-line no-control-regex
     base = base.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    // Dấu chấm đầu tiên khiến tên thành "...html", không khớp isValidDraftName ->
+    // người dùng import xong mà không lưu lại được bài.
+    base = base.replace(/^\.+/, '');
     return base || 'pptx-import';
 }
 

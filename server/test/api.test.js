@@ -64,6 +64,9 @@ test('tài khoản user bị chặn ở bài thứ 11', async () => {
     assert.equal(blocked.i, 11, 'phải chặn đúng ở bài thứ 11');
     assert.equal(blocked.status, 403);
     assert.match(blocked.json.error, /tối đa 10 bài/);
+    // 403 phải là lỗi quyền hạn, KHÔNG phải phiên chết — client dựa vào code 'auth'
+    // để quyết định có xoá token hay không, nên thiếu field này sẽ đá nhầm người dùng
+    assert.notEqual(blocked.json.code, 'auth', 'lỗi hạn mức không được báo là hết phiên');
 
     // designer vẫn tạo thoải mái trong khoảng đó
     for (let i = 1; i <= 11; i++) {
@@ -194,6 +197,34 @@ test('tác giả tự gỡ được bình luận của mình', async () => {
     assert.ok(!detail.json.presentation.comments.some(c => c.id === comment.id));
 });
 
+// Dashboard đếm bình luận bằng cùng bộ lọc với viewer, nếu không chủ bài sẽ thấy
+// số lượng lớn hơn những gì người xem nhìn thấy (bản mềm-xóa vẫn còn trong social.json)
+test('dashboard không đếm bình luận đã bị gỡ', async () => {
+    const tok = srv.users.user.login;
+    const rowOf = async () => {
+        const dash = (await apiRequest(srv.url, 'GET', '/api/dashboard', { token: srv.users.master.login })).json;
+        return dash;
+    };
+    const before = await rowOf();
+    const base = before.items.find(i => i.fileName === 'hist.html');
+    assert.ok(base, 'bài hist.html phải có trong dashboard của chủ bài');
+
+    const { comment } = (await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/comments', {
+        token: tok, body: { text: 'bình luận rồi sẽ bị gỡ' }
+    })).json;
+    const added = (await rowOf()).items.find(i => i.fileName === 'hist.html');
+    assert.equal(added.commentCount, base.commentCount + 1, 'bình luận mới phải được đếm');
+
+    await apiRequest(srv.url, 'DELETE', `/api/p/tmaster/hist.html/comments/${comment.id}`, { token: tok });
+    const after = (await rowOf()).items.find(i => i.fileName === 'hist.html');
+    assert.equal(after.commentCount, base.commentCount, 'bình luận đã gỡ không được tính');
+
+    assert.ok(Number.isInteger(after.versions), 'dashboard phải báo số phiên bản đã lưu');
+    assert.match(after.url, /^\/show\/tmaster\//, 'link công khai phải nằm dưới /show/');
+    assert.equal(before.me.role, 'master');
+    assert.equal(before.quota.max, 50);
+});
+
 test('chủ bài gỡ được bình luận của người khác trên bài của mình', async () => {
     const { comment } = (await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/comments', {
         token: srv.users.designer.login, body: { text: 'rác trên bài của master' }
@@ -215,15 +246,29 @@ test('đổi mật khẩu vô hiệu hóa ngay mọi JWT cũ', async () => {
     assert.equal(change.status, 200);
 
     const after = await apiRequest(srv.url, 'GET', '/api/me/quota', { token: tok });
-    assert.ok([401, 403].includes(after.status), 'token cũ phải bị từ chối');
+    assert.equal(after.status, 401, 'token thu hồi phải là 401 để client phân biệt với lỗi quyền hạn');
+    assert.equal(after.json.code, 'auth');
 
     const like = await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/like', { token: tok });
-    assert.ok([401, 403].includes(like.status));
+    assert.equal(like.status, 401);
+    assert.equal(like.json.code, 'auth');
+
+    const noToken = await apiRequest(srv.url, 'GET', '/api/me/quota');
+    assert.equal(noToken.status, 401);
+    assert.equal(noToken.json.code, 'auth');
 
     const fresh = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tdesigner', password: 'matkhau123moi' } });
     assert.equal(fresh.status, 200);
     const again = await apiRequest(srv.url, 'GET', '/api/me/quota', { token: fresh.json.token });
     assert.equal(again.status, 200);
+});
+
+// Đăng nhập sai cũng trả 401 nhưng KHÔNG được mang code 'auth', nếu không client
+// sẽ coi là "phiên hết hạn" và xoá token của người đang dùng hợp lệ ở tab khác.
+test('sai mật khẩu khi đăng nhập không bị hiểu nhầm là hết phiên', async () => {
+    const res = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tuser', password: 'sai-mat-khau' } });
+    assert.equal(res.status, 401);
+    assert.notEqual(res.json.code, 'auth');
 });
 
 test('mật khẩu mới phải đủ mạnh', async () => {

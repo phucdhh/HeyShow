@@ -38,7 +38,7 @@ export default [
     },
     {
         ...COMMON,
-        files: ['client/src/**/*.js', 'client/*.js'],
+        files: ['client/src/**/*.js'],
         languageOptions: {
             ecmaVersion: 2024,
             sourceType: 'module',
@@ -53,9 +53,19 @@ export default [
     },
     {
         ...COMMON,
-        // cf_setup.js và các script ở thư mục gốc theo kiểu CommonJS
-        files: ['*.js'],
-        excludedFiles: ['eslint.config.js', 'client/*.js'],
+        // vite.config.js chạy trên Node, không phải trình duyệt
+        files: ['client/*.js'],
+        languageOptions: {
+            ecmaVersion: 2024,
+            sourceType: 'module',
+            globals: { ...globals.node }
+        }
+    },
+    {
+        ...COMMON,
+        // cf_setup.js là script Node chạy ở thư mục gốc. Không dùng excludedFiles:
+        // eslint 9.39 từ chối khóa này khi cấu hình dạng phẳng và "eslint ." sập cả cụm.
+        files: ['cf_setup.js'],
         languageOptions: {
             ecmaVersion: 2024,
             sourceType: 'commonjs',

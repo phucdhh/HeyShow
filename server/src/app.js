@@ -529,13 +529,16 @@ const limitWrite = createCounter(60 * 1000, Number(process.env.WRITE_MAX_PER_MIN
 // Middleware xác thực JWT
 function authenticateToken(req, res, next) {
     const token = extractBearer(req);
-    if (token == null) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    // 401 = "đăng nhập lại đi" (thiếu token, token hết hạn/bị thu hồi).
+    // 403 giữ riêng cho lỗi quyền hạn (vượt hạn mức bài, không được quản trị...),
+    // để client phân biệt được hai loại và không xoá nhầm token đang còn dùng.
+    if (token == null) return res.status(401).json({ success: false, code: 'auth', error: 'Chưa đăng nhập' });
 
     const user = verifyToken(token);
-    if (!user) return res.status(403).json({ success: false, error: 'Token expired or invalid' });
+    if (!user) return res.status(401).json({ success: false, code: 'auth', error: 'Phiên đăng nhập đã hết hạn, hãy đăng nhập lại' });
 
     const dir = userDir(user.username);
-    if (!dir) return res.status(403).json({ success: false, error: 'Tài khoản không hợp lệ' });
+    if (!dir) return res.status(401).json({ success: false, code: 'auth', error: 'Tài khoản không còn tồn tại' });
 
     req.user = user;
     req.userDir = dir;
@@ -573,7 +576,7 @@ function issueToken(loginId, record) {
 app.post('/api/auth/login', rateLimitAuth, async (req, res) => {
     const { username, password } = req.body;
     const currentDB = getDB();
-    const deny = () => res.status(401).json({ success: false, error: 'Invalid credentials' });
+    const deny = () => res.status(401).json({ success: false, error: 'Sai tên đăng nhập hoặc mật khẩu' });
 
     if (typeof username !== 'string' || !Object.hasOwn(currentDB.users, username)) {
         return deny();
@@ -1682,7 +1685,7 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
                 url: published ? showUrl(urlSlug, fileName) : null,
                 views: rec?.views || 0,
                 likes: rec?.likes?.length || 0,
-                commentCount: rec?.comments?.length || 0,
+                commentCount: visibleComments(rec).length,
                 updatedAt
             });
         }
@@ -1994,7 +1997,8 @@ app.get('/api/profile/:user', optionalAuth, (req, res) => {
 
 // Bình luận còn hiển thị (bản mềm-xóa vẫn giữ chỗ để mạch trả lời không bị đứt)
 function visibleComments(rec) {
-    return rec.comments.filter(c => !c.deletedAt);
+    const list = rec && Array.isArray(rec.comments) ? rec.comments : [];
+    return list.filter(c => !c.deletedAt);
 }
 
 function buildCommentTree(rec, currentDB) {
