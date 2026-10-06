@@ -115,6 +115,13 @@
       }
 
       .hidden { display: none !important; }
+
+      #quota-badge {
+        font-size: 0.75rem; font-weight: 700; color: var(--muted);
+        background: var(--bg-deep); border: 1px solid var(--border-color);
+        border-radius: 999px; padding: 3px 9px; white-space: nowrap;
+      }
+      #quota-badge.near { color: var(--danger); border-color: var(--danger); }
       
       /* AI Chat Bubbles */
       .chat-msg { padding: 8px; border-radius: 6px; max-width: 90%; word-wrap: break-word; }
@@ -270,6 +277,7 @@
         </select>
         <input type="text" id="new-file-name" placeholder="Tên file (VD: slide1)" />
         <button id="btn-create">Tạo/Mở</button>
+        <span id="quota-badge" class="hidden" title="Số bài trình chiếu đã dùng so với hạn mức của quyền hiện tại"></span>
         <span style="color:var(--border-color)">|</span>
         <button id="btn-save">Save</button>
         <button id="btn-publish" class="primary">Publish</button>

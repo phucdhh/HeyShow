@@ -247,6 +247,21 @@
       .comment-edit-btns .cancel { background: var(--bg-deep); color: var(--text-color); }
       .comment-bubble .text .katex { font-size: 1.02em; }
 
+      /* Thread kiểu Facebook: phần thân chiếm chiều rộng, phản hồi thụt vào trong */
+      .comment > .wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .replies { margin: 8px 0 0 42px; display: flex; flex-direction: column; gap: 10px; }
+      .comment.reply img { width: 26px; height: 26px; }
+      .comment.reply .comment-bubble { background: var(--bg-panel); }
+      .reply-box { margin: 8px 0 0 42px; display: flex; flex-direction: column; gap: 6px; }
+      .reply-box textarea {
+        width: 100%; resize: vertical; min-height: 40px;
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 8px;
+        padding: 6px 8px; font: inherit; font-size: 0.85rem;
+      }
+      .comment-actions button.danger:hover { color: #dc2626; }
+      .comment-actions button:disabled { opacity: .5; cursor: default; text-decoration: none; }
+
       #math-tooltip {
         position: fixed; z-index: 300; pointer-events: none;
         max-width: 320px; padding: 8px 12px;
@@ -304,7 +319,7 @@
     <header>
       <a class="logo" href="/" title="Trang chủ: https://heyshow.pedu.vn/"><img src="/heyshow-logo.svg" alt="HeyShow" />HeyShow <span>Gallery</span></a>
       <div class="header-right">
-        <a href="/design">Soạn thảo slide</a>
+        <a href="/design">Design</a>
         <a href="/templates">Templates</a>
         <a href="/help">Help</a>
         <a id="me-link" href="/dashboard" class="hidden"><img id="me-avatar" alt="Avatar" /></a>

@@ -13,9 +13,7 @@ import {
 import { lintGutter } from "@codemirror/lint";
 import { slideGutter, slidesField, sectionLinter, slideStatus, slideAt, topSectionAt } from "./slides.js";
 import { colorSwatches, closeColorPicker } from "./color-picker.js";
-
-// API Base URL (Dùng đường dẫn tương đối để dễ deploy)
-const API_BASE = '/api';
+import { get, post, getToken, setToken, clearToken, tokenPayload, onUnauthorized, ApiError } from "./api.js";
 
 // Các DOM elements
 const editorContainer = document.getElementById('editor-container');
@@ -25,6 +23,7 @@ const newFileNameInput = document.getElementById('new-file-name');
 const btnCreate = document.getElementById('btn-create');
 const btnSave = document.getElementById('btn-save');
 const btnPublish = document.getElementById('btn-publish');
+const quotaBadge = document.getElementById('quota-badge');
 const toastEl = document.getElementById('toast');
 
 let currentFileName = '';
@@ -301,22 +300,10 @@ const btnSaveProfile = document.getElementById('btn-save-profile');
 const profileMsg = document.getElementById('profile-msg');
 
 let isLoginMode = true;
-let currentUser = null;
 
 // Chuyển đổi tab
 tabLogin.addEventListener('click', () => { isLoginMode = true; tabLogin.classList.add('active'); tabRegister.classList.remove('active'); btnAuthSubmit.textContent = 'Đăng nhập'; });
 tabRegister.addEventListener('click', () => { isLoginMode = false; tabRegister.classList.add('active'); tabLogin.classList.remove('active'); btnAuthSubmit.textContent = 'Đăng ký'; });
-
-function getAuthHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('heyshow_user_token')}`
-    };
-}
-
-function parseJwt(token) {
-    try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
-}
 
 // Mở file chỉ định qua query param (Dashboard bấm "Sửa" → /design?file=ten.html)
 async function openFileFromQuery() {
@@ -349,57 +336,48 @@ async function maybeUsePendingTemplate() {
 
     try {
         // Tránh ghi đè file đã có: tự thêm hậu tố -2, -3…
-        const listRes = await fetch(`${API_BASE}/files`, { headers: getAuthHeaders() });
-        handleApiError(listRes);
-        const list = await listRes.json();
-        if (list.success && list.files.includes(name)) {
+        const { files } = await get('/api/files');
+        if (files.includes(name)) {
             const stem = name.slice(0, -5);
             let i = 2;
-            while (list.files.includes(`${stem}-${i}.html`)) i++;
+            while (files.includes(`${stem}-${i}.html`)) i++;
             name = `${stem}-${i}.html`;
         }
 
-        const res = await fetch(`${API_BASE}/files/${encodeURIComponent(name)}`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ content: tpl.code })
-        });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            currentFileName = name;
-            await loadFiles();
-            fileSelect.value = name;
-            await loadFileContent(name);
-            showToast(`Đã tạo bản nháp từ mẫu: ${tpl.name || name}`);
-        } else {
-            showToast(data.error || 'Không tạo được file từ mẫu', true);
-        }
+        await post(`/api/files/${encodeURIComponent(name)}`, { content: tpl.code });
+        currentFileName = name;
+        await loadFiles();
+        fileSelect.value = name;
+        await loadFileContent(name);
+        showToast(`Đã tạo bản nháp từ mẫu: ${tpl.name || name}`);
     } catch (e) {
-        if (e.message !== 'Unauthorized') showToast('Lỗi tạo file từ mẫu', true);
+        showToast(e instanceof ApiError ? e.message : 'Lỗi tạo file từ mẫu', true);
     }
 }
 
 function checkAuth() {
-    const token = localStorage.getItem('heyshow_user_token');
-    if (!token) {
+    const payload = tokenPayload();
+    if (!getToken() || !payload?.username) {
+        clearToken();
         authOverlay.classList.remove('hidden');
-        currentUser = null;
-    } else {
-        const payload = parseJwt(token);
-        if (payload && payload.username) {
-            currentUser = payload.username;
-            authOverlay.classList.add('hidden');
-            loadFiles(); // Tải file của user này
-            loadUserProfile(); // Tải profile
-            openFileFromQuery();
-            maybeUsePendingTemplate();
-        } else {
-            localStorage.removeItem('heyshow_user_token');
-            authOverlay.classList.remove('hidden');
-        }
+        return false;
     }
+    authOverlay.classList.add('hidden');
+    loadFiles();
+    loadUserProfile();
+    openFileFromQuery();
+    maybeUsePendingTemplate();
+    return true;
 }
+
+// Token chết giữa chừng (đổi mật khẩu, admin đổi quyền, hết hạn) — trở về màn đăng nhập
+onUnauthorized(() => {
+    if (authOverlay.classList.contains('hidden')) {
+        authMsg.style.color = '#dc2626';
+        authMsg.textContent = 'Phiên đăng nhập không còn hiệu lực. Hãy đăng nhập lại.';
+    }
+    checkAuth();
+});
 
 // Xử lý ẩn hiện Dropdown avatar
 userAvatar.addEventListener('click', (e) => {
@@ -435,16 +413,14 @@ profileAvatarUpload.addEventListener('change', (e) => {
 
 async function loadUserProfile() {
     try {
-        const res = await fetch(`${API_BASE}/user/profile`, { headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            userAvatar.src = data.profile.avatar;
-            profileAvatarPreview.src = data.profile.avatar;
-            profileUrlSlug.value = data.profile.urlSlug;
-            profileEmail.value = data.profile.email;
-        }
-    } catch (e) {}
+        const data = await get('/api/user/profile');
+        userAvatar.src = data.profile.avatar;
+        profileAvatarPreview.src = data.profile.avatar;
+        profileUrlSlug.value = data.profile.urlSlug;
+        profileEmail.value = data.profile.email;
+    } catch (e) {
+        // Lỗi ở đây chỉ làm avatar/slug trống tạm thời — onUnauthorized đã lo vụ hết hạn
+    }
 }
 
 // Tự động bỏ dấu và khoảng trắng cho username
@@ -464,39 +440,35 @@ btnSaveProfile.addEventListener('click', async () => {
         const payload = {
             urlSlug: profileUrlSlug.value.trim(),
             email: profileEmail.value.trim(),
-            password: profileNewPass.value,
         };
+        if (profileNewPass.value) payload.password = profileNewPass.value;
         if (tempAvatarBase64) payload.avatarBase64 = tempAvatarBase64;
 
-        const res = await fetch(`${API_BASE}/user/profile`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(payload)
-        });
-        handleApiError(res);
-        const data = await res.json();
-        
-        if (data.success) {
-            profileMsg.style.color = '#16a34a';
-            profileMsg.textContent = 'Lưu thành công!';
-            profileNewPass.value = '';
-            tempAvatarBase64 = null;
-            loadUserProfile(); // Cập nhật lại avatar trên thanh menu
-            setTimeout(() => btnCloseProfile.click(), 1500);
-        } else {
-            profileMsg.style.color = '#dc2626';
-            profileMsg.textContent = data.error || 'Lỗi lưu hồ sơ';
+        await post('/api/user/profile', payload);
+        profileMsg.style.color = '#16a34a';
+        profileNewPass.value = '';
+        tempAvatarBase64 = null;
+
+        // Đổi mật khẩu làm thu hồi mọi token cũ, kể cả token đang dùng
+        if (payload.password) {
+            profileMsg.textContent = 'Đã đổi mật khẩu. Hãy đăng nhập lại.';
+            setTimeout(() => { clearToken(); checkAuth(); }, 1200);
+            return;
         }
+
+        profileMsg.textContent = 'Lưu thành công!';
+        loadUserProfile();
+        setTimeout(() => btnCloseProfile.click(), 1500);
     } catch (e) {
         profileMsg.style.color = '#dc2626';
-        profileMsg.textContent = 'Lỗi kết nối';
+        profileMsg.textContent = e instanceof ApiError ? e.message : 'Lỗi kết nối';
     } finally {
         btnSaveProfile.disabled = false;
     }
 });
 
 btnLogout.addEventListener('click', () => {
-    localStorage.removeItem('heyshow_user_token');
+    clearToken();
     closeColorPicker(false);
     currentFileName = '';
     savedContent = '';
@@ -511,97 +483,82 @@ btnAuthSubmit.addEventListener('click', async () => {
     const username = authUser.value.trim();
     const password = authPass.value;
     if (!username || !password) return authMsg.textContent = 'Vui lòng nhập đủ thông tin';
-    
+
     btnAuthSubmit.disabled = true;
     authMsg.textContent = 'Đang xử lý...';
     authMsg.style.color = '#6b7280';
 
     try {
-        const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
-        const res = await fetch(`${API_BASE}${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            if (isLoginMode) {
-                localStorage.setItem('heyshow_user_token', data.token);
-                authMsg.textContent = '';
-                // Nếu được chuyển tới từ nơi khác (vd. Gallery) thì quay lại đó.
-                const redirect = new URLSearchParams(location.search).get('redirect');
-                if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
-                    location.href = redirect;
-                    return;
-                }
-                checkAuth();
-            } else {
-                authMsg.style.color = '#16a34a';
-                authMsg.textContent = 'Đăng ký thành công! Hãy đăng nhập.';
-                tabLogin.click();
-            }
-        } else {
-            authMsg.style.color = '#dc2626';
-            authMsg.textContent = data.error || 'Có lỗi xảy ra';
+        const data = await post(isLoginMode ? '/api/auth/login' : '/api/auth/register', { username, password });
+        if (!isLoginMode) {
+            authMsg.style.color = '#16a34a';
+            authMsg.textContent = 'Đăng ký thành công! Hãy đăng nhập.';
+            tabLogin.click();
+            return;
         }
+        setToken(data.token);
+        authMsg.textContent = '';
+        // Nếu được chuyển tới từ nơi khác (vd. Gallery) thì quay lại đó.
+        const redirect = new URLSearchParams(location.search).get('redirect');
+        if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+            location.href = redirect;
+            return;
+        }
+        checkAuth();
     } catch (e) {
         authMsg.style.color = '#dc2626';
-        authMsg.textContent = 'Lỗi kết nối mạng';
+        authMsg.textContent = e instanceof ApiError ? e.message : 'Lỗi kết nối mạng';
     } finally {
         btnAuthSubmit.disabled = false;
     }
 });
 
-// Xử lý lỗi 401 chung cho các hàm gọi API
-function handleApiError(res) {
-    if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem('heyshow_user_token');
-        checkAuth();
-        showToast("Phiên đăng nhập hết hạn", true);
-        throw new Error("Unauthorized");
+// Admin (max = null) không giới hạn nên không cần nhắc hạn mức
+function renderQuota(quota) {
+    if (!quota || quota.max === null) {
+        quotaBadge.classList.add('hidden');
+        return;
     }
+    quotaBadge.textContent = `${quota.used}/${quota.max} bài`;
+    quotaBadge.title = quota.used >= quota.max
+        ? 'Đã hết hạn mức — xoá bớt bài cũ hoặc liên hệ quản trị để nâng quyền'
+        : `Còn tạo được ${quota.max - quota.used} bài nữa`;
+    quotaBadge.classList.toggle('near', quota.used >= quota.max);
+    quotaBadge.classList.remove('hidden');
 }
 
 async function loadFiles() {
     try {
-        const res = await fetch(`${API_BASE}/files`, { headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            while (fileSelect.options.length > 1) fileSelect.remove(1);
-            data.files.forEach(f => {
-                const opt = document.createElement('option');
-                opt.value = f;
-                opt.textContent = f;
-                fileSelect.appendChild(opt);
-            });
-            if (currentFileName) fileSelect.value = currentFileName;
+        const data = await get('/api/files');
+        while (fileSelect.options.length > 1) fileSelect.remove(1);
+        for (const f of data.files) {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = f;
+            fileSelect.appendChild(opt);
         }
+        if (currentFileName) fileSelect.value = currentFileName;
+        renderQuota(data.quota);
     } catch (e) {
-        if(e.message !== "Unauthorized") showToast("Lỗi tải danh sách file", true);
+        if (!(e instanceof ApiError)) showToast("Lỗi tải danh sách file", true);
     }
 }
 
 async function loadFileContent(fileName) {
     try {
-        const res = await fetch(`${API_BASE}/files/${fileName}`, { headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            closeColorPicker(false);
-            currentFileName = fileName;
-            savedContent = data.content;
-            editorView.dispatch({
-                changes: { from: 0, to: editorView.state.doc.length, insert: data.content },
-                selection: { anchor: 0 },
-                scrollIntoView: true
-            });
-            updatePreview();
-            updateStatus();
-        }
+        const data = await get(`/api/files/${encodeURIComponent(fileName)}`);
+        closeColorPicker(false);
+        currentFileName = fileName;
+        savedContent = data.content;
+        editorView.dispatch({
+            changes: { from: 0, to: editorView.state.doc.length, insert: data.content },
+            selection: { anchor: 0 },
+            scrollIntoView: true
+        });
+        updatePreview();
+        updateStatus();
     } catch (e) {
-        if(e.message !== "Unauthorized") showToast("Lỗi tải nội dung file", true);
+        if (!(e instanceof ApiError)) showToast("Lỗi tải nội dung file", true);
     }
 }
 
@@ -609,20 +566,12 @@ async function saveFile() {
     if (!currentFileName) return showToast("Vui lòng chọn hoặc tạo file trước", true);
     try {
         const content = editorView.state.doc.toString();
-        const res = await fetch(`${API_BASE}/files/${currentFileName}`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ content })
-        });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            savedContent = content;
-            updateStatus();
-            showToast("Đã lưu bản nháp");
-        }
+        await post(`/api/files/${encodeURIComponent(currentFileName)}`, { content });
+        savedContent = content;
+        updateStatus();
+        showToast("Đã lưu bản nháp");
     } catch (e) {
-        if(e.message !== "Unauthorized") showToast("Lỗi lưu file", true);
+        showToast(e instanceof ApiError ? e.message : "Lỗi lưu file", true);
     }
 }
 
@@ -631,7 +580,7 @@ async function createFile() {
     if (!rawName) return showToast("Vui lòng nhập tên file", true);
     if (!confirmDiscard()) return;
     if (!rawName.endsWith('.html')) rawName += '.html';
-    
+
     // Kiểm tra xem file đã tồn tại trong danh sách chưa
     let exists = false;
     for (let i = 0; i < fileSelect.options.length; i++) {
@@ -649,24 +598,16 @@ async function createFile() {
         showToast("Đã mở file có sẵn");
         return;
     }
-    
+
     try {
-        const res = await fetch(`${API_BASE}/files/${rawName}`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ content: DEFAULT_SLIDE_TEMPLATE })
-        });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            currentFileName = rawName;
-            newFileNameInput.value = '';
-            showToast("Tạo file mới thành công");
-            await loadFiles();
-            await loadFileContent(rawName);
-        }
+        await post(`/api/files/${encodeURIComponent(rawName)}`, { content: DEFAULT_SLIDE_TEMPLATE });
+        currentFileName = rawName;
+        newFileNameInput.value = '';
+        showToast("Tạo file mới thành công");
+        await loadFiles();
+        await loadFileContent(rawName);
     } catch (e) {
-        if(e.message !== "Unauthorized") showToast("Lỗi tạo file", true);
+        showToast(e instanceof ApiError ? e.message : "Lỗi tạo file", true);
     }
 }
 
@@ -674,20 +615,11 @@ async function publishFile() {
     if (!currentFileName) return showToast("Vui lòng lưu bản nháp trước khi publish", true);
     await saveFile();
     try {
-        const res = await fetch(`${API_BASE}/files/${currentFileName}/publish`, {
-            method: 'POST',
-            headers: getAuthHeaders()
-        });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            showToast("Publish thành công! Link đã sẵn sàng.");
-            window.open(data.url, '_blank');
-        } else {
-             showToast(data.error, true);
-        }
+        const data = await post(`/api/files/${encodeURIComponent(currentFileName)}/publish`);
+        showToast("Publish thành công! Link đã sẵn sàng.");
+        window.open(data.url, '_blank');
     } catch (e) {
-        if(e.message !== "Unauthorized") showToast("Lỗi publish file", true);
+        showToast(e instanceof ApiError ? e.message : "Lỗi publish file", true);
     }
 }
 
@@ -795,9 +727,7 @@ let aiProvidersLoaded = false;
 async function loadAiProviders() {
     if (aiProvidersLoaded) return;
     try {
-        const res = await fetch(`${API_BASE}/ai/providers`, { headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
+        const data = await get('/api/ai/providers');
         aiProvidersLoaded = true;
         const baseLabels = { groq: 'Groq (mặc định)', deepseek: 'DeepSeek' };
         for (const option of aiProviderSelect.options) {
@@ -893,51 +823,43 @@ async function sendAiPrompt() {
     appendChatMsg("...", "ai"); // Loading indicator
 
     try {
-        const res = await fetch(`${API_BASE}/ai/generate`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ prompt, currentCode, mode, targetCode: target.contextCode || null, provider })
+        const data = await post('/api/ai/generate', {
+            prompt, currentCode, mode, targetCode: target.contextCode || null, provider
         });
-        handleApiError(res);
-        const data = await res.json();
 
         // Remove loading indicator
         aiChatHistory.lastChild.remove();
 
-        if (data.success) {
-            appendChatMsg(`Đã sinh code xong. Đang ${target.note}...`, 'ai');
+        appendChatMsg(`Đã sinh code xong. Đang ${target.note}...`, 'ai');
 
-            // Chèn code HTML trả về tại vị trí đã chọn
-            const newCode = data.result;
-            const { from, to } = target.range;
-            let insertText;
-            if (target.wrap) {
-                insertText = target.wrap[0] + newCode + target.wrap[1];
-            } else if (mode === 'master' || mode === 'current') {
-                // Chèn bên trong thẻ, ngay trước thẻ đóng: đảm bảo nằm trên dòng riêng
-                const leading = from > 0 && state.doc.sliceString(from - 1, from) !== '\n' ? '\n' : '';
-                insertText = leading + newCode + '\n';
-            } else {
-                const prefix = from === 0 ? '' : '\n\n';
-                const suffix = to >= state.doc.length ? '' : '\n';
-                insertText = prefix + newCode + suffix;
-            }
-            editorView.dispatch({ changes: { from, to, insert: insertText } });
-
-            // Đặt con trỏ cuối đoạn vừa chèn và cuộn tới đó
-            editorView.dispatch({
-                selection: { anchor: from + insertText.length },
-                scrollIntoView: true
-            });
-
-            // Cập nhật preview
-            updatePreview();
+        // Chèn code HTML trả về tại vị trí đã chọn
+        const newCode = data.result;
+        const { from, to } = target.range;
+        let insertText;
+        if (target.wrap) {
+            insertText = target.wrap[0] + newCode + target.wrap[1];
+        } else if (mode === 'master' || mode === 'current') {
+            // Chèn bên trong thẻ, ngay trước thẻ đóng: đảm bảo nằm trên dòng riêng
+            const leading = from > 0 && state.doc.sliceString(from - 1, from) !== '\n' ? '\n' : '';
+            insertText = leading + newCode + '\n';
         } else {
-            appendChatMsg(data.error || "Lỗi khi gọi AI", 'error');
+            const prefix = from === 0 ? '' : '\n\n';
+            const suffix = to >= state.doc.length ? '' : '\n';
+            insertText = prefix + newCode + suffix;
         }
+        editorView.dispatch({ changes: { from, to, insert: insertText } });
+
+        // Đặt con trỏ cuối đoạn vừa chèn và cuộn tới đó
+        editorView.dispatch({
+            selection: { anchor: from + insertText.length },
+            scrollIntoView: true
+        });
+
+        // Cập nhật preview
+        updatePreview();
     } catch (e) {
         aiChatHistory.lastChild.remove();
-        appendChatMsg("Lỗi kết nối mạng", 'error');
+        appendChatMsg(e instanceof ApiError ? e.message : "Lỗi kết nối mạng", 'error');
     } finally {
         btnAiSend.disabled = false;
     }
@@ -951,4 +873,3 @@ aiPromptInput.addEventListener('keypress', (e) => {
 // Khởi chạy
 initEditor();
 checkAuth();
-loadFiles();

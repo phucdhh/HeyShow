@@ -1,6 +1,6 @@
 // Dashboard 3 tab: Presentations (dropdown ⋮ cho từng bài), Activities và Profile.
-const API_BASE = '/api';
-const TOKEN_KEY = 'heyshow_user_token';
+import { get, post, del, request, getToken, clearToken, onUnauthorized } from './api.js';
+
 const TAB_KEY = 'heyshow_dashboard_tab';
 const TAB_NAMES = ['presentations', 'activities', 'profile', 'import'];
 
@@ -10,6 +10,7 @@ const activityEl = document.getElementById('activity');
 const activityEmpty = document.getElementById('activity-empty');
 const meAvatar = document.getElementById('me-avatar');
 const meName = document.getElementById('me-name');
+const meRole = document.getElementById('me-role');
 const toastEl = document.getElementById('toast');
 
 const deleteOverlay = document.getElementById('delete-overlay');
@@ -17,6 +18,11 @@ const deleteMsg = document.getElementById('delete-msg');
 const renameOverlay = document.getElementById('rename-overlay');
 const renameOld = document.getElementById('rename-old');
 const renameInput = document.getElementById('rename-input');
+const quotaLine = document.getElementById('quota-line');
+
+const historyOverlay = document.getElementById('history-overlay');
+const historyFile = document.getElementById('history-file');
+const historyList = document.getElementById('history-list');
 
 const profileAvatar = document.getElementById('profile-avatar');
 const profileAvatarUpload = document.getElementById('profile-avatar-upload');
@@ -33,19 +39,16 @@ let pendingDelete = null;
 let pendingRename = null;
 let tempAvatarBase64 = null;
 let myFullName = '';
-
-function getAuthHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem(TOKEN_KEY)}`
-    };
-}
+let myUsername = '';
 
 function requireLogin() {
     location.replace(`/design?redirect=${encodeURIComponent('/dashboard')}`);
 }
 
-if (!localStorage.getItem(TOKEN_KEY)) requireLogin();
+if (!getToken()) requireLogin();
+
+// api.js đã xoá token; ở đây chỉ cần đưa người dùng về màn hình đăng nhập
+onUnauthorized(() => requireLogin());
 
 function showToast(message, isError = false) {
     toastEl.textContent = message;
@@ -56,13 +59,10 @@ function showToast(message, isError = false) {
     showToast._t = setTimeout(() => toastEl.classList.remove('show'), 3000);
 }
 
-// Xử lý lỗi 401/403 chung: token hết hạn thì quay lại màn đăng nhập
-function handleApiError(res) {
-    if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem(TOKEN_KEY);
-        requireLogin();
-        throw new Error('Unauthorized');
-    }
+// Báo lỗi cho từng thao tác: server trả message cụ thể (vd vượt hạn mức bài)
+function fail(e) {
+    if (e && e.status) showToast(e.message || 'Yêu cầu không thành công', true);
+    else showToast('Lỗi kết nối', true);
 }
 
 function timeAgo(ts) {
@@ -124,43 +124,94 @@ function openMenu(wrap, menuItems) {
 
 async function doPublish(item) {
     try {
-        const res = await fetch(`${API_BASE}/files/${encodeURIComponent(item.fileName)}/publish`, { method: 'POST', headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) { showToast('Đã xuất bản!'); await load(); }
-        else showToast(data.error || 'Lỗi publish', true);
+        await post(`/api/files/${encodeURIComponent(item.fileName)}/publish`);
+        showToast('Đã xuất bản!');
+        await load();
     } catch (e) {
-        if (e.message !== 'Unauthorized') showToast('Lỗi kết nối', true);
+        fail(e);
     }
 }
 
 async function doUnpublish(item) {
     try {
-        const res = await fetch(`${API_BASE}/files/${encodeURIComponent(item.fileName)}/unpublish`, { method: 'POST', headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) { showToast('Đã chuyển về bản nháp'); await load(); }
-        else showToast(data.error || 'Lỗi', true);
+        await post(`/api/files/${encodeURIComponent(item.fileName)}/unpublish`);
+        showToast('Đã chuyển về bản nháp');
+        await load();
     } catch (e) {
-        if (e.message !== 'Unauthorized') showToast('Lỗi kết nối', true);
+        fail(e);
     }
 }
 
 async function doExport(item) {
     try {
-        const res = await fetch(`${API_BASE}/files/${encodeURIComponent(item.fileName)}/export`, { headers: getAuthHeaders() });
-        handleApiError(res);
-        if (!res.ok) { showToast('Lỗi tải file', true); return; }
-        const blob = await res.blob();
+        const out = await request('GET', `/api/files/${encodeURIComponent(item.fileName)}/export`);
+        if (!out.ok) return showToast((out.data && out.data.error) || 'Lỗi tải file', true);
+        const blob = new Blob([out.text], { type: 'text/html;charset=utf-8' });
         const a = el('a');
         a.href = URL.createObjectURL(blob);
         a.download = item.fileName;
         a.click();
         URL.revokeObjectURL(a.href);
     } catch (e) {
-        if (e.message !== 'Unauthorized') showToast('Lỗi kết nối', true);
+        fail(e);
     }
 }
+
+// ---------- Lịch sử phiên bản bản nháp ----------
+
+function fmtVersion(at) {
+    if (!at) return 'không rõ thời điểm';
+    return `${new Date(at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })} · ${timeAgo(at)}`;
+}
+
+async function restoreVersion(item, version, btn) {
+    if (!confirm(`Khôi phục "${item.title}" về bản ${fmtVersion(version.at)}?\n\nNội dung hiện tại sẽ được cất thành một phiên bản mới, nên vẫn quay lại được.`)) return;
+    btn.disabled = true;
+    try {
+        await post(`/api/files/${encodeURIComponent(item.fileName)}/history/${encodeURIComponent(version.name)}/restore`);
+        historyOverlay.classList.add('hidden');
+        showToast('Đã khôi phục phiên bản');
+        location.href = `/design?file=${encodeURIComponent(item.fileName)}`;
+    } catch (e) {
+        fail(e);
+        btn.disabled = false;
+    }
+}
+
+async function openHistory(item) {
+    historyFile.textContent = `${item.title} (${item.fileName})`;
+    historyList.replaceChildren(el('p', null, 'Đang tải…'));
+    historyOverlay.classList.remove('hidden');
+    try {
+        const data = await get(`/api/files/${encodeURIComponent(item.fileName)}/history`);
+        historyList.replaceChildren();
+        if (!data.versions.length) {
+            const empty = el('p', null, `Chưa có phiên bản nào. HeyShow sẽ tự lưu ${data.maxVersions} bản gần nhất mỗi lần bạn sửa bài trong Design.`);
+            empty.id = 'history-empty';
+            historyList.appendChild(empty);
+            return;
+        }
+        for (const [i, v] of data.versions.entries()) {
+            const row = el('div', 'version');
+            const when = el('div', 'when');
+            when.appendChild(el('span', null, i === 0 ? 'Bản lưu gần nhất' : timeAgo(v.at)));
+            when.appendChild(el('small', null, `${fmtVersion(v.at)} · ${(v.size / 1024).toFixed(1)} KB`));
+            const btn = el('button', null, '↩ Khôi phục');
+            btn.type = 'button';
+            btn.addEventListener('click', () => restoreVersion(item, v, btn));
+            row.append(when, btn);
+            historyList.appendChild(row);
+        }
+    } catch (e) {
+        historyList.replaceChildren(el('p', 'avatar-hint', 'Không tải được lịch sử phiên bản.'));
+        fail(e);
+    }
+}
+
+document.getElementById('history-cancel').addEventListener('click', () => historyOverlay.classList.add('hidden'));
+historyOverlay.addEventListener('click', e => {
+    if (e.target === historyOverlay) historyOverlay.classList.add('hidden');
+});
 
 function renderItem(item) {
     const card = el('div', 'item');
@@ -187,6 +238,7 @@ function renderItem(item) {
     meta.appendChild(el('span', '', `👁 ${item.views}`));
     meta.appendChild(el('span', '', `♡ ${item.likes}`));
     meta.appendChild(el('span', '', `💬 ${item.commentCount}`));
+    if (item.versions) meta.appendChild(el('span', '', `🕘 ${item.versions} phiên bản`));
     meta.appendChild(el('span', '', `Cập nhật ${timeAgo(item.updatedAt)}`));
 
     // Toàn bộ thao tác nằm trong dropdown ⋮ đặt ngang hàng tên file
@@ -211,6 +263,9 @@ function renderItem(item) {
         }
         menuItems.push({ label: '💾 Tải HTML', onClick: () => doExport(item) });
         menuItems.push({ label: '✍️ Đổi tên', onClick: () => openRename(item) });
+        if (item.hasDraft) {
+            menuItems.push({ label: `🕘 Lịch sử phiên bản${item.versions ? ` (${item.versions})` : ''}`, onClick: () => openHistory(item) });
+        }
         menuItems.push({ label: '🗑 Xoá', danger: true, onClick: () => openDelete(item) });
         openMenu(wrap, menuItems);
     });
@@ -245,10 +300,10 @@ function renderActivity(activity) {
         const body = el('div', 'body');
         const line = el('div');
         line.appendChild(el('span', 'who', act.actor.urlSlug || act.actor.username));
-        line.appendChild(el('span', 'what', act.type === 'like' ? ' đã thích ' : ' đã bình luận trong '));
+        line.appendChild(el('span', 'what', act.type === 'like' ? ' đã thích ' : act.isReply ? ' đã trả lời trong ' : ' đã bình luận trong '));
         const link = el('a', null, `«${act.title}»`);
         // Deep-link tới viewer của gallery cho đúng bài
-        link.href = `/gallery#/p/${encodeURIComponent(window.__heyshowLogin || '')}/${encodeURIComponent(act.file)}`;
+        link.href = `/gallery#/p/${encodeURIComponent(myUsername)}/${encodeURIComponent(act.file)}`;
         line.appendChild(link);
         body.appendChild(line);
 
@@ -290,12 +345,26 @@ function setProfileMsg(text, isError) {
     profileMsg.style.color = isError ? '#dc2626' : '#16a34a';
 }
 
+// Nhắc trước khi sát hạn mức để người dùng biết nên dọn bài hay xin nâng quyền
+const NEAR_QUOTA = 2;
+
+function renderQuota(quota) {
+    if (!quota || quota.max === null) {
+        quotaLine.classList.add('hidden');
+        return;
+    }
+    quotaLine.replaceChildren(
+        el('span', null, 'Hạn mức: '),
+        el('b', null, `${quota.used}/${quota.max} bài trình chiếu`),
+        el('span', null, quota.used >= quota.max ? ' — đã đầy, hãy xoá bớt bài trước khi tạo bài mới' : ` — còn tạo được ${quota.max - quota.used} bài`)
+    );
+    quotaLine.classList.toggle('near', quota.max - quota.used <= NEAR_QUOTA);
+    quotaLine.classList.remove('hidden');
+}
+
 async function loadProfile() {
     try {
-        const res = await fetch(`${API_BASE}/user/profile`, { headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (!data.success) return;
+        const data = await get('/api/user/profile');
         const p = data.profile;
         profileAvatar.src = p.avatar;
         profileFullName.value = p.fullName || '';
@@ -304,8 +373,10 @@ async function loadProfile() {
         profileSlug.value = p.urlSlug || '';
         myFullName = p.fullName || '';
         meName.textContent = myFullName || p.urlSlug || p.username;
+        renderQuota(p.quota);
     } catch (e) {
-        if (e.message !== 'Unauthorized') console.error('Lỗi tải hồ sơ:', e);
+        if (e && e.status) setProfileMsg(e.message, true);
+        else console.error('Lỗi tải hồ sơ:', e);
     }
 }
 
@@ -322,26 +393,16 @@ btnSaveProfile.addEventListener('click', async () => {
         if (profilePass.value) payload.password = profilePass.value;
         if (tempAvatarBase64) payload.avatarBase64 = tempAvatarBase64;
 
-        const res = await fetch(`${API_BASE}/user/profile`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(payload)
-        });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) {
-            setProfileMsg('Lưu thành công!');
-            profilePass.value = '';
-            tempAvatarBase64 = null;
-            showToast('Đã cập nhật hồ sơ');
-            await loadProfile();
-        } else {
-            setProfileMsg(data.error || 'Lỗi lưu hồ sơ', true);
-        }
+        await post('/api/user/profile', payload);
+        setProfileMsg('Lưu thành công!');
+        profilePass.value = '';
+        tempAvatarBase64 = null;
+        showToast('Đã cập nhật hồ sơ');
+        await loadProfile();
     } catch (e) {
-        if (e.message !== 'Unauthorized') setProfileMsg('Lỗi kết nối', true);
+        setProfileMsg((e && e.message) || 'Lỗi kết nối', Boolean(e && e.status));
     } finally {
-        btnProfileAvatar.disabled = false;
+        btnSaveProfile.disabled = false;
     }
 });
 
@@ -396,9 +457,9 @@ function hideProgress() {
 function uploadPptx(path, buffer, onUploadPct) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', API_BASE + path);
+        xhr.open('POST', '/api' + path);
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-        xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem(TOKEN_KEY)}`);
+        xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
         xhr.responseType = 'json';
         xhr.upload.addEventListener('progress', e => {
             if (e.lengthComputable) onUploadPct(Math.min(100, Math.round((e.loaded * 100) / e.total)));
@@ -437,7 +498,7 @@ async function handlePptxFile(file) {
             if (pct < 100) showProgress('Đang tải file lên HeyShow...', pct);
             else showProgress('Đã tải xong. Máy chủ đang phân tích file (có thể mất vài chục giây với file nhiều ảnh/video)...', null);
         });
-        if (status === 401 || status === 403) { localStorage.removeItem(TOKEN_KEY); return requireLogin(); }
+        if (data && data.code === 'auth') { clearToken(); return requireLogin(); }
         if (!data || !data.success) {
             hideProgress();
             clearImport();
@@ -530,7 +591,7 @@ async function doImport(btn) {
             if (pct < 100) showProgress('Đang gửi file để chuyển đổi...', pct);
             else showProgress('Đã tải xong. Máy chủ đang chuyển đổi sang slide HeyShow...', null);
         });
-        if (status === 401 || status === 403) { localStorage.removeItem(TOKEN_KEY); return requireLogin(); }
+        if (data && data.code === 'auth') { clearToken(); return requireLogin(); }
         if (!data || !data.success) {
             hideProgress();
             setImportStatus((data && data.error) || `Lỗi chuyển đổi (lỗi ${status})`, true);
@@ -601,13 +662,11 @@ document.getElementById('delete-confirm').addEventListener('click', async () => 
     deleteOverlay.classList.add('hidden');
     pendingDelete = null;
     try {
-        const res = await fetch(`${API_BASE}/files/${encodeURIComponent(item.fileName)}`, { method: 'DELETE', headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) { showToast('Đã xoá'); await load(); }
-        else showToast(data.error || 'Lỗi xoá file', true);
+        await del(`/api/files/${encodeURIComponent(item.fileName)}`);
+        showToast('Đã xoá');
+        await load();
     } catch (e) {
-        if (e.message !== 'Unauthorized') showToast('Lỗi kết nối', true);
+        fail(e);
     }
 });
 
@@ -619,17 +678,11 @@ async function doRename() {
     renameOverlay.classList.add('hidden');
     pendingRename = null;
     try {
-        const res = await fetch(`${API_BASE}/files/${encodeURIComponent(item.fileName)}/rename`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ newName: raw })
-        });
-        handleApiError(res);
-        const data = await res.json();
-        if (data.success) { showToast(`Đã đổi tên thành ${data.newName}`); await load(); }
-        else showToast(data.error || 'Lỗi đổi tên', true);
+        const data = await post(`/api/files/${encodeURIComponent(item.fileName)}/rename`, { newName: raw });
+        showToast(`Đã đổi tên thành ${data.newName}`);
+        await load();
     } catch (e) {
-        if (e.message !== 'Unauthorized') showToast('Lỗi kết nối', true);
+        fail(e);
     }
 }
 
@@ -644,7 +697,7 @@ renameInput.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('btn-logout').addEventListener('click', () => {
-    localStorage.removeItem(TOKEN_KEY);
+    clearToken();
     location.href = '/';
 });
 
@@ -652,19 +705,18 @@ document.getElementById('btn-logout').addEventListener('click', () => {
 
 async function load() {
     try {
-        const res = await fetch(`${API_BASE}/dashboard`, { headers: getAuthHeaders() });
-        handleApiError(res);
-        const data = await res.json();
-        if (!data.success) return showToast(data.error || 'Lỗi tải dashboard', true);
-
+        const data = await get('/api/dashboard');
         items = data.items;
-        window.__heyshowLogin = data.me?.username || '';
+        myUsername = data.me?.username || '';
         meAvatar.src = data.me?.avatar || '';
         if (!myFullName) meName.textContent = data.me?.urlSlug || data.me?.username || '';
+        meRole.textContent = data.me?.role || '';
+        meRole.classList.toggle('hidden', !data.me?.role);
+        renderQuota(data.quota);
         renderItems();
         renderActivity(data.activity || []);
     } catch (e) {
-        if (e.message !== 'Unauthorized') showToast('Lỗi kết nối', true);
+        fail(e);
     }
 }
 

@@ -1,4 +1,5 @@
-const API_BASE = '/api';
+import { get } from './api.js';
+
 const THUMB_W = 1280;
 
 const banner = document.getElementById('profile-banner');
@@ -8,17 +9,6 @@ const countEl = document.getElementById('profile-count');
 const grid = document.getElementById('profile-grid');
 const emptyEl = document.getElementById('profile-empty');
 const errorEl = document.getElementById('profile-error');
-
-function getToken() {
-    return localStorage.getItem('heyshow_user_token');
-}
-
-function authHeaders() {
-    const headers = { 'Content-Type': 'application/json' };
-    const token = getToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return headers;
-}
 
 function fmtDate(ts) {
     return new Date(ts).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -115,11 +105,8 @@ async function loadProfile() {
         errorEl.classList.remove('hidden');
         return;
     }
-    let res;
     try {
-        res = await fetch(`${API_BASE}/profile/${encodeURIComponent(slug)}`, { headers: authHeaders() });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Không tải được trang');
+        const data = await get(`/api/profile/${encodeURIComponent(slug)}`);
 
         avatarEl.src = data.author.avatar;
         nameEl.textContent = data.author.urlSlug;
@@ -133,7 +120,7 @@ async function loadProfile() {
         for (const item of data.items) grid.appendChild(buildCard(item));
         scaleAllThumbs();
     } catch (e) {
-        errorEl.textContent = res && res.status === 404
+        errorEl.textContent = e.status === 404
             ? 'Không tìm thấy người dùng này.'
             : 'Không tải được trang cá nhân. Vui lòng thử lại sau.';
         errorEl.classList.remove('hidden');

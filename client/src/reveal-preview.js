@@ -17,8 +17,8 @@ export function previewHtml(code) {
             __HEYSHOW_CODE__
         </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js"><\/script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/math/math.js"><\/script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/math/math.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const masters = document.querySelectorAll('section-master');
@@ -40,7 +40,7 @@ export function previewHtml(code) {
                 plugins: [ RevealMath.KaTeX ]
             });
         });
-    <\/script>
+    </script>
 </body>
 </html>`;
     // split/join thay vì replace: code mẫu chứa "$$" của KaTeX sẽ bị hiểu nhầm là mẫu thay thế

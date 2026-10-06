@@ -1,6 +1,6 @@
-const API_BASE = '/api';
+import { get, post, patch, del, getToken, tokenPayload, onUnauthorized, isAuthed } from './api.js';
+
 const THUMB_W = 1280;
-const THUMB_H = 720;
 
 const grid = document.getElementById('gallery-grid');
 const emptyEl = document.getElementById('gallery-empty');
@@ -39,21 +39,7 @@ let page = 1;
 let totalPages = 1;
 let query = '';
 let current = null; // bài đang mở trong viewer
-
-function getToken() {
-    return localStorage.getItem('heyshow_user_token');
-}
-
-function authHeaders() {
-    const headers = { 'Content-Type': 'application/json' };
-    const token = getToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return headers;
-}
-
-function parseJwt(token) {
-    try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
-}
+let canModerate = false; // chủ bài hoặc admin: được gỡ bình luận của người khác
 
 // ---------- KaTeX: render công thức trong bình luận + preview khi gõ ----------
 
@@ -218,9 +204,7 @@ async function loadGallery(targetPage = 1, q = '') {
     const params = new URLSearchParams({ page: String(targetPage) });
     if (q) params.set('q', q);
     try {
-        const res = await fetch(`${API_BASE}/gallery?${params}`, { headers: authHeaders() });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error);
+        const data = await get(`/api/gallery?${params}`);
 
         page = data.page;
         totalPages = data.totalPages;
@@ -317,9 +301,11 @@ window.addEventListener('resize', scaleAllThumbs);
 
 // ---------- Viewer 2 panel ----------
 
-function renderComment(comment) {
+// Một bình luận: hoặc chủ đề (isReply=false) hoặc phản hồi bên trong chủ đề.
+// Quyền hiển thị nút: tác giả tự sửa/xóa; chủ bài và admin (canModerate) chỉ xóa.
+function renderComment(comment, { isReply = false } = {}) {
     const row = document.createElement('div');
-    row.className = 'comment';
+    row.className = isReply ? 'comment reply' : 'comment';
     row.dataset.id = comment.id;
 
     const profileHref = `/${encodeURIComponent(comment.author.urlSlug)}/`;
@@ -332,6 +318,7 @@ function renderComment(comment) {
     avatarLink.append(avatar);
 
     const wrap = document.createElement('div');
+    wrap.className = 'wrap';
     const bubble = document.createElement('div');
     bubble.className = 'comment-bubble';
     const name = document.createElement('a');
@@ -357,18 +344,97 @@ function renderComment(comment) {
         wrap.append(edited);
     }
 
-    if (myUsername && comment.author.username === myUsername) {
-        const actions = document.createElement('div');
-        actions.className = 'comment-actions';
+    const isMine = myUsername && comment.author.username === myUsername;
+    const actions = document.createElement('div');
+    actions.className = 'comment-actions';
+    if (isMine) {
         const editBtn = document.createElement('button');
+        editBtn.type = 'button';
         editBtn.textContent = 'Sửa';
         editBtn.addEventListener('click', () => startEditComment(row, comment, text));
         actions.append(editBtn);
-        wrap.append(actions);
     }
+    if (isMine || canModerate) {
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'danger';
+        delBtn.textContent = 'Xóa';
+        delBtn.addEventListener('click', () => deleteComment(comment, delBtn));
+        actions.append(delBtn);
+    }
+    // Chỉ trả lời bình luận gốc: server cũng chặn lồng hai cấp
+    if (!isReply && myUsername) {
+        const replyBtn = document.createElement('button');
+        replyBtn.type = 'button';
+        replyBtn.textContent = 'Trả lời';
+        replyBtn.addEventListener('click', () => openReplyBox(comment, row));
+        actions.append(replyBtn);
+    }
+    if (actions.childNodes.length) wrap.append(actions);
 
     row.append(avatarLink, wrap);
     return row;
+}
+
+// Ô trả lời mở ngay dưới bình luận gốc đang được trả lời
+function openReplyBox(comment, row) {
+    const existing = row.querySelector(':scope > .wrap > .reply-box');
+    if (existing) { existing.remove(); return; } // bấm lần hai để đóng
+
+    const box = document.createElement('div');
+    box.className = 'reply-box';
+    const ta = document.createElement('textarea');
+    ta.placeholder = `Trả lời ${comment.author.urlSlug}…`;
+    ta.maxLength = 2000;
+    ta.rows = 2;
+    const btns = document.createElement('div');
+    btns.className = 'comment-edit-btns';
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'save';
+    send.textContent = 'Gửi';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'cancel';
+    cancel.textContent = 'Huỷ';
+    btns.append(send, cancel);
+    box.append(ta, btns);
+    row.querySelector(':scope > .wrap').append(box);
+    ta.focus();
+
+    cancel.addEventListener('click', () => box.remove());
+    ta.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send.click(); }
+    });
+    send.addEventListener('click', async () => {
+        const text = ta.value.trim();
+        if (!text) return showToast('Nội dung trả lời không được để trống', true);
+        send.disabled = true;
+        try {
+            const { user, fileName } = current;
+            await post(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/comments`, {
+                text, parentId: comment.id
+            });
+            box.remove();
+            await refreshPresentation();
+        } catch (e) {
+            showToast(e.message || 'Không gửi được trả lời', true);
+            send.disabled = false;
+        }
+    });
+}
+
+async function deleteComment(comment, btn) {
+    if (!confirm('Xóa bình luận này? Các phản hồi bên trong cũng bị ẩn theo.')) return;
+    btn.disabled = true;
+    try {
+        const { user, fileName } = current;
+        await del(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/comments/${encodeURIComponent(comment.id)}`);
+        await refreshPresentation();
+    } catch (e) {
+        showToast(e.message || 'Không xóa được bình luận', true);
+        btn.disabled = false;
+    }
 }
 
 function startEditComment(row, comment, textEl) {
@@ -402,14 +468,9 @@ function startEditComment(row, comment, textEl) {
         save.disabled = true;
         try {
             const { user, fileName } = current;
-            const res = await fetch(`${API_BASE}/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/comments/${encodeURIComponent(comment.id)}`, {
-                method: 'PATCH',
-                headers: authHeaders(),
-                body: JSON.stringify({ text: newText })
-            });
-            const data = await res.json();
-            if (!data.success) throw new Error(data.error);
-            row.replaceWith(renderComment(data.comment));
+            await patch(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/comments/${encodeURIComponent(comment.id)}`, { text: newText });
+            await refreshPresentation();
+            box.remove();
         } catch (e) {
             showToast(e.message || 'Không sửa được bình luận', true);
             save.disabled = false;
@@ -417,13 +478,22 @@ function startEditComment(row, comment, textEl) {
     });
 }
 
-function renderComments(comments) {
+// Chủ đề kiểu Facebook: bình luận gốc, phản hồi lồng bên dưới, mới nhất ở cuối
+function renderThreads(threads) {
     commentList.innerHTML = '';
-    if (!comments.length) {
+    const total = threads.reduce((n, t) => n + 1 + (t.replies ? t.replies.length : 0), 0);
+    if (!total) {
         commentList.appendChild(commentEmpty);
         return;
     }
-    for (const c of comments) commentList.appendChild(renderComment(c));
+    for (const thread of threads) {
+        const row = renderComment(thread);
+        const box = document.createElement('div');
+        box.className = 'replies';
+        for (const reply of thread.replies || []) box.appendChild(renderComment(reply, { isReply: true }));
+        row.querySelector(':scope > .wrap').append(box);
+        commentList.appendChild(row);
+    }
     commentList.scrollTop = commentList.scrollHeight;
 }
 
@@ -439,7 +509,20 @@ function applyPresentationMeta(p) {
     btnLike.classList.toggle('liked', p.likedByMe);
     btnLike.firstChild.textContent = p.likedByMe ? '♥ ' : '♡ ';
     viewerOpenLink.href = p.url;
-    renderComments(p.comments);
+    canModerate = Boolean(p.canModerate);
+    renderThreads(p.threads || []);
+}
+
+// Tải lại số liệu + bình luận sau mỗi thao tác: đơn giản và luôn khớp với server
+async function refreshPresentation() {
+    if (!current) return;
+    const { user, fileName, key } = current;
+    try {
+        const data = await get(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}`);
+        if (!current || current.key !== key) return;
+        current.presentation = data.presentation;
+        applyPresentationMeta(data.presentation);
+    } catch (e) { /* giữ liệu cũ nếu mạng trục trặc */ }
 }
 
 async function openViewer(user, fileName) {
@@ -448,12 +531,12 @@ async function openViewer(user, fileName) {
 
     current = { key, user, fileName, presentation: null };
     overlay.classList.remove('hidden');
-    viewerFrame.src = `/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}`;
+    // /show/ là đường dẫn chính (slide chạy trong CSP sandbox); resolveSlugDir
+    // chấp nhận cả login name lẫn urlSlug nên đoạn slug ở đây dùng được user
+    viewerFrame.src = `/show/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}`;
 
     try {
-        const res = await fetch(`${API_BASE}/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}`, { headers: authHeaders() });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error);
+        const data = await get(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}`);
         if (!current || current.key !== key) return; // đã đóng/đổi bài trong lúc tải
         current.presentation = data.presentation;
         applyPresentationMeta(data.presentation);
@@ -469,37 +552,21 @@ function closeViewer() {
 }
 
 // Khi iframe trình chiếu tải xong thì lượt xem đã được server cộng -> làm mới số liệu
-viewerFrame.addEventListener('load', async () => {
-    if (!current) return;
-    const { user, fileName, key } = current;
-    try {
-        const res = await fetch(`${API_BASE}/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}`, { headers: authHeaders() });
-        const data = await res.json();
-        if (data.success && current && current.key === key) {
-            current.presentation = data.presentation;
-            applyPresentationMeta(data.presentation);
-        }
-    } catch (e) { /* giữ số liệu cũ */ }
-});
+viewerFrame.addEventListener('load', () => refreshPresentation());
 
 btnCloseViewer.addEventListener('click', () => { location.hash = ''; });
 
 btnLike.addEventListener('click', async () => {
-    if (!getToken()) return showToast('Hãy đăng nhập để thích bài này', true);
+    if (!isAuthed()) return showToast('Hãy đăng nhập để thích bài này', true);
     if (!current) return;
     const { user, fileName } = current;
     try {
-        const res = await fetch(`${API_BASE}/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/like`, {
-            method: 'POST',
-            headers: authHeaders()
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error);
+        const data = await post(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/like`);
         statLikes.textContent = data.likes;
         btnLike.classList.toggle('liked', data.likedByMe);
         btnLike.firstChild.textContent = data.likedByMe ? '♥ ' : '♡ ';
     } catch (e) {
-        showToast('Không gửi được lượt thích', true);
+        showToast(e.message || 'Không gửi được lượt thích', true);
     }
 });
 
@@ -512,7 +579,7 @@ commentInput.addEventListener('keydown', (e) => {
 });
 
 async function sendComment() {
-    if (!getToken()) return showToast('Hãy đăng nhập để bình luận', true);
+    if (!isAuthed()) return showToast('Hãy đăng nhập để bình luận', true);
     if (!current) return;
     const text = commentInput.value.trim();
     if (!text) return;
@@ -520,21 +587,11 @@ async function sendComment() {
     btnSendComment.disabled = true;
     try {
         const { user, fileName } = current;
-        const res = await fetch(`${API_BASE}/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/comments`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ text })
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error);
-
+        await post(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/comments`, { text });
         commentInput.value = '';
         syncMathMirror();
         hideMathTooltip();
-        if (commentEmpty.parentNode === commentList) commentEmpty.remove();
-        commentList.appendChild(renderComment(data.comment));
-        commentList.scrollTop = commentList.scrollHeight;
-        statComments.textContent = Number(statComments.textContent) + 1;
+        await refreshPresentation();
     } catch (e) {
         showToast(e.message || 'Không gửi được bình luận', true);
     } finally {
@@ -663,8 +720,8 @@ window.addEventListener('hashchange', syncFromHash);
 // ---------- Trạng thái đăng nhập trên header ----------
 
 function setGuestState() {
-    localStorage.removeItem('heyshow_user_token');
     myUsername = null;
+    canModerate = false;
     meLink.classList.add('hidden');
     loginLink.classList.remove('hidden');
     composer.classList.add('hidden');
@@ -672,30 +729,28 @@ function setGuestState() {
 }
 
 async function initMe() {
-    const token = getToken();
-    if (!token) return setGuestState();
-    const payload = parseJwt(token);
-    if (!payload?.username) return setGuestState();
+    const payload = tokenPayload();
+    if (!getToken() || !payload || !payload.username) return setGuestState();
     try {
-        const res = await fetch(`${API_BASE}/user/profile`, { headers: authHeaders() });
-        const data = await res.json();
-        if (data.success) {
-            myUsername = payload.username;
-            meAvatar.src = data.profile.avatar;
-            composerAvatar.src = data.profile.avatar;
-            meLink.classList.remove('hidden');
-            loginLink.classList.add('hidden');
-            composer.classList.remove('hidden');
-            loginHint.classList.add('hidden');
-        } else {
-            // Token hết hạn/không hợp lệ (vd. sau khi server đổi JWT secret):
-            // trả về trạng thái khách để còn thấy gợi ý đăng nhập.
-            setGuestState();
-        }
+        const data = await get('/api/user/profile');
+        myUsername = payload.username;
+        meAvatar.src = data.profile.avatar;
+        composerAvatar.src = data.profile.avatar;
+        meLink.classList.remove('hidden');
+        loginLink.classList.add('hidden');
+        composer.classList.remove('hidden');
+        loginHint.classList.add('hidden');
     } catch (e) {
+        // Token hết hạn / bị thu hồi (đổi mật khẩu, đổi quyền): về trạng thái khách
         setGuestState();
     }
 }
+
+// api.js đã xóa token khi server trả 401/403; ở đây chỉ cần vẽ lại giao diện
+onUnauthorized(() => {
+    setGuestState();
+    showToast('Phiên đăng nhập không còn hiệu lực, hãy đăng nhập lại', true);
+});
 
 commentEmpty.id = 'comment-empty';
 commentEmpty.textContent = 'Chưa có bình luận nào. Hãy là người đầu tiên!';

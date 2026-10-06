@@ -32,15 +32,20 @@
         background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px);
         border-bottom: 1px solid var(--border-color);
       }
-      .logo { font-weight: 800; font-size: 1.15rem; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
+      .logo { font-weight: 800; font-size: 1.15rem; color: var(--text-color); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
       .logo img { width: 28px; height: 28px; }
       .logo .wordmark span { color: var(--accent-strong); }
       .nav-links { display: flex; gap: 16px; align-items: center; }
-      .nav-links a { color: var(--muted); font-size: 0.92rem; }
+      .nav-links a { color: var(--muted); font-size: 0.92rem; white-space: nowrap; }
       .nav-links a:hover { color: var(--text-color); }
-      .me { display: flex; align-items: center; gap: 8px; }
+      .me { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
       .me img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); border: 2px solid var(--border-color); }
       .me .name { font-size: 0.9rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .me .role {
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+        background: var(--bg-deep); color: var(--muted);
+        border: 1px solid var(--border-color); border-radius: 999px; padding: 2px 8px;
+      }
       #btn-logout { background: none; border: 1px solid var(--border-color); color: var(--danger); border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; }
       #btn-logout:hover { border-color: var(--danger); }
 
@@ -207,6 +212,30 @@
       .modal-btns .confirm-danger { background: var(--danger); color: #ffffff; }
       .modal-btns .confirm-ok { background: var(--accent-color); color: var(--ink); }
 
+      /* Hạn mức bài theo role */
+      #quota-line { font-size: 0.85rem; color: var(--muted); margin: -6px 0 18px; }
+      #quota-line b { color: var(--text-color); }
+      #quota-line.near b { color: var(--danger); }
+
+      /* Lịch sử phiên bản */
+      .modal.wide { width: 620px; }
+      #history-list { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; margin-bottom: 16px; }
+      .version {
+        display: flex; align-items: center; gap: 10px;
+        background: var(--bg-deep); border: 1px solid var(--border-color);
+        border-radius: 8px; padding: 9px 12px; font-size: 0.88rem;
+      }
+      .version .when { flex: 1; min-width: 0; }
+      .version .when small { display: block; color: var(--muted); font-size: 0.75rem; }
+      .version button {
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 6px;
+        padding: 5px 12px; cursor: pointer; font-size: 0.8rem; font-weight: 600; font-family: inherit;
+      }
+      .version button:hover { border-color: var(--accent-color); color: var(--accent-strong); }
+      .version button:disabled { opacity: 0.55; cursor: wait; }
+      #history-empty { color: var(--muted); font-size: 0.88rem; margin-bottom: 16px; }
+
       #toast {
         position: fixed; bottom: 20px; right: 20px;
         background: var(--accent-color); color: var(--ink);
@@ -228,6 +257,7 @@
         <div class="me">
           <img id="me-avatar" src="" alt="Avatar" />
           <span class="name" id="me-name"></span>
+          <span class="role hidden" id="me-role"></span>
           <button id="btn-logout" type="button">Đăng xuất</button>
         </div>
       </div>
@@ -236,6 +266,7 @@
     <main>
       <h1>Dashboard</h1>
       <p class="tab-lead">Quản lý bài trình chiếu, theo dõi hoạt động và cập nhật hồ sơ của bạn.</p>
+      <p id="quota-line" class="hidden"></p>
 
       <div class="tabs">
         <button type="button" class="tab active" data-tab="presentations">📚 Presentations</button>
@@ -326,6 +357,18 @@
     </div>
 
     <div id="toast"></div>
+
+    <!-- Modal lịch sử phiên bản bản nháp -->
+    <div id="history-overlay" class="modal-overlay hidden">
+      <div class="modal wide">
+        <h3>🕘 Lịch sử phiên bản</h3>
+        <p id="history-file"></p>
+        <div id="history-list"></div>
+        <div class="modal-btns">
+          <button type="button" class="cancel" id="history-cancel">Đóng</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="/src/dashboard.js"></script>
   </body>
