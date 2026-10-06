@@ -14,7 +14,7 @@ import { lintGutter } from "@codemirror/lint";
 import { slideGutter, slidesField, sectionLinter, slideStatus, slideAt, topSectionAt } from "./slides.js";
 import { colorSwatches, closeColorPicker } from "./color-picker.js";
 import { get, post, getToken, setToken, clearToken, tokenPayload, onUnauthorized, ApiError } from "./api.js";
-import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS } from "./reveal-cdn.js";
+import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS } from "./reveal-cdn.js";
 
 // Các DOM elements
 const editorContainer = document.getElementById('editor-container');
@@ -261,6 +261,7 @@ function updatePreview(fullReload = true) {
                 Reveal.initialize({
                     hash: false, 
                     slideNumber: true,
+                    ${REVEAL_KATEX_OPTS},
                     // Loại bỏ embedded và display: block để cho Reveal tự tính toán y hệt trang public
                     plugins: [ RevealMath.KaTeX ] 
                 }).then(() => {

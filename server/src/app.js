@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
 const { createJsonStore, atomicWrite } = require('./storage');
-const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM } = require('./slide-parts');
+const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM } = require('./slide-parts');
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
@@ -1441,6 +1441,7 @@ ${SLIDE_HEAD_GUARD}
             Reveal.initialize({
                 hash: true,
                 slideNumber: true,
+                ${REVEAL_KATEX_OPTS},
                 plugins: [ RevealMath.KaTeX ] // Hỗ trợ công thức Toán học
             });
         });
@@ -1854,7 +1855,8 @@ Cấu trúc một file HeyShow:
 Quy tắc chung:
 - CHỈ TRẢ VỀ code HTML thuần (plain text): KHÔNG <html>/<head>/<body>, KHÔNG markdown backticks (\`\`\`html), KHÔNG giải thích.
 - Có thể dùng class/attribute của Reveal.js (class "fragment" để hiện dần, data-background-color...).
-- Có thể dùng công thức KaTeX trong $$...$$ (khối) hoặc $...$ (dòng).
+- Có thể dùng công thức KaTeX trong $$...$$ (khối) hoặc $...$ (dòng). Trong $...$ CHỈ đặt ký hiệu Toán học: chữ Việt phải nằm ngoài công thức, hoặc bọc bằng \\text{...}.
+- Code đặt trong <pre><code> thì mọi dấu < và & phải viết thành &lt; và &amp; (kể cả toán tử so sánh như a < b), nếu không trình duyệt coi là thẻ HTML.
 - Code phải cân bằng thẻ mở/thẻ đóng.
 
 ${AI_POSITIONS[position]}`;
@@ -2256,8 +2258,13 @@ const SLIDE_CSP = 'sandbox allow-scripts allow-forms allow-popups allow-modals';
 function slideSecurityHeaders(res) {
     res.setHeader('Content-Security-Policy', SLIDE_CSP);
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    // Republish phải có hiệu lực ngay, không chờ hết cache
-    res.setHeader('Cache-Control', 'no-cache');
+    // Republish phải có hiệu lực ngay, không chờ hết cache.
+    // no-transform: Cloudflare tự chèn beacon Web Analytics (beacon.min.js) vào mọi trang
+    // HTML, và beacon gọi /cdn-cgi/rum bằng XHR. Trang slide mang CSP sandbox nên origin là
+    // "null", request đó bị CORS chặn và bắn lỗi console cho MỖI bài trong gallery. Beacon ở
+    // đây vốn vô dụng (không bao giờ gửi được), nên chặn Cloudflare sửa body là sạch lỗi nhất
+    // mà không phải đụng vào thiết lập của cả zone; trang thường vẫn được đo bình thường.
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
 }
 
 // Bộ đếm lượt xem gom trong RAM: một tiết học 40 em cùng mở link sẽ tạo 40 lượt ghi

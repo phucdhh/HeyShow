@@ -15,6 +15,13 @@ const REVEAL_CSS = [`<link rel="stylesheet" href="${REVEAL_CDN}/reset.min.css">`
 const REVEAL_JS = `<script src="${REVEAL_CDN}/reveal.js"></script>`;
 const REVEAL_MATH_JS = `<script src="${REVEAL_CDN}/plugin/math.js"></script>`;
 
+// Cấu hình nạp cho plugin math của Reveal. Reveal 6 đọc khoá "katex" ở cấp cao nhất của
+// Reveal.initialize rồi truyền thẳng xuống KaTeX (xem plugin/math.js: getConfig().katex).
+// Bài của AI và của người dùng viết chữ Việt ngay trong công thức, kiểu "$đường thẳng$",
+// nên KaTeX bắn cảnh báo "Accented Unicode text character ... used in math mode" mỗi lần
+// mở console. Tắt đúng loại cảnh báo đó, các loại khác (lỗi cú pháp LaTeX thật) vẫn giữ.
+const REVEAL_KATEX_OPTS = `katex: { strict: { unicodeTextInMathMode: 'ignore' } }`;
+
 // Mảnh CSS chèn vào đầu mọi file slide. Phải giống hệt bản client
 // (client/src/reveal-preview.js, client/src/main.js) để preview và bản publish không lệch nhau.
 const SLIDE_HEAD_GUARD = `
@@ -127,7 +134,7 @@ function bumpRevealVersion(html, { from, to }) {
 }
 
 module.exports = {
-    REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS,
+    REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS,
     SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER,
     patchSlideHtml, revealAssetTags, bumpRevealVersion
 };

@@ -122,7 +122,10 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
     const slide = await fetch(srv.url + pub.json.url);
     assert.equal(slide.status, 200);
     assert.match(slide.headers.get('content-security-policy'), /^sandbox\b/, 'slide phải chạy ở origin mờ');
-    assert.equal(slide.headers.get('cache-control'), 'no-cache', 'republish phải có hiệu lực ngay');
+    // no-cache: republish có hiệu lực ngay. no-transform: keeps Cloudflare off injecting its
+    // Web Analytics beacon, which can never report from a sandboxed slide document.
+    assert.equal(slide.headers.get('cache-control'), 'no-cache, no-transform',
+        'slide phải không lưu cache và không cho Cloudflare chèn beacon vào trang');
 
     // Chốt chặn chống CSS của bài viết làm mọi slide chồng lên nhau (vuốt trên điện thoại
     // không còn thay đổi gì). Ba bản template phải mang cùng một rule.
@@ -180,11 +183,21 @@ test('nâng cấp Reveal: server và client cùng phiên bản, đúng layout c�
     for (const file of ['src/reveal-preview.js', 'src/main.js']) {
         assert.ok(read(`../../client/${file}`).includes('reveal-cdn.js'),
             `${file} phải lấy URL Reveal từ reveal-cdn.js thay vì tự ghi`);
+        assert.ok(read(`../../client/${file}`).includes('${REVEAL_KATEX_OPTS}'),
+            `${file} phải dùng chung cấu hình KaTeX với bản publish`);
     }
+
+    // Chữ Việt trong $...$ khiến KaTeX bắn cảnh báo mỗi lần mở console; tắt đúng loại đó,
+    // server và client phải khai báo giống nhau từng ký tự.
+    const optsOf = src => (src.match(/REVEAL_KATEX_OPTS = `([^`]+)`/) || [])[1];
+    assert.ok(optsOf(server), 'server/src/slide-parts.js phải định nghĩa REVEAL_KATEX_OPTS');
+    assert.equal(optsOf(client), optsOf(server), 'client/src/reveal-cdn.js phải chép hệt cấu hình KaTeX');
+    assert.match(optsOf(server), /unicodeTextInMathMode/, 'phải nhắm đúng loại cảnh báo này');
 
     const html = await (await fetch(`${srv.url}/show/tmaster/hist.html`)).text();
     assert.ok(html.includes(`/reveal.js/${WANT}/reveal.js`), 'bài publish phải mang đúng phiên bản');
     assert.ok(html.includes(`/reveal.js/${WANT}/plugin/math.js`), 'bài publish phải nạp plugin math của 6.x');
+    assert.ok(html.includes(optsOf(server)), 'bài publish phải mang cấu hình KaTeX chung');
 });
 
 // Route cấp một được khớp không phân biệt hoa/thường, nên "Gallery" cũng che mất

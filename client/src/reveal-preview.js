@@ -1,6 +1,6 @@
 // Giống hệt template publish của server (server/src/app.js - buildFullHtml)
 // để preview trong Help/Templates trùng khớp thứ người xem nhận được.
-import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS } from './reveal-cdn.js';
+import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS } from './reveal-cdn.js';
 
 export function previewHtml(code) {
     const template = `<!DOCTYPE html>
@@ -47,6 +47,7 @@ export function previewHtml(code) {
             Reveal.initialize({
                 hash: false,
                 slideNumber: true,
+                ${REVEAL_KATEX_OPTS},
                 plugins: [ RevealMath.KaTeX ]
             });
         });

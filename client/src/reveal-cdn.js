@@ -13,3 +13,7 @@ export const REVEAL_CSS = [
 
 export const REVEAL_JS = `<script src="${REVEAL_CDN}/reveal.js"></script>`;
 export const REVEAL_MATH_JS = `<script src="${REVEAL_CDN}/plugin/math.js"></script>`;
+
+// Phải khớp server/src/slide-parts.js: tắt riêng cảnh báo KaTeX "chữ Việt có dấu trong
+// công thức" để preview trong editor và bản publish im lặng như nhau.
+export const REVEAL_KATEX_OPTS = `katex: { strict: { unicodeTextInMathMode: 'ignore' } }`;
