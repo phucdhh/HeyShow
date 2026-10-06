@@ -50,6 +50,7 @@ HeyShow/
 │   │   ├── storage.js             # Cache JSON + hàng đợi ghi nguyên tử (atomicWrite)
 │   │   ├── history.js             # Lịch sử 5 phiên bản bản nháp
 │   │   ├── avatars.js             # Ảnh đại diện ghi ra file, không nhúng vào db.json
+│   │   ├── slide-parts.js         # Phiên bản Reveal + guard CSS + shim sessionStorage + cách vá vào file cũ
 │   │   ├── pptx.js                # Import .pptx (jszip + fast-xml-parser)
 │   │   └── textimport.js          # Import Markdown / LaTeX beamer (JS thuần)
 │   ├── test/
@@ -70,7 +71,7 @@ HeyShow/
 │   ├── src/
 │   │   ├── api.js                 # Tầng API/auth DÙNG CHUNG: token, fetch, lỗi 401/403
 │   │   ├── main.js dashboard.js gallery.js admin.js profile.js ...
-│   │   └── color-picker.js slides.js reveal-preview.js  # tiện ích editor
+│   │   └── color-picker.js slides.js reveal-preview.js reveal-cdn.js  # tiện ích editor
 │   ├── public/                    # favicon + logo (Vite sao chép thẳng vào dist)
 │   ├── dist/                      # Bản build, server phục vụ trực tiếp (không commit)
 │   └── package.json
@@ -102,8 +103,8 @@ Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) �
 ## 4. Công nghệ sử dụng
 
 - **Backend:** Node.js + Express 5, `jsonwebtoken` (JWT có `tv` — phiên bản token để thu hồi), `axios` (gọi Groq / DeepSeek), `jszip` + `fast-xml-parser` (import .pptx tại `server/src/pptx.js`), `dotenv`; module import .md/.tex tại `server/src/textimport.js` (JS thuần, không thêm dependency)
-- **Frontend:** Vite (nhiều entry), CodeMirror 6 (editor), Reveal.js 5.1.0 + KaTeX (preview & trình chiếu, load từ CDN), `client/src/api.js` là tầng gọi API/auth dùng chung cho mọi trang
-- **Kiểm tra chất lượng:** ESLint 9 flat config (`no-undef: error`, `eqeqeq: smart`) + `node --test` (bộ 54 test: API tích hợp, module, import) — chạy bằng `npm run lint` và `npm test` ở thư mục gốc
+- **Frontend:** Vite (nhiều entry), CodeMirror 6 (editor), Reveal.js 6.0.2 + KaTeX (preview & trình chiếu, load từ CDN — phiên bản khai báo một lần ở `server/src/slide-parts.js` và `client/src/reveal-cdn.js`), `client/src/api.js` là tầng gọi API/auth dùng chung cho mọi trang
+- **Kiểm tra chất lượng:** ESLint 9 flat config (`no-undef: error`, `eqeqeq: smart`) + `node --test` (bộ 55 test: API tích hợp, module, import) — chạy bằng `npm run lint` và `npm test` ở thư mục gốc
 - **Lưu trữ:** file JSON + thư mục trên đĩa (không có database), có cache trong bộ nhớ và hàng đợi ghi nguyên tử
 - **Quản lý tiến trình:** PM2 (giữ server luôn chạy trên Fold 4)
 - **Kết nối mạng:** Cloudflare Tunnel (cloudflared)
@@ -116,7 +117,7 @@ Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) �
    cd client && npm run dev     # editor với hot reload
    cd server && npm run dev     # backend (nodemon)
 
-   npm test                     # 54 test, chạy trên kho dữ liệu tạm (không đụng ./data)
+   npm test                     # 55 test, chạy trên kho dữ liệu tạm (không đụng ./data)
    npm run lint                 # ESLint toàn repo
    ```
    Muốn test giao diện trên một kho dữ liệu riêng: `HEYSHOW_DATA_DIR=/tmp/du-lieu-thu node server/src/app.js`.
@@ -301,7 +302,8 @@ Quy chuẩn dữ liệu hồ sơ: `fullName` ≤ 80 ký tự; `phone` chỉ nh�
   Cache-Control: no-cache          # republish có hiệu lực ngay, không chờ hết cache
   ```
   Chỉ định `sandbox` của CSP đưa trang slide vào **opaque origin**: script của người dùng trong slide không đọc được `localStorage`, cookie hay gọi API của HeyShow bằng token đang nằm trong `localStorage` của editor, dù tất cả chạy trên cùng `heyshow.pedu.vn`. Vì vậy **không cần tạo tên miền con riêng** (`slides.pedu.vn`) như dự tính ban đầu. Route `/<slug>/<file>.html` cũ vẫn phục vụ cho những link đã chia sẻ và nhận đúng bộ header này, vì cả hai đường dẫn cùng gọi `servePublishedSlide` (`server/src/app.js`).
-  Giá phải trả của origin mờ: mọi lần chạm vào `window.sessionStorage` đều ném `SecurityError`, và Reveal 5.1 gọi đúng chỗ đó mỗi lần chuyển slide (`store/restoreScrollPosition`) — hệ quả là trên điện thoại **vuốt tới/vuốt lui chết hẳn**, chỉ mở được slide đầu. Bản publish vì thế có sẵn `SLIDE_STORAGE_SHIM` (`server/src/app.js`, nạp trước script Reveal.js): thử đọc `sessionStorage`, nếu bị chặn thì thay bằng bộ nhớ trong. **Không** dùng cách thêm `allow-same-origin` vào CSP — làm vậy là trả lại origin thật cho HTML người dùng tự viết, tức là phát cho họ chìa khóa `localStorage` chứa token của editor. Hai preview của client không cần shim vì iframe của chúng cùng origin (document.write / srcdoc không sandbox).
+  Giá phải trả của origin mờ: mọi lần chạm vào `window.sessionStorage` đều ném `SecurityError`, và Reveal 5.1 lẫn 6.0 đều gọi đúng chỗ đó mỗi lần chuyển slide (`store/restoreScrollPosition`) — hệ quả là trên điện thoại **vuốt tới/vuốt lui chết hẳn**, chỉ mở được slide đầu. Bản publish vì thế có sẵn `SLIDE_STORAGE_SHIM` (`server/src/slide-parts.js`, nạp trước script Reveal.js): thử đọc `sessionStorage`, nếu bị chặn thì thay bằng bộ nhớ trong. **Không** dùng cách thêm `allow-same-origin` vào CSP — làm vậy là trả lại origin thật cho HTML người dùng tự viết, tức là phát cho họ chìa khóa `localStorage` chứa token của editor. Hai preview của client không cần shim vì iframe của chúng cùng origin (document.write / srcdoc không sandbox).
+- **Nâng cấp Reveal.js**: phiên bản khai báo đúng hai chỗ — `REVEAL_VERSION` trong `server/src/slide-parts.js` (bài publish, bản export và script vá) và `client/src/reveal-cdn.js` (preview của editor, preview trong Help/Templates). Test `nâng cấp Reveal: server và client cùng phiên bản, đúng layout của 6.x` (`server/test/api.test.js`) bắt hai bên khớp nhau và chốt đường dẫn plugin. Lưu ý mỗi dòng phiên bản lớn một kiểu asset: từ **6.0 plugin math dời từ `plugin/math/math.js` sang `plugin/math.js`**, đổi phiên bản mà quên đường dẫn thì KaTeX chết âm thầm (công thức hiện thô, không báo lỗi). Bài đã publish từ trước giữ nguyên phiên bản mà `buildFullHtml` nhét vào lúc nó ra đời; muốn cả kho dùng chung một bản thì mở rộng `repair-published-slides.cjs` để ghi đè chuỗi `reveal.js/<bản-cũ>/`, hiện tại kho production vẫn trộn 4.3.1 / 5.1.0 / 6.0.2 và cả ba đều chạy được.
 - **Bài đã publish trước khi có guard/shim không tự nhiên được sửa** — chúng là file tĩnh trên đĩa. `scripts/repair-published-slides.cjs` chèn đúng hai mảnh đó vào từng file trong `data/users/*/published/` (mặc định là dry-run, thêm `--apply` mới ghi, đã có mảnh nào thì bỏ qua mảnh đó nên chạy lại vô hại; `--data-dir=` để trỏ kho khác). Hai mảnh và thuật toán chèn nằm ở `server/src/slide-parts.js` để bản publish mới và bản vá không lệch nhau.
 - **Lịch sử phiên bản bản nháp** (`server/src/history.js`): khi đã có nội dung trên đĩa mà người dùng lưu đè, bản cũ được chép vào `data/users/<loginId>/history/<tên-file>.d/<millis>-<ngẫu nhiên>.html` và **giữ 5 bản gần nhất** (bản thứ 6 tự xóa bản cũ nhất). Khôi phục một bản cũng cất bản hiện hành trước khi ghi đè, nên bấm nhầm không mất bài. Tên thư mục lịch sử đã làm sạch ký tự nên không thoát được khỏi thư mục user.
 - **Preview**: editor dựng lại đúng template đó trong một iframe, debounce 500ms khi gõ và 50ms khi chỉ di chuyển con trỏ; khi chỉ đổi vị trí con trỏ thì gọi `Reveal.slide(h, v)` thay vì tải lại iframe.
@@ -367,7 +369,7 @@ Mỗi user có một trang công khai tại **`/<urlSlug>/`** (ví dụ `https:/
 - **Toàn bộ dữ liệu nằm trên một chiếc điện thoại**, không có database và không có bản sao tự động. `./scripts/backup-data.sh` mới là lệnh chạy tay — nên đặt vào cron/Shortcuts tự động trước khi có nhiều người dùng.
 - **Giới hạn tần suất đếm trong RAM của một tiến trình**: khởi động lại server là bộ đếm về 0, và nếu PM2 chạy nhiều instance thì mỗi instance đếm riêng. Đủ cho quy mô một trường, chưa đủ để chống tấn công trải đều.
 - **Import `.pptx` không lấy được media nhúng**: ảnh/video nằm trong file zip chỉ tạo được placeholder `<img src="">`/`<iframe src="">` kèm hướng dẫn tải lên Google Drive / YouTube; bảng, biểu đồ, SmartArt không chuyển được (server báo rõ số lượng để người dùng biết chỗ nào phải làm lại).
-- **Reveal.js 5.1.0 và KaTeX nạp từ CDN**, nên trình chiếu offline hoặc mạng trường chặn CDN sẽ mất hiệu ứng; bản `export` cũng dùng CDN. Muốn offline thật phải đóng gói thư viện vào file xuất.
+- **Reveal.js 6.0.2 và KaTeX nạp từ CDN**, nên trình chiếu offline hoặc mạng trường chặn CDN sẽ mất hiệu ứng; bản `export` cũng dùng CDN. Muốn offline thật phải đóng gói thư viện vào file xuất.
 - **scrypt tốn CPU** — trên điện thoại mỗi lần đăng nhập/đổi mật khẩu mất đáng kể thời gian. Đây là đánh đổi có chủ đích (đừng giảm `N` xuống để đổi lấy tốc độ); đăng nhập hàng loạt cùng lúc (cả lớp 40 em) có thể chậm.
 - **Lượt xem đếm theo request**, không theo người truy cập riêng, và một người bấm F5 nhiều lần vẫn tính nhiều lượt.
 - **Trang cá nhân/gallery render nhiều iframe thumbnail** cho card; đã lazy-load nhưng vẫn nặng trên máy yếu.
@@ -393,7 +395,7 @@ Mỗi user có một trang công khai tại **`/<urlSlug>/`** (ví dụ `https:/
 - [x] Avatar ra file riêng, không nhúng base64 vào db.json.
 - [x] Một token + một tầng API chung (`client/src/api.js`) cho mọi trang.
 - [x] Giới hạn tần suất cho AI và like/comment, security headers toàn cục.
-- [x] Bộ test (`node --test`, 54 test) + ESLint chạy được bằng `npm test` / `npm run lint`.
+- [x] Bộ test (`node --test`, 55 test) + ESLint chạy được bằng `npm test` / `npm run lint`.
 - [x] Script deploy có kiểm tra `/health` và script sao lưu `data/`.
 - [ ] Chế độ điều khiển từ xa (Remote control).
 - [ ] Backup tự động có lịch (cron trên Mac hoặc Termux) + một bản copy off-device.

@@ -134,14 +134,14 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
         assert.ok(src.includes(GUARD), `${file} phải giữ đúng rule của bản publish`);
     }
 
-    // CSP sandbox biến sessionStorage thành bẫy ném SecurityError, còn Reveal 5.1 thì gọi
+    // CSP sandbox biến sessionStorage thành bẫy ném SecurityError, còn Reveal 5/6 thì gọi
     // nó mỗi lần chuyển slide -> vuốt trên điện thoại chết hẳn. Bản publish phải tự đỡ
     // chỗ đó TRƯỚC khi nạp reveal.js.
     const SHIM = "Object.defineProperty(window, 'sessionStorage'";
     assert.ok(slideHtml.includes(SHIM), 'file publish phải có shim sessionStorage');
-    const REVEAL = '<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js">';
-    assert.ok(slideHtml.indexOf(SHIM) < slideHtml.indexOf(REVEAL),
-        'shim phải chạy trước script Reveal.js');
+    const revealTag = slideHtml.match(/<script src="[^"]*\/reveal\.js\/[\d.]+\/reveal\.js"/);
+    assert.ok(revealTag, 'file publish phải nạp Reveal từ CDN');
+    assert.ok(slideHtml.indexOf(SHIM) < revealTag.index, 'shim phải chạy trước script Reveal.js');
     assert.ok(!/allow-same-origin/.test(slide.headers.get('content-security-policy')),
         'không được gỡ origin mờ để đổi lấy việc sửa lỗi');
 
@@ -154,6 +154,37 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
     const landing = await fetch(srv.url + '/');
     assert.ok(!/sandbox/.test(landing.headers.get('content-security-policy') || ''), 'trang editor phải giữ được origin thật');
     assert.equal(landing.status, 200);
+});
+
+// Nâng cấp Reveal là sửa hai hằng số ở hai file khác nhau, và 6.x còn đổi chỗ plugin math.
+// Thiếu một trong hai thì bài publish chạy một bản Reveal, preview trong editor chạy bản
+// kia, hoặc KaTeX mất không một tiếng động — nên bắt buộc test giữ nhịp.
+test('nâng cấp Reveal: server và client cùng phiên bản, đúng layout của 6.x', async () => {
+    const WANT = '6.0.2';
+    const read = rel => fs.readFileSync(path.join(__dirname, rel), 'utf8');
+    const verOf = src => (src.match(/REVEAL_VERSION = '([\d.]+)'/) || [])[1];
+
+    const server = read('../src/slide-parts.js');
+    const client = read('../../client/src/reveal-cdn.js');
+    assert.equal(verOf(server), WANT, 'muốn đổi phiên bản thì cập nhật luôn hằng WANT của test này');
+    assert.equal(verOf(client), WANT, 'client/src/reveal-cdn.js phải đổi cùng lúc với server');
+
+    for (const [name, src] of [['server', server], ['client', client]]) {
+        // Chỉ soi dòng khai báo, không soi cả file: phần comment cũng nhắc tới đường
+        // dẫn kiểu 5.x thì grep thô sẽ báo lỗi oan.
+        const mathLine = src.split('\n').find(line => line.includes('REVEAL_MATH_JS')) || '';
+        assert.ok(mathLine.includes('/plugin/math.js'), `${name} phải nạp plugin/math.js của 6.x`);
+        assert.ok(!mathLine.includes('plugin/math/math.js'),
+            `${name} còn đường dẫn plugin math kiểu 5.x, bản đó không còn trên CDN`);
+    }
+    for (const file of ['src/reveal-preview.js', 'src/main.js']) {
+        assert.ok(read(`../../client/${file}`).includes('reveal-cdn.js'),
+            `${file} phải lấy URL Reveal từ reveal-cdn.js thay vì tự ghi`);
+    }
+
+    const html = await (await fetch(`${srv.url}/show/tmaster/hist.html`)).text();
+    assert.ok(html.includes(`/reveal.js/${WANT}/reveal.js`), 'bài publish phải mang đúng phiên bản');
+    assert.ok(html.includes(`/reveal.js/${WANT}/plugin/math.js`), 'bài publish phải nạp plugin math của 6.x');
 });
 
 // Route cấp một được khớp không phân biệt hoa/thường, nên "Gallery" cũng che mất

@@ -1,0 +1,15 @@
+// Nguồn duy nhất của client về phiên bản Reveal nạp từ CDN. Phải khớp
+// server/src/slide-parts.js — test 'nang cap Reveal...' so hai bên — để preview trong
+// editor/Help và bản publish người dùng nhận được không chạy hai bản Reveal khác nhau.
+// Từ 6.0 plugin math nằm ở plugin/math.js (bản 5.x là plugin/math/math.js).
+export const REVEAL_VERSION = '6.0.2';
+export const REVEAL_CDN = `https://cdnjs.cloudflare.com/ajax/libs/reveal.js/${REVEAL_VERSION}`;
+
+export const REVEAL_CSS = [
+    `<link rel="stylesheet" href="${REVEAL_CDN}/reset.min.css">`,
+    `<link rel="stylesheet" href="${REVEAL_CDN}/reveal.min.css">`,
+    `<link rel="stylesheet" href="${REVEAL_CDN}/theme/black.min.css">`
+].join('\n    ');
+
+export const REVEAL_JS = `<script src="${REVEAL_CDN}/reveal.js"></script>`;
+export const REVEAL_MATH_JS = `<script src="${REVEAL_CDN}/plugin/math.js"></script>`;

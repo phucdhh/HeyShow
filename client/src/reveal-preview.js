@@ -1,5 +1,7 @@
 // Giống hệt template publish của server (server/src/app.js - buildFullHtml)
 // để preview trong Help/Templates trùng khớp thứ người xem nhận được.
+import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS } from './reveal-cdn.js';
+
 export function previewHtml(code) {
     const template = `<!DOCTYPE html>
 <html lang="vi">
@@ -7,9 +9,7 @@ export function previewHtml(code) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Preview - HeyShow</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css">
+    ${REVEAL_CSS}
     <style>
         /* Giống hệt chốt chặn trong buildFullHtml của server: CSS của bài viết ghi
            display:!important lên .reveal .slides section sẽ làm mọi slide chồng lên nhau. */
@@ -27,8 +27,8 @@ export function previewHtml(code) {
             __HEYSHOW_CODE__
         </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/math/math.js"></script>
+    ${REVEAL_JS}
+    ${REVEAL_MATH_JS}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const masters = document.querySelectorAll('section-master');

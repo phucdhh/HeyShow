@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
 const { createJsonStore, atomicWrite } = require('./storage');
-const { SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM } = require('./slide-parts');
+const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM } = require('./slide-parts');
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
@@ -1397,9 +1397,7 @@ function buildFullHtml(fileName, rawHtml) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(fileName)} - HeyShow</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css">
+    ${REVEAL_CSS}
     <style>
         /* Chế độ thumbnail của gallery (?embed=1): ẩn điều khiển để ảnh thu nhỏ gọn mắt */
         .heyshow-embed .reveal .controls,
@@ -1414,8 +1412,8 @@ ${SLIDE_HEAD_GUARD}
             ${rawHtml}
         </div>
     </div>${SLIDE_STORAGE_SHIM}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/math/math.js"></script>
+    ${REVEAL_JS}
+    ${REVEAL_MATH_JS}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (new URLSearchParams(location.search).has('embed')) {

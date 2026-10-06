@@ -3,6 +3,18 @@
 // repair-published-slides.cjs (bài đã publish từ trước) và test dùng chung một bản,
 // không chỗ nào tự viết lại rồi lệch nhau.
 
+// Phiên bản Reveal nạp từ CDN. Nâng cấp là sửa REVEAL_VERSION ở đây và ở
+// client/src/reveal-cdn.js — test so hai bản phải khớp nhau.
+// Từ 6.0 plugin math dời từ plugin/math/math.js sang plugin/math.js, nên đổi phiên
+// bản mà quên đường dẫn thì KaTeX chết âm thầm (không lỗi gì ngoài công thức thô).
+const REVEAL_VERSION = '6.0.2';
+const REVEAL_CDN = `https://cdnjs.cloudflare.com/ajax/libs/reveal.js/${REVEAL_VERSION}`;
+const REVEAL_CSS = [`<link rel="stylesheet" href="${REVEAL_CDN}/reset.min.css">`,
+    `<link rel="stylesheet" href="${REVEAL_CDN}/reveal.min.css">`,
+    `<link rel="stylesheet" href="${REVEAL_CDN}/theme/black.min.css">`].join('\n    ');
+const REVEAL_JS = `<script src="${REVEAL_CDN}/reveal.js"></script>`;
+const REVEAL_MATH_JS = `<script src="${REVEAL_CDN}/plugin/math.js"></script>`;
+
 // Mảnh CSS chèn vào đầu mọi file slide. Phải giống hệt bản client
 // (client/src/reveal-preview.js, client/src/main.js) để preview và bản publish không lệch nhau.
 const SLIDE_HEAD_GUARD = `
@@ -82,4 +94,7 @@ function patchSlideHtml(html) {
     return { html: out, added };
 }
 
-module.exports = { SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER, patchSlideHtml };
+module.exports = {
+    REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS,
+    SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER, patchSlideHtml
+};

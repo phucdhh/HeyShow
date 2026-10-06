@@ -14,6 +14,7 @@ import { lintGutter } from "@codemirror/lint";
 import { slideGutter, slidesField, sectionLinter, slideStatus, slideAt, topSectionAt } from "./slides.js";
 import { colorSwatches, closeColorPicker } from "./color-picker.js";
 import { get, post, getToken, setToken, clearToken, tokenPayload, onUnauthorized, ApiError } from "./api.js";
+import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS } from "./reveal-cdn.js";
 
 // Các DOM elements
 const editorContainer = document.getElementById('editor-container');
@@ -213,9 +214,7 @@ function updatePreview(fullReload = true) {
     <html>
     <head>
         <meta charset="utf-8">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css">
+        ${REVEAL_CSS}
         <style>
             /* Reset iframe giống hệt với trang Public */
             html, body { width: 100%; height: 100%; margin: 0; padding: 0; background-color: #111; }
@@ -236,9 +235,9 @@ function updatePreview(fullReload = true) {
                 ${code}
             </div>
         </div>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js"></script>
+        ${REVEAL_JS}
         <!-- Plugin Math (KaTeX) của Reveal.js -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/math/math.js"></script>
+        ${REVEAL_MATH_JS}
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 // Xử lý thẻ section-master
