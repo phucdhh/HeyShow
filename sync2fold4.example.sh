@@ -2,6 +2,10 @@
 #
 # Deploy HeyShow từ máy phát triển lên Fold 4 (Termux + PM2).
 #
+# Đây là BẢN MẪU không chứa địa chỉ máy thật. Tạo file riêng rồi sửa host:
+#   cp sync2fold4.example.sh sync2fold4.sh && ${EDITOR:-vi} sync2fold4.sh
+#   (sync2fold4.sh đã nằm trong .gitignore vì chứa IP LAN + user Termux)
+#
 #   ./sync2fold4.sh                build + test + đồng bộ + reload + kiểm tra /health
 #   ./sync2fold4.sh --dry-run      chỉ hiển thị những gì sẽ đồng bộ, không ghi gì lên điện thoại
 #   ./sync2fold4.sh --skip-tests   bỏ qua bộ test khi cần deploy gấp
@@ -14,8 +18,8 @@
 
 set -euo pipefail
 
-DEPLOY_USER="${DEPLOY_USER:-u0_a341}"
-DEPLOY_HOST="${DEPLOY_HOST:-192.168.1.84}"
+DEPLOY_USER="${DEPLOY_USER:-them-vao-sync2fold4.sh-cua-ban}"
+DEPLOY_HOST="${DEPLOY_HOST:-thay-bang-ip-cua-dien-thoai}"
 DEPLOY_PORT="${DEPLOY_PORT:-8022}"
 SERVER_PORT="${SERVER_PORT:-3000}"
 REMOTE_DIR="${REMOTE_DIR:-~/HeyShow}"

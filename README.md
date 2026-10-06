@@ -87,15 +87,16 @@ HeyShow/
 ├── scripts/
 │   └── backup-data.sh             # Sao lưu data/ từ Fold 4 (hoặc --local), giữ N bản
 ├── cf_setup.js                    # Tạo/cập nhật Cloudflare Tunnel + DNS (chỉ nhận secret qua env)
-├── sync2fold4.sh                  # test + build + rsync + pm2 reload + kiểm tra /health
+├── sync2fold4.sh                  # (KHÔNG commit) test + build + rsync + pm2 reload + hỏi /health
+├── sync2fold4.example.sh          # Bản mẫu của script trên, chứa placeholder thay vì địa chỉ thật
 ├── eslint.config.js               # ESLint flat config (no-undef = error)
-├── package.json                   # "npm run lint" / "npm test" cho cả repo
+├── package.json                   # "npm run lint" / "npm test" cho toàn repo
 ├── .editorconfig                  # Thụt lề thống nhất (4 space, LF)
-├── .gitignore                     # loại trừ data/, .env, node_modules, dist, log
+├── .gitignore                     # loại trừ data/, .env, node_modules, dist, log, sync2fold4.sh
 └── README.md
 ```
 
-Repo public: `https://github.com/phucdhh/HeyShow` — **không bao giờ** chứa `data/`, `.env`, `client/dist/` hay `node_modules/`.
+Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) — **không bao giờ** chứa `data/`, `.env`, `client/dist/`, `node_modules/` hay `sync2fold4.sh` (file này giữ địa chỉ SSH nội mạng của điện thoại). Người clone repo về dùng thì copy `sync2fold4.example.sh` thành `sync2fold4.sh` và điền thông tin máy của mình; `scripts/backup-data.sh` tự đọc lại ba giá trị `DEPLOY_*` đó.
 
 ## 4. Công nghệ sử dụng
 
@@ -119,11 +120,16 @@ Repo public: `https://github.com/phucdhh/HeyShow` — **không bao giờ** chứ
    ```
    Muốn test giao diện trên một kho dữ liệu riêng: `HEYSHOW_DATA_DIR=/tmp/du-lieu-thu node server/src/app.js`.
 2. Deploy bằng `./sync2fold4.sh`. Script chạy theo thứ tự **test → build → rsync → `npm install --omit=dev` → `pm2 reload` → hỏi `/health`**, và dừng lại nếu một bước hỏng để không đưa code lỗi lên server. `data/`, `.env`, `node_modules`, `client/dist` luôn nằm ngoài phạm vi rsync.
+   Lần đầu (và mỗi lần clone repo từ GitHub về) tạo file deploy từ bản mẫu rồi điền địa chỉ máy — file thật bị gitignore nên không bao giờ bị commit:
+   ```bash
+   cp sync2fold4.example.sh sync2fold4.sh
+   # sửa DEPLOY_USER / DEPLOY_HOST trong sync2fold4.sh, hoặc truyền lúc chạy:
+   DEPLOY_HOST=<ip-cua-dien-thoai> DEPLOY_USER=<user-termux> ./sync2fold4.sh
+   ```
    ```bash
    ./sync2fold4.sh --dry-run    # chỉ xem sẽ đồng bộ những gì, không ghi lên điện thoại
    ./sync2fold4.sh --skip-tests # deploy gấp
    ./sync2fold4.sh --no-build   # dùng bản dist/ có sẵn
-   DEPLOY_HOST=192.168.1.84 DEPLOY_PORT=8022 DEPLOY_USER=u0_a341 ./sync2fold4.sh
    ```
 3. Sao lưu dữ liệu người dùng (việc này **phải làm định kỳ** — toàn bộ tài khoản và bài vở chỉ nằm trong `data/` trên một chiếc điện thoại):
    ```bash

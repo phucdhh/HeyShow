@@ -12,16 +12,32 @@
 
 set -euo pipefail
 
-DEPLOY_USER="${DEPLOY_USER:-u0_a341}"
-DEPLOY_HOST="${DEPLOY_HOST:-192.168.1.84}"
-DEPLOY_PORT="${DEPLOY_PORT:-8022}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Địa chỉ máy chủ thật không nằm trong git: chúng chỉ sống trong sync2fold4.sh,
+# file bị gitignore. Script này đọc lại giá trị mặc định ở đó để khỏi nhập tay;
+# biến môi trường vẫn được ưu tiên cao nhất.
+SYNC_FILE="$ROOT_DIR/sync2fold4.sh"
+sync_default() {
+    [[ -f "$SYNC_FILE" ]] || return 0
+    sed -n "s|^[[:space:]]*$1=\"\\\${$1:-\\(.*\\)}\".*|\\1|p" "$SYNC_FILE" | head -n1
+}
+
+DEPLOY_USER="${DEPLOY_USER:-$(sync_default DEPLOY_USER)}"
+DEPLOY_HOST="${DEPLOY_HOST:-$(sync_default DEPLOY_HOST)}"
+DEPLOY_PORT="${DEPLOY_PORT:-$(sync_default DEPLOY_PORT)}"
 REMOTE_DIR="${REMOTE_DIR:-HeyShow}"
 BACKUP_DIR="${HEYSHOW_BACKUP_DIR:-$HOME/HeyShowBackups}"
 KEEP="${KEEP:-14}"
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE=remote
 if [[ "${1:-}" == "--local" ]]; then MODE=local; fi
+
+if [[ "$MODE" == remote && -z "$DEPLOY_USER$DEPLOY_HOST" ]]; then
+    echo "Chưa có địa chỉ máy chủ. Chạy: cp sync2fold4.example.sh sync2fold4.sh rồi điền" >&2
+    echo "DEPLOY_USER/DEPLOY_HOST, hoặc truyền trực tiếp: DEPLOY_HOST=... DEPLOY_USER=... $0" >&2
+    exit 1
+fi
 
 mkdir -p "$BACKUP_DIR"
 OUT="${BACKUP_DIR}/heyshow-data-$(date +%Y%m%d-%H%M%S).tar.gz"
