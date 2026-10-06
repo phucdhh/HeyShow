@@ -218,6 +218,69 @@ test('textimport: beamer tách frame, bỏ comment LaTeX, lấy ghi chú \\note'
     assert.ok(draft.includes('$\\varepsilon$'), 'giữ công thức trong bullet');
 });
 
+// Bài báo lỗi của người dùng: file beamer import vào thì công thức trong "\[ ... \]" và
+// "\( ... \)" không hiện được. Nguyên nhân không phải KaTeX (plugin 6.0.2 nhận đủ bốn kiểu
+// dấu) mà là bản nháp bị chính các bước gỡ lệnh LaTeX của textimport làm hỏng trước khi
+// kịp tới tay KaTeX: \begin{array} trong "\[ \]" bị dropEnv vứt, \begin{align*} thì mất
+// luôn cặp dấu. Test này giữ nguyên từng kiểu đã chết.
+test('textimport: beamer giữ công thức nguyên vẹn để KaTeX hiển thị', () => {
+    const tex = [
+        '\\begin{frame}{Đạo hàm}',
+        'Hàm số \\( f(x) = x^2 \\) liên tục.',
+        '\\[',
+        'f\'(x) = 2x \\quad \\forall x \\in \\mathbb{R}',
+        '\\]',
+        'Tích phân $ \\int_0^1 x\\,dx = \\tfrac{1}{2} $.',
+        '\\end{frame}',
+        '',
+        '\\begin{frame}{Bảng xét dấu}',
+        '\\[ \\begin{array}{|c|cc|}\\hline x & 0 & 1 \\hline \\end{array} \\]',
+        '\\begin{equation}',
+        '\\lim_{h \\to 0} \\frac{f(x+h)-f(x)}{h}',
+        '\\end{equation}',
+        '\\begin{align*}',
+        'u_n &= \\frac{1}{n} \\\\',
+        'v_n &= \\frac{1}{n^2}',
+        '\\end{align*}',
+        '\\end{frame}',
+        '',
+        '\\begin{frame}{Ứng dụng}',
+        '\\begin{itemize}',
+        '  \\item Tỷ lệ đạt 50\\%, mỗi em 5\\$.',
+        '  \\item Hàm \\[ f(x)=\\begin{cases} x & x \\ge 0 \\\\ -x & x<0 \\end{cases} \\]',
+        '\\end{itemize}',
+        '\\end{frame}'
+    ].join('\n');
+
+    const draft = textimport.buildDraftHtml(textimport.analyze(tex, 'tex'), 'daoham.tex');
+    const flat = draft.replace(/\s+/g, ' ');
+    // Bản giải mã entity: KaTeX đọc text node nên "&amp;" trong HTML chính là "&" mà toán
+    // cần, so sánh trên bản này để test không phải viết tay từng entity.
+    const tho = flat.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+    // Mỗi công thức phải còn đủ cả cặp dấu lẫn lệnh bên trong: mất cặp dấu thì trình duyệt
+    // in ra LaTeX thô, mất lệnh thì KaTeX nhận phải chuỗi rỗng.
+    const cmds = ['\\( f(x) = x^2 \\)', '\\[ f\'(x) = 2x \\quad \\forall x \\in \\mathbb{R} \\]',
+        '$ \\int_0^1 x\\,dx = \\tfrac{1}{2} $', '\\lim_{h \\to 0} \\frac{f(x+h)-f(x)}{h}',
+        '\\begin{cases} x & x \\ge 0 \\\\ -x & x<0 \\end{cases}', 'u_n &= \\frac{1}{n} \\\\ v_n'];
+    for (const c of cmds) assert.ok(tho.includes(c), `công thức bị phá: ${c}`);
+
+    // array là môi trường TOÁN (bảng xét dấu), không phải bảng HTML: phải còn trong \[ \]
+    assert.ok(tho.includes('\\begin{array}{|c|cc|}\\hline x & 0 & 1 \\hline \\end{array}'),
+        'array trong \\[ \\] bị dropEnv ăn mất');
+    // môi trường tự đứng phải được bọc dấu ngăn cách, nếu không KaTeX không nhận ra là toán
+    assert.ok(/\\\[ \\begin\{equation\}/.test(tho), 'equation phải được bọc thành \\[ ... \\]');
+    assert.ok(/\\\[ \\begin\{align\*\}/.test(tho), 'align* phải được bọc thành \\[ ... \\]');
+
+    // \$ và \% là ký tự thường, không được phép mở/đóng công thức
+    assert.ok(flat.includes('50%') && flat.includes('5$'), '\\% và \\$ phải thành ký tự thường');
+    assert.ok(!/5.*\\\$/.test(tho), '\\$ còn nguyên dấu chéo sẽ bị KaTeX hiểu là toán');
+
+    // Không được để lọt ký tự điều khiển dùng làm token, cũng không escape hai lần
+    assert.ok(!Array.from(draft).some(ch => ch.charCodeAt(0) < 5), 'token nội bộ lọt ra bản nháp');
+    assert.ok(!/&amp;(amp|lt|gt|#39);/.test(draft), 'escape HTML hai lần');
+});
+
 test('textimport: file trống hoặc không có frame thì báo lỗi rõ ràng', () => {
     assert.throws(() => textimport.analyze('\n\n   \n', 'md'), /Không tìm thấy slide nào/);
     assert.throws(() => textimport.analyze('\\begin{document}\\end{document}', 'tex'), /begin\{frame\}/);

@@ -142,7 +142,11 @@ function addImage(slide, alt, src) {
 // ============================ LATEX BEAMER ============================
 
 function analyzeTex(text) {
-    text = stripTexComments(String(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'));
+    // "\%" là dấu % trong câu chữ, không phải mở comment. Tách nó ra ký tự khác trước khi
+    // cắt comment, nếu không "50\% của học sinh" làm mất cả đoạn văn phía sau.
+    text = String(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').replace(/\\%/g, PCT_MARK);
+    text = stripTexComments(text).split(PCT_MARK).join('\\%');
+    MATH = []; // kho token công thức chỉ sống trong một lần import (hàm này chạy đồng bộ, không có await)
     const slides = [];
     const meta = { title: braceArg(text, 'title'), author: braceArg(text, 'author'), date: braceArg(text, 'date'), institute: braceArg(text, 'institute') };
     if (meta.title && /\\maketitle\b/.test(text)) {
@@ -218,7 +222,10 @@ function splitTopLevel(str, marker) {
 
 function parseTexFrame(title, body, index) {
     const slide = newSlide(index);
-    let s = body;
+    // Giữ công thức TRƯỚC khi cắt môi trường và tách đoạn: \[ ... \] thường dài vài dòng
+    // và có thể bị dòng trống cắt đôi, còn \begin{array} trong "\[ \]" sẽ bị dropEnv vứt
+    // mất nếu chờ tới lượt inlineTex.
+    let s = stashMath(body);
     const ft = /\\frametitle(?:<[^>]*>)?\s*\{([^{}]*)\}/.exec(s); if (ft) title = ft[1];
     s = s.replace(/\\frametitle(?:<[^>]*>)?\s*\{[^{}]*\}/g, '');
     const fs = /\\framesubtitle(?:<[^>]*>)?\s*\{([^{}]*)\}/.exec(s); if (fs) slide.subtitle = inlineTex(fs[1]);
@@ -285,10 +292,44 @@ function addTexImage(slide, path) {
 
 const TEX_FMT = { textbf: 'strong', textit: 'em', emph: 'em', texttt: 'code', underline: 'u', alert: 'strong', textsf: 'span', textrm: 'span', textsc: 'span' };
 
+// ---- Giữ công thức toán ----
+// Các bước gỡ lệnh LaTeX (\frac, \sqrt, \begin{...}, dấu ngoặc {}) ở inlineTex dưới đây
+// phá nát công thức nếu để nó đi ngang qua: hệ quả là bản nháp còn trơ "\[ \]" rỗng hoặc
+// mất hẳn cặp dấu, KaTeX không còn gì để hiển thị. Nên mỗi vùng toán được đổi thành token
+// \u0002n\u0002 ngay từ đầu, chỉ mở lại khi viết ra HTML (lúc đó escapeHtml chạy đúng một
+// lần cho nội dung toán). Token chỉ gồm ký tự điều khiển + chữ số nên không quy tắc gỡ
+// lệnh nào bên dưới chạm tới được.
+let MATH = [];
+const TEXT_DOLLAR = '\u0003'; // \$ trong văn bản là dấu $ thường, không phải mở công thức
+const PCT_MARK = '\u0004';    // chỗ giữ "\%" khi cắt comment, xem analyzeTex
+
+// Thứ tự từ phạm vi rộng nhất: $$..$$ và \[..\] có thể chứa $..$ bên trong, đảo ngược
+// hai bước đầu là cắt đôi công thức.
+const MATH_PAIRS = [
+    /\$\$[\s\S]+?\$\$/g,
+    /\\\[[\s\S]+?\\\]/g,
+    /\\\([\s\S]+?\\\)/g,
+    /\$[^$\n]+\$/g
+];
+
+// Môi trường toán tự đứng một dòng, không có dấu ngăn cách bao ngoài. KaTeX chỉ nhận
+// $$..$$ / \[..\] / $..$ / \(..\) nên phải bọc lại, nếu không "\begin{align}" bị gỡ
+// lệnh thành chữ thường và công thức mất hút.
+const MATH_ENV = /\\begin\{(equation|eqnarray|align|gather|multline|alignat|flalign)(\*?)\}[\s\S]*?\\end\{\1\2\}/g;
+
+function stashMath(str) {
+    let s = String(str).replace(/\\\$/g, TEXT_DOLLAR);
+    for (const re of MATH_PAIRS) s = s.replace(re, tex => { MATH.push(tex); return `\u0002${MATH.length - 1}\u0002`; });
+    s = s.replace(MATH_ENV, env => { MATH.push(`\\[ ${env} \\]`); return `\u0002${MATH.length - 1}\u0002`; });
+    return s;
+}
+function restoreMath(str) {
+    // eslint-disable-next-line no-control-regex -- \u0002/\u0003 là ký tự đánh dấu tạm
+    return str.replace(/\u0002(\d+)\u0002/g, (_, i) => escapeHtml(MATH[+i])).split(TEXT_DOLLAR).join('$');
+}
+
 function inlineTex(str) {
-    let s = escapeHtml(String(str));
-    const math = [];
-    s = s.replace(/\$\$[\s\S]+?\$\$|\$[^$\n]+\$|\\\([\s\S]+?\\\)|\\\[([\s\S]+?)\\\]/g, mm => { math.push(mm); return `\u0001${math.length - 1}\u0001`; });
+    let s = escapeHtml(stashMath(String(str)));
     let prev;
     do {
         prev = s;
@@ -300,9 +341,7 @@ function inlineTex(str) {
     s = s.replace(/\\[a-zA-Z]+\*?\s*(\[[^\]]*\])?\s*\{([^{}]*)\}/g, '$2');
     s = s.replace(/\\[a-zA-Z]+\*?/g, '');
     s = s.replace(/[{}]/g, '');
-    // eslint-disable-next-line no-control-regex -- \u0001 là ký tự đánh dấu công thức đã tạm gỡ
-    s = s.replace(/\u0001(\d+)\u0001/g, (_, i) => math[+i]);
-    return s.replace(/\s+/g, ' ').trim();
+    return restoreMath(s).replace(/\s+/g, ' ').trim();
 }
 
 // ============================ SINH BẢN NHÁP ============================
@@ -359,7 +398,7 @@ function buildDraftHtml(analysis, origName) {
     const kindLabel = analysis.kind === 'tex' ? 'LaTeX beamer' : 'Markdown';
     const header =
         `<!-- Nhập từ file "${escapeHtml(origName)}" (${kindLabel}) bằng HeyShow Import.\n`
-        + `     Công thức toán ($...$) giữ nguyên để KaTeX hiển thị.\n`
+        + `     Công thức toán giữ nguyên để KaTeX hiển thị: $...$, $$...$$, \\(...\\), \\[...\\]\n`
         + `     Các mục có ⚠ cần bổ sung thủ công:\n`
         + `     - ẢNH: tải lên Google Drive → Chia sẻ "Bất kỳ ai có đường dẫn" → src="https://lh3.googleusercontent.com/d/<FILE_ID>"\n`
         + `     - VIDEO: tải lên YouTube hoặc Gan Jing World → dán link nhúng (embed) vào src của iframe\n`
