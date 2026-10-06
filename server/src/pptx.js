@@ -274,6 +274,8 @@ function buildDraftHtml(analysis, origName) {
 // Suy tên bản nháp từ tên file pptx gốc
 function draftNameFrom(origName) {
     let base = String(origName || '').replace(/\.[^.]*$/, '');
+    // Bỏ cả ký tự điều khiển: tên file lấy từ .pptx người dùng tải lên, không tin được
+    // eslint-disable-next-line no-control-regex
     base = base.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
     return base || 'pptx-import';
 }

@@ -300,6 +300,7 @@ function inlineTex(str) {
     s = s.replace(/\\[a-zA-Z]+\*?\s*(\[[^\]]*\])?\s*\{([^{}]*)\}/g, '$2');
     s = s.replace(/\\[a-zA-Z]+\*?/g, '');
     s = s.replace(/[{}]/g, '');
+    // eslint-disable-next-line no-control-regex -- \u0001 là ký tự đánh dấu công thức đã tạm gỡ
     s = s.replace(/\u0001(\d+)\u0001/g, (_, i) => math[+i]);
     return s.replace(/\s+/g, ' ').trim();
 }

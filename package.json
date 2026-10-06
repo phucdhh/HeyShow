@@ -1,0 +1,16 @@
+{
+  "name": "heyshow-tooling",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bộ công cụ phát triển (lint/test) cho HeyShow. Server và client có package.json riêng.",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test server/test/*.test.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "eslint": "^9.37.0",
+    "globals": "^16.3.0"
+  }
+}
