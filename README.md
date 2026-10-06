@@ -293,6 +293,7 @@ Quy chuẩn dữ liệu hồ sơ: `fullName` ≤ 80 ký tự; `phone` chỉ nh�
 - **Bản nháp** chỉ chứa các thẻ `<section>` (và `<section-master>`), không cần `<html>`, `<head>`.
 - **`<section-master>`**: nội dung bên trong thẻ này được gỡ ra và chèn vào đầu **mỗi slide lá** (section không chứa section con) khi render. Dùng để đặt header/footer/nền chung cho toàn bài.
 - **Publish**: server bọc nội dung nháp vào template HTML đầy đủ (Reveal.js + theme black + plugin KaTeX cho công thức toán) và ghi vào `published/`.
+- **CSS của bài viết không được phép làm mất slide.** Bài do AI sinh hay người dùng tự tô màu thường ghi `.reveal .slides section { display:flex !important }`; `!important` đó thắng quy tắc "ẩn slide chưa tới" của Reveal nên mọi slide cùng hiện và chồng lên nhau — trên điện thoại vuốt tới/vuốt lui chỉ đổi class chứ không đổi hình. Cả ba bản template (`buildFullHtml` của server, `previewHtml` trong Help/Templates, preview của editor) cùng chèn một rule ẩn lại `section:not(.present)`, loại trừ chế độ tổng quan (`.overview`) và in/PDF (`html.reveal-print`) để hai chế độ đó vẫn hiển thị đủ mọi slide.
 - **Cô lập origin khi trình chiếu**: đường dẫn chính là `/show/<slug>/<file>.html`. Mọi file HTML đi qua ngả này được gắn:
   ```
   Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups allow-modals
