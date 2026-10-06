@@ -10,6 +10,16 @@ export function previewHtml(code) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css">
+    <style>
+        /* Giống hệt chốt chặn trong buildFullHtml của server: CSS của bài viết ghi
+           display:!important lên .reveal .slides section sẽ làm mọi slide chồng lên nhau. */
+        @media screen {
+            html:not(.reveal-print) .reveal:not(.overview) .slides>section:not(.present),
+            html:not(.reveal-print) .reveal:not(.overview) .slides>section>section:not(.present) {
+                display: none !important;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="reveal">

@@ -1401,6 +1401,19 @@ function buildFullHtml(fileName, rawHtml) {
         .heyshow-embed .reveal .controls,
         .heyshow-embed .reveal .progress,
         .heyshow-embed .slide-number { display: none !important; }
+
+        /* Bài viết (đặc biệt bài do AI sinh) hay ghi đại .reveal .slides section {
+           display:flex !important } để tô màu slide. !important của họ thắng quy tắc
+           "ẩn slide chưa tới" của Reveal, thành ra mọi slide cùng hiện và chồng lên nhau:
+           trên điện thoại vuốt không thấy gì chuyển. Rule này chỉ ẩn lại phần KHÔNG phải
+           slide hiện tại, độ đặc hiệu cao hơn, còn chế độ tổng quan (Esc) và in/PDF
+           (html.reveal-print) thì nhường lại cho Reveal. */
+        @media screen {
+            html:not(.reveal-print) .reveal:not(.overview) .slides>section:not(.present),
+            html:not(.reveal-print) .reveal:not(.overview) .slides>section>section:not(.present) {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>

@@ -124,6 +124,16 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
     assert.match(slide.headers.get('content-security-policy'), /^sandbox\b/, 'slide phải chạy ở origin mờ');
     assert.equal(slide.headers.get('cache-control'), 'no-cache', 'republish phải có hiệu lực ngay');
 
+    // Chốt chặn chống CSS của bài viết làm mọi slide chồng lên nhau (vuốt trên điện thoại
+    // không còn thay đổi gì). Ba bản template phải mang cùng một rule.
+    const slideHtml = await slide.text();
+    const GUARD = '.reveal:not(.overview) .slides>section:not(.present)';
+    assert.ok(slideHtml.includes(GUARD), 'file publish phải có rule ẩn slide không hiện tại');
+    for (const file of ['src/reveal-preview.js', 'src/main.js']) {
+        const src = fs.readFileSync(path.join(__dirname, '..', '..', 'client', file), 'utf8');
+        assert.ok(src.includes(GUARD), `${file} phải giữ đúng rule của bản publish`);
+    }
+
     // link kiểu cũ /<slug>/<file>.html vẫn mở được vì nhiều người đã chia sẻ
     const legacy = await fetch(`${srv.url}/tmaster/hist.html`);
     assert.equal(legacy.status, 200);

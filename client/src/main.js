@@ -219,6 +219,15 @@ function updatePreview(fullReload = true) {
         <style>
             /* Reset iframe giống hệt với trang Public */
             html, body { width: 100%; height: 100%; margin: 0; padding: 0; background-color: #111; }
+
+            /* Chốt chặn giống buildFullHtml của server: CSS của bài viết ghi
+               display:!important lên .reveal .slides section sẽ làm mọi slide chồng lên nhau. */
+            @media screen {
+                html:not(.reveal-print) .reveal:not(.overview) .slides>section:not(.present),
+                html:not(.reveal-print) .reveal:not(.overview) .slides>section>section:not(.present) {
+                    display: none !important;
+                }
+            }
         </style>
     </head>
     <body>
