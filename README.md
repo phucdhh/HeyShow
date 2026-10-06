@@ -119,7 +119,7 @@ Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) �
    npm run lint                 # ESLint toàn repo
    ```
    Muốn test giao diện trên một kho dữ liệu riêng: `HEYSHOW_DATA_DIR=/tmp/du-lieu-thu node server/src/app.js`.
-2. Deploy bằng `./sync2fold4.sh`. Script chạy theo thứ tự **test → build → rsync → `npm install --omit=dev` → `pm2 reload` → hỏi `/health`**, và dừng lại nếu một bước hỏng để không đưa code lỗi lên server. `data/`, `.env`, `node_modules`, `client/dist` luôn nằm ngoài phạm vi rsync.
+2. Deploy bằng `./sync2fold4.sh`. Script chạy theo thứ tự **test → build → rsync → `npm install --omit=dev` → `pm2 reload` → hỏi `/health`**, và dừng lại nếu một bước hỏng để không đưa code lỗi lên server. `data/`, `.env`, `node_modules` và `.git` nằm ngoài phạm vi rsync; **`client/dist/` thì được đưa lên** vì server phục vụ trực tiếp thư mục đó.
    Lần đầu (và mỗi lần clone repo từ GitHub về) tạo file deploy từ bản mẫu rồi điền địa chỉ máy — file thật bị gitignore nên không bao giờ bị commit:
    ```bash
    cp sync2fold4.example.sh sync2fold4.sh

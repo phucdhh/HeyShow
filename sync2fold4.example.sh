@@ -45,9 +45,11 @@ step() { printf '\n==> %s\n' "$1"; }
 
 if [[ $DRY_RUN -eq 1 ]]; then
     step 'Dry run: những file sẽ được đồng bộ'
+    # Danh sách exclude ở đây phải khớp lệnh thật bên dưới (client/dist được đưa lên,
+    # vì server phục vụ thẳng thư mục đó), nếu không dry run sẽ báo sai.
     rsync -avni --delete \
         --exclude 'node_modules' --exclude 'client/node_modules' --exclude 'server/node_modules' \
-        --exclude 'client/dist' --exclude 'data' --exclude '.git' --exclude '.env' --exclude '.env.*' \
+        --exclude 'data' --exclude '.git' --exclude '.env' --exclude '.env.*' \
         --exclude '*.log' --exclude '.backups' --exclude '.DS_Store' \
         ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_DIR}/"
     echo '--- Dry run kết thúc, không có gì được ghi. ---'
