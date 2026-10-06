@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeyShow - Quản trị hệ thống</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --bg-panel: #ffffff;
+        --muted: #6b7280;
+        --ink: #1c1917;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 2rem;
+        display: flex;
+        justify-content: center;
+      }
+      .container {
+        width: 100%;
+        max-width: 920px;
+      }
+      .panel {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      h1, h2 { color: var(--accent-strong); margin-top: 0; }
+      .form-group {
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+      }
+      label { margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: bold; }
+      input {
+        background-color: var(--bg-panel);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 1rem;
+      }
+      input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(245,158,11,0.2); }
+      button {
+        background-color: var(--accent-color);
+        color: var(--ink);
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      button:hover { background-color: #fbbf24; }
+      .hidden { display: none; }
+      .error-msg { color: #dc2626; font-size: 0.9rem; margin-top: 5px; }
+      .success-msg { color: #16a34a; font-size: 0.9rem; margin-top: 5px; }
+
+      /* Bảng người dùng */
+      table.users { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
+      table.users th, table.users td { border-bottom: 1px solid var(--border-color); padding: 8px 6px; text-align: left; vertical-align: middle; }
+      table.users th { color: var(--muted); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+      table.users td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .u-ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 8px; background: var(--border-color); }
+      .u-name { font-weight: 700; }
+      .u-sub { color: var(--muted); font-size: 0.75rem; }
+      .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+      .badge.admin { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+      .badge.user { background: #f3f4f6; color: #4b5563; border: 1px solid var(--border-color); }
+      button.mini {
+        padding: 4px 8px; font-size: 0.75rem; margin: 1px 2px 1px 0; border-radius: 4px;
+        border: 1px solid var(--border-color); background: var(--bg-panel); color: var(--text-color);
+      }
+      button.mini:hover { border-color: var(--accent-color); }
+      button.mini.danger { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+      tr.reset-row td { background: #fffbeb; }
+      tr.reset-row input { display: inline-block; width: 200px; padding: 6px; font-size: 0.85rem; }
+      .create-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 10px; align-items: end; }
+      .create-grid select { padding: 9px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-panel); color: var(--text-color); font-size: 1rem; }
+
+      /* Tabs */
+      .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border-color); margin-bottom: 18px; }
+      button.tab {
+        background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent;
+        border-radius: 0; padding: 9px 16px; font-size: 0.92rem; font-weight: 700; margin-top: 0;
+      }
+      button.tab:hover { background: transparent; color: var(--text-color); }
+      button.tab.active { color: var(--accent-strong); border-bottom-color: var(--accent-color); }
+
+      /* Menu dropdown hành động */
+      .action-cell { position: relative; text-align: right; }
+      button.dots { width: 30px; padding: 4px 0; font-size: 1rem; line-height: 1; }
+      .menu {
+        position: absolute; right: 0; top: 30px; z-index: 20; min-width: 170px;
+        background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.14); padding: 4px 0;
+      }
+      .menu button {
+        display: block; width: 100%; text-align: left; margin: 0; border: 0; border-radius: 0;
+        background: none; color: var(--text-color); font-weight: 500; font-size: 0.84rem; padding: 8px 14px;
+      }
+      .menu button:hover { background: #fffbeb; }
+      .menu button.danger { color: #b91c1c; }
+      .menu button:disabled { color: var(--muted); background: none; cursor: default; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- KHUNG ĐĂNG NHẬP -->
+    <div id="login-panel" class="panel">
+        <h1>Admin Login</h1>
+        <p style="font-size:0.9rem; color:#6b7280;">Đăng nhập để quản lý cấu hình và người dùng.</p>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="login-user" value="admin" />
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="login-pass" placeholder="Nhập mật khẩu..." />
+        </div>
+        <button id="btn-login">Đăng nhập</button>
+        <div id="login-msg"></div>
+    </div>
+
+    <!-- KHUNG QUẢN TRỊ (DASHBOARD) -->
+    <div id="dashboard-panel" class="panel hidden">
+        <h1>Bảng Quản Trị</h1>
+        <button id="btn-logout" style="background:#dc2626; color:#fff; float:right; margin-top:-45px;">Đăng xuất</button>
+
+        <hr style="border: 1px solid var(--border-color); margin: 20px 0;" />
+
+        <div class="tabs">
+            <button class="tab active" data-tab="users">👥 Users</button>
+            <button class="tab" data-tab="ai">✨ AI</button>
+            <button class="tab" data-tab="admin">🔐 Admin</button>
+        </div>
+
+        <!-- TAB: QUẢN LÝ NGƯỜI DÙNG -->
+        <div id="tab-users">
+            <p style="font-size:0.85rem; color:#6b7280; margin-top:0;">Danh sách tài khoản, xếp theo ngày tạo (mới nhất trước). Bấm nút ⋮ để đổi mật khẩu, đổi quyền hoặc xóa.</p>
+            <button id="btn-refresh-users" class="mini" style="margin-top:0;">↻ Làm mới</button>
+            <span id="users-msg"></span>
+            <div style="overflow-x:auto;">
+                <table class="users" id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Avatar</th>
+                            <th>Quyền</th>
+                            <th>URL Slug</th>
+                            <th style="text-align:right;">Draft</th>
+                            <th style="text-align:right;">Public</th>
+                            <th style="text-align:right;">Xem / Thích</th>
+                            <th>Date</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody"></tbody>
+                </table>
+            </div>
+
+            <div class="create-grid">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Tên đăng nhập mới</label>
+                    <input type="text" id="new-user-name" placeholder="VD: covantruong" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Mật khẩu ban đầu</label>
+                    <input type="text" id="new-user-pass" placeholder="Tối thiểu 3 ký tự" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Quyền</label>
+                    <select id="new-user-role">
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                    </select>
+                </div>
+                <button id="btn-create-user">+ Tạo user</button>
+            </div>
+            <div id="create-user-msg"></div>
+        </div>
+
+        <!-- TAB: CẤU HÌNH AI -->
+        <div id="tab-ai" class="hidden">
+            <h2>Cấu hình AI (Groq / DeepSeek)</h2>
+            <p style="font-size:0.85rem; color:#6b7280; margin-top:-8px;">Người dùng chọn nhà cung cấp AI trong khung chat ở trang Design; mặc định là Groq.</p>
+            <div class="form-group">
+                <label>Groq API Key (mặc định)</label>
+                <input type="password" id="ai-key-groq" placeholder="gsk_..." />
+            </div>
+            <div class="form-group">
+                <label>DeepSeek API Key (tuỳ chọn)</label>
+                <input type="password" id="ai-key-deepseek" placeholder="sk-..." />
+            </div>
+            <button id="btn-save-ai">Lưu API Key</button>
+            <div id="ai-msg"></div>
+        </div>
+
+        <!-- TAB: ADMIN -->
+        <div id="tab-admin" class="hidden">
+            <h2>Đổi mật khẩu Admin</h2>
+            <p style="font-size:0.85rem; color:#6b7280; margin-top:-8px;">Áp dụng cho chính tài khoản admin đang đăng nhập.</p>
+            <div class="form-group">
+                <label>Mật khẩu mới</label>
+                <input type="password" id="new-admin-pass" placeholder="Nhập mật khẩu mới..." />
+            </div>
+            <button id="btn-change-pass">Đổi mật khẩu</button>
+            <div id="user-msg"></div>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="/src/admin.js"></script>
+</body>
+</html>

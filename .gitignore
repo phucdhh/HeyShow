@@ -1,0 +1,32 @@
+# --- Dữ liệu người dùng: tuyệt đối không commit (tài khoản, mật khẩu hash, API key AI, bài soạn) ---
+/data/
+!/data/.gitkeep
+
+# --- Secret & biến môi trường ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- Bản build (tạo ra bởi `npm run build`, đồng bộ qua rsync) ---
+client/dist/
+
+# --- Dependencies ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+package-lock.json.bak
+
+# --- Hệ điều hành / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- Log & tạm ---
+*.log
+logs/
+tmp/
+.backups/
+server/*.log

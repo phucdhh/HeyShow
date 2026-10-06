@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HeyShow Gallery - Thư viện bài trình chiếu</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <!-- KaTeX: render công thức Toán trong bình luận + live preview khi gõ -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/contrib/auto-render.min.js"></script>
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --bg-panel: #ffffff;
+        --bg-deep: #f3f4f6;
+        --muted: #6b7280;
+        --danger: #dc2626;
+        --ok: #16a34a;
+        --ink: #1c1917;
+        --header-height: 56px;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        min-height: 100vh;
+      }
+
+      header {
+        height: var(--header-height);
+        background-color: var(--bg-panel);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1.25rem;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+      }
+      .logo { font-weight: bold; font-size: 1.2rem; color: var(--accent-strong); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+      .logo img { width: 28px; height: 28px; }
+      .logo span { color: var(--text-color); font-weight: normal; }
+      .header-right { display: flex; align-items: center; gap: 12px; }
+      .header-right a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+      .header-right a:hover { color: var(--accent-color); }
+      #me-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color); background: var(--bg-deep); }
+
+      main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+      #gallery-empty { text-align: center; color: var(--muted); padding: 60px 0; }
+      #search-empty { text-align: center; color: var(--muted); padding: 60px 0; }
+
+      #gallery-search { margin-bottom: 20px; position: relative; }
+      #search-input {
+        width: 100%;
+        background: var(--bg-panel);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 12px 42px 12px 16px;
+        font: inherit; font-size: 0.95rem;
+      }
+      #search-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(245,158,11,0.2); }
+      #search-input::placeholder { color: var(--muted); }
+      #search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+      #search-clear {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        background: transparent; border: none; cursor: pointer;
+        color: var(--muted); font-size: 1.1rem; line-height: 1;
+        width: 30px; height: 30px; border-radius: 50%;
+      }
+      #search-clear:hover { color: var(--text-color); background: var(--border-color); }
+
+      #gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      #gallery-pager {
+        display: flex; justify-content: center; align-items: center;
+        gap: 6px; flex-wrap: wrap;
+        margin: 28px 0 8px;
+      }
+      #gallery-pager button {
+        min-width: 36px; height: 36px; padding: 0 10px;
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 8px;
+        font: inherit; font-size: 0.9rem; cursor: pointer;
+      }
+      #gallery-pager button:hover:not(:disabled):not(.active) { border-color: var(--accent-color); color: var(--accent-color); }
+      #gallery-pager button.active { background: var(--accent-color); border-color: var(--accent-color); color: var(--ink); font-weight: 600; }
+      #gallery-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+      #gallery-pager .pager-ellipsis { color: var(--muted); padding: 0 2px; }
+
+      .card {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 0.15s, border-color 0.15s;
+        display: flex;
+        flex-direction: column;
+      }
+      .card:hover { transform: translateY(-3px); border-color: var(--accent-color); }
+
+      .thumb {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        background: #111;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .thumb iframe {
+        position: absolute;
+        top: 0; left: 0;
+        width: 1280px; height: 720px;
+        border: 0;
+        transform-origin: 0 0;
+        pointer-events: none;
+      }
+      .thumb .thumb-placeholder {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: #9ca3af; font-size: 0.85rem;
+      }
+
+      .card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+      .card-title {
+        font-size: 1rem; font-weight: 600; color: var(--text-color);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
+      .card-meta img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); }
+      .card-meta .author { color: var(--text-color); font-weight: 500; overflow-wrap: anywhere; }
+      .card-meta .author-link { display: inline-flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none; color: inherit; }
+      .card-meta .author-link:hover .author { color: var(--accent-color); }
+      .card-stats { display: flex; align-items: center; gap: 14px; font-size: 0.8rem; color: var(--muted); }
+      .card-stats span { display: inline-flex; align-items: center; gap: 5px; }
+      .card-stats .card-date { margin-left: auto; }
+
+      /* ---------- Viewer 2 panel ---------- */
+      #viewer-overlay {
+        position: fixed; inset: 0;
+        background: rgba(17, 24, 39, 0.75);
+        backdrop-filter: blur(4px);
+        z-index: 100;
+        display: flex;
+        padding: 18px;
+        gap: 14px;
+      }
+      .hidden { display: none !important; }
+
+      #viewer-left {
+        flex: 1;
+        min-width: 0;
+        background: #111;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+      }
+      #viewer-frame { width: 100%; height: 100%; border: 0; display: block; }
+
+      #viewer-side {
+        width: 380px;
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #viewer-side-head { padding: 14px 16px; border-bottom: 1px solid var(--border-color); position: relative; }
+      #btn-close-viewer {
+        position: absolute; top: 10px; right: 12px;
+        background: none; border: none; color: var(--muted);
+        font-size: 1.1rem; cursor: pointer;
+      }
+      #btn-close-viewer:hover { color: var(--danger); }
+      #viewer-title { font-size: 1.05rem; font-weight: 600; padding-right: 28px; word-break: break-word; }
+
+      .viewer-author { display: flex; align-items: center; gap: 10px; margin-top: 12px; text-decoration: none; color: inherit; }
+      .viewer-author img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); }
+      .viewer-author .name { font-weight: 600; font-size: 0.9rem; color: var(--text-color); }
+      .viewer-author:hover .name { color: var(--accent-color); }
+      .viewer-author .date { color: var(--muted); font-size: 0.78rem; }
+
+      .viewer-stats {
+        display: flex; align-items: center; gap: 16px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.85rem; color: var(--muted);
+      }
+      .viewer-stats span { display: inline-flex; align-items: center; gap: 6px; }
+      #btn-like {
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 20px;
+        padding: 5px 14px; cursor: pointer; font-size: 0.85rem;
+        display: inline-flex; align-items: center; gap: 6px;
+      }
+      #btn-like:hover { background: var(--bg-deep); }
+      #btn-like.liked { background: var(--accent-color); color: var(--ink); border-color: var(--accent-color); font-weight: 600; }
+      #viewer-open-link { margin-left: auto; color: var(--accent-strong); font-size: 0.8rem; text-decoration: none; }
+      #viewer-open-link:hover { text-decoration: underline; }
+
+      #comment-list { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+      .comment { display: flex; gap: 10px; }
+      .comment img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); flex-shrink: 0; }
+      .comment-avatar-link { flex-shrink: 0; }
+      .comment-avatar-link img { display: block; }
+      .comment-bubble { background: var(--bg-deep); border-radius: 12px; padding: 8px 12px; min-width: 0; }
+      .comment-bubble .name { font-size: 0.82rem; font-weight: 600; color: var(--accent-strong); text-decoration: none; }
+      .comment-bubble a.name:hover { text-decoration: underline; }
+      .comment-bubble .text { font-size: 0.88rem; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+      .comment-time { font-size: 0.72rem; color: var(--muted); margin: 4px 0 0 12px; }
+      .comment-actions { display: inline-flex; gap: 10px; margin: 4px 0 0 12px; font-size: 0.72rem; }
+      .comment-actions button {
+        background: none; border: none; color: var(--muted);
+        cursor: pointer; font-size: 0.72rem; padding: 0;
+      }
+      .comment-actions button:hover { color: var(--accent-color); text-decoration: underline; }
+      .comment-edited { color: var(--muted); font-size: 0.7rem; font-style: italic; margin: 2px 0 0 12px; }
+      .comment-edit-box { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+      .comment-edit-box textarea {
+        width: 100%; resize: vertical; min-height: 40px;
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 8px;
+        padding: 6px 8px; font: inherit; font-size: 0.85rem;
+      }
+      .comment-edit-btns { display: flex; gap: 8px; }
+      .comment-edit-btns button {
+        border: none; border-radius: 6px; padding: 4px 12px;
+        cursor: pointer; font-size: 0.75rem; font-weight: 600;
+      }
+      .comment-edit-btns .save { background: var(--accent-color); color: var(--ink); }
+      .comment-edit-btns .cancel { background: var(--bg-deep); color: var(--text-color); }
+      .comment-bubble .text .katex { font-size: 1.02em; }
+
+      #math-tooltip {
+        position: fixed; z-index: 300; pointer-events: none;
+        max-width: 320px; padding: 8px 12px;
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--accent-color); border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        font-size: 0.95rem; overflow-x: auto; overflow-y: hidden;
+        display: none;
+      }
+      #math-tooltip.show { display: block; }
+      #math-tooltip .katex-error { color: var(--danger); }
+      #comment-empty { color: var(--muted); font-size: 0.85rem; font-style: italic; text-align: center; padding: 10px 0; }
+
+      #comment-composer {
+        border-top: 1px solid var(--border-color);
+        padding: 12px 16px;
+        display: flex; gap: 10px; align-items: flex-start;
+      }
+      #comment-composer img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); }
+      #comment-input {
+        flex: 1; resize: none;
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 18px;
+        padding: 8px 14px; font: inherit; font-size: 0.88rem;
+        max-height: 96px; min-height: 38px;
+      }
+      #comment-input:focus { outline: none; border-color: var(--accent-color); }
+      #btn-send-comment {
+        background: var(--accent-color); color: var(--ink);
+        border: none; border-radius: 50%;
+        width: 38px; height: 38px; cursor: pointer; font-size: 1rem;
+        flex-shrink: 0;
+      }
+      #btn-send-comment:disabled { opacity: 0.5; cursor: not-allowed; }
+      #comment-login-hint { padding: 12px 16px; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--muted); }
+      #comment-login-hint a { color: var(--accent-color); }
+
+      #toast {
+        position: fixed; bottom: 20px; right: 20px;
+        background: var(--accent-color); color: var(--ink);
+        padding: 10px 20px; border-radius: 5px;
+        transform: translateY(150%); transition: transform 0.3s;
+        font-weight: bold; z-index: 200;
+      }
+      #toast.show { transform: translateY(0); }
+
+      @media (max-width: 900px) {
+        #viewer-overlay { flex-direction: column; padding: 10px; }
+        #viewer-left { flex: none; height: 45vh; }
+        #viewer-side { width: 100%; flex: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/" title="Trang chủ: https://heyshow.pedu.vn/"><img src="/heyshow-logo.svg" alt="HeyShow" />HeyShow <span>Gallery</span></a>
+      <div class="header-right">
+        <a href="/design">Soạn thảo slide</a>
+        <a href="/templates">Templates</a>
+        <a href="/help">Help</a>
+        <a id="me-link" href="/dashboard" class="hidden"><img id="me-avatar" alt="Avatar" /></a>
+        <a id="login-link" href="/design?redirect=%2Fgallery">Đăng nhập</a>
+      </div>
+    </header>
+
+    <main>
+      <div id="gallery-search">
+        <input id="search-input" type="search" placeholder="Tìm bài trình chiếu theo tên hoặc tác giả..." autocomplete="off" spellcheck="false" />
+        <button id="search-clear" class="hidden" title="Xoá tìm kiếm" type="button">✖</button>
+      </div>
+      <div id="gallery-empty" class="hidden">Chưa có bài trình chiếu nào được xuất bản.</div>
+      <div id="search-empty" class="hidden"></div>
+      <div id="gallery-grid"></div>
+      <nav id="gallery-pager" class="hidden" aria-label="Phân trang"></nav>
+    </main>
+
+    <!-- Viewer 2 panel: trái trình chiếu, phải thông tin + bình luận -->
+    <div id="viewer-overlay" class="hidden">
+      <div id="viewer-left">
+        <iframe id="viewer-frame" title="Bài trình chiếu"></iframe>
+      </div>
+      <aside id="viewer-side">
+        <div id="viewer-side-head">
+          <button id="btn-close-viewer" title="Đóng">✖</button>
+          <div id="viewer-title"></div>
+          <a class="viewer-author" id="viewer-author-link" href="#" title="Xem trang cá nhân">
+            <img id="viewer-avatar" alt="Avatar tác giả" />
+            <div>
+              <div class="name" id="viewer-author-name"></div>
+              <div class="date" id="viewer-date"></div>
+            </div>
+          </a>
+        </div>
+
+        <div class="viewer-stats">
+          <span title="Lượt xem">👁 <b id="stat-views">0</b></span>
+          <button id="btn-like" title="Thích bài này">♡ <b id="stat-likes">0</b></button>
+          <span title="Bình luận">💬 <b id="stat-comments">0</b></span>
+          <a id="viewer-open-link" href="#" target="_blank" rel="noopener">Mở toàn màn hình</a>
+        </div>
+
+        <div id="comment-list"></div>
+
+        <div id="comment-login-hint" class="hidden">
+          <a href="/design?redirect=%2Fgallery">Đăng nhập</a> để thích và bình luận.
+        </div>
+        <div id="comment-composer" class="hidden">
+          <img id="composer-avatar" alt="Avatar của bạn" />
+          <textarea id="comment-input" rows="1" placeholder="Viết bình luận..." maxlength="2000"></textarea>
+          <button id="btn-send-comment" title="Gửi bình luận">➤</button>
+        </div>
+      </aside>
+    </div>
+
+    <div id="toast">Thông báo</div>
+    <div id="math-tooltip"></div>
+
+    <script type="module" src="/src/gallery.js"></script>
+  </body>
+</html>

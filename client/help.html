@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Help - HeyShow</title>
+    <meta name="description" content="Hướng dẫn sử dụng HeyShow: slide master, soạn slide, mẫu bảng biểu - hình ảnh - biểu đồ, công thức toán, dashboard, gallery và các tính năng editor." />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --bg-panel: #ffffff;
+        --bg-deep: #f3f4f6;
+        --text-color: #1f2937;
+        --muted: #6b7280;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --accent-deep: #b45309;
+        --ink: #1c1917;
+        --code-bg: #1c1917;
+        --code-text: #f5f5f4;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg-color); color: var(--text-color);
+        line-height: 1.65;
+      }
+      a { color: var(--accent-strong); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      header {
+        position: sticky; top: 0; z-index: 50;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 24px;
+        background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border-color);
+      }
+      .logo { font-weight: 800; font-size: 1.15rem; color: var(--text-color); display: flex; align-items: center; gap: 8px; text-decoration: none; }
+      .logo:hover { text-decoration: none; }
+      .logo img { width: 28px; height: 28px; }
+      .logo .wordmark span { color: var(--accent-strong); }
+      .nav-links { display: flex; gap: 16px; align-items: center; }
+      .nav-links a { color: var(--muted); font-size: 0.92rem; }
+      .nav-links a:hover { color: var(--text-color); text-decoration: none; }
+      .nav-links a.btn-primary { background: var(--accent-color); color: var(--ink); font-weight: 700; padding: 7px 16px; border-radius: 8px; }
+      .nav-links a.btn-primary:hover { background: #fbbf24; }
+
+      .layout {
+        max-width: 1200px; margin: 0 auto;
+        display: grid; grid-template-columns: 250px 1fr; gap: 28px;
+        padding: 28px 24px 80px;
+        align-items: start;
+      }
+      @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { position: static !important; max-height: none; } }
+
+      .toc {
+        position: sticky; top: 70px;
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 14px 16px;
+        max-height: calc(100vh - 100px); overflow-y: auto;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      .toc h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
+      .toc a { display: block; color: var(--muted); font-size: 0.88rem; padding: 4px 8px; border-radius: 6px; }
+      .toc a:hover { background: var(--bg-deep); color: var(--text-color); text-decoration: none; }
+      .toc a.sub { padding-left: 20px; font-size: 0.82rem; }
+      .toc a.active { background: #fffbeb; color: var(--accent-deep); font-weight: 600; }
+
+      main { min-width: 0; }
+      section.block {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 24px 26px; margin-bottom: 22px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        scroll-margin-top: 70px;
+      }
+      section.block > h1 {
+        font-size: 1.45rem; margin-bottom: 6px;
+        display: flex; align-items: center; gap: 10px;
+      }
+      section.block > h1 .num {
+        background: var(--accent-color); color: var(--ink);
+        width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 1rem; font-weight: 800;
+      }
+      section.block > p.lead { color: var(--muted); margin-bottom: 16px; }
+      section.block h2 { font-size: 1.1rem; margin: 22px 0 8px; color: var(--accent-deep); scroll-margin-top: 70px; }
+      section.block h3 { font-size: 0.98rem; margin: 16px 0 6px; }
+      section.block p { margin-bottom: 10px; }
+      section.block ul, section.block ol { margin: 0 0 12px 22px; }
+      section.block li { margin-bottom: 5px; }
+      section.block p code, section.block li code, section.block td code {
+        background: var(--bg-deep); border: 1px solid var(--border-color);
+        border-radius: 5px; padding: 1px 6px; font-size: 0.86em; color: var(--accent-deep);
+      }
+
+      table.doc { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 0.9rem; }
+      table.doc th, table.doc td { border: 1px solid var(--border-color); padding: 8px 10px; text-align: left; vertical-align: top; }
+      table.doc th { background: var(--bg-deep); font-weight: 700; }
+      table.doc tr:nth-child(even) td { background: #fcfcfd; }
+
+      .callout {
+        background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid var(--accent-color);
+        border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 0.92rem;
+      }
+      .callout b { color: var(--accent-deep); }
+
+      /* Thẻ ví dụ: code + preview */
+      .example {
+        border: 1px solid var(--border-color); border-radius: 10px;
+        overflow: hidden; margin: 14px 0; background: var(--bg-panel);
+      }
+      .example-head {
+        display: flex; align-items: center; gap: 10px;
+        background: var(--bg-deep); border-bottom: 1px solid var(--border-color);
+        padding: 8px 12px;
+      }
+      .example-head .ex-title { font-weight: 700; font-size: 0.9rem; }
+      .example-head button {
+        margin-left: auto; background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 6px;
+        padding: 4px 10px; font-size: 0.78rem; cursor: pointer; font-family: inherit;
+      }
+      .example-head button:hover { border-color: var(--accent-color); color: var(--accent-deep); }
+      .example pre {
+        background: var(--code-bg); color: var(--code-text);
+        padding: 12px 14px; overflow-x: auto;
+        font-size: 0.82rem; line-height: 1.55; margin: 0;
+      }
+      .example .note { padding: 8px 12px; font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--border-color); }
+      .example .preview { border-top: 1px solid var(--border-color); background: #111; position: relative; }
+      .example .preview iframe { width: 100%; height: 340px; border: 0; display: block; }
+      .example .preview .preview-label {
+        position: absolute; top: 6px; right: 8px; z-index: 2;
+        background: rgba(28, 25, 23, 0.75); color: #fbbf24;
+        font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+        padding: 2px 8px; border-radius: 999px; pointer-events: none;
+      }
+
+      .author-card {
+        display: flex; gap: 14px; align-items: center;
+        background: var(--bg-deep); border: 1px solid var(--border-color);
+        border-radius: 10px; padding: 14px 16px; margin: 12px 0;
+      }
+      .author-card .ava {
+        width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+        background: var(--accent-color); color: var(--ink);
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 1.2rem;
+      }
+      .author-card .name { font-weight: 700; }
+      .author-card .role { color: var(--muted); font-size: 0.86rem; }
+
+      footer {
+        border-top: 1px solid var(--border-color);
+        padding: 22px 24px; text-align: center;
+        color: var(--muted); font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/" title="Trang chủ: https://heyshow.pedu.vn/"><img src="/heyshow-logo.svg" alt="HeyShow" /><span class="wordmark">Hey<span>Show</span></span> <span style="color:var(--muted); font-weight:600;">Help</span></a>
+      <div class="nav-links">
+        <a href="/gallery">Gallery</a>
+        <a href="/templates">Templates</a>
+        <a href="/dashboard">Dashboard</a>
+        <a class="btn-primary" href="/design">Design</a>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav class="toc" id="toc" aria-label="Mục lục">
+        <h2>Mục lục</h2>
+        <a href="#about">1. About HeyShow</a>
+        <a href="#master">2. Slide Master</a>
+        <a href="#slides">3. Làm việc với slide</a>
+        <a href="#templates">4. Một số mẫu</a>
+        <a class="sub" href="#tpl-text">4.1 Văn bản &amp; bố cục</a>
+        <a class="sub" href="#tpl-table">4.2 Bảng (Table)</a>
+        <a class="sub" href="#tpl-image">4.3 Hình ảnh (Images)</a>
+        <a class="sub" href="#tpl-shapes">4.4 Shapes</a>
+        <a class="sub" href="#tpl-chart">4.5 Biểu đồ (Chart)</a>
+        <a class="sub" href="#tpl-smartart">4.6 SmartArt</a>
+        <a class="sub" href="#tpl-extras">4.7 Code, nút, trích dẫn</a>
+        <a href="#math">5. Công thức Toán</a>
+        <a href="#dashboard">6. Quản lý trong Dashboard</a>
+        <a href="#gallery">7. Sử dụng Gallery</a>
+        <a href="#design">8. Tính năng Design</a>
+        <a href="#contact">9. Liên hệ &amp; đóng góp</a>
+      </nav>
+
+      <main>
+        <!-- ============ 1. ABOUT ============ -->
+        <section class="block" id="about">
+          <h1><span class="num">1</span> About HeyShow</h1>
+          <p class="lead">HeyShow là công cụ soạn bài trình chiếu bằng HTML, tự host, miễn phí.</p>
+          <p>
+            Thay vì kéo thả từng khối như các phần mềm truyền thống, bạn viết các thẻ <code>&lt;section&gt;</code> —
+            mỗi thẻ là một slide. Bên cạnh khung soạn thảo là khung preview chạy Reveal.js cập nhật theo từng phím gõ,
+            nên bạn luôn thấy đúng thứ người xem sẽ thấy. Khi hài lòng, bấm <b>Publish</b> để nhận một link công khai
+            kèm lượt xem, lượt thích và bình luận trong Gallery.
+          </p>
+
+          <div class="author-card">
+            <div class="ava">MP</div>
+            <div>
+              <div class="name">Nguyễn Đăng Minh Phúc</div>
+              <div class="role">Tác giả &amp; người vận hành HeyShow ·
+                <a href="https://www.ganjingworld.com/@ndmphuc" target="_blank" rel="noopener">ganjingworld.com/@ndmphuc</a>
+              </div>
+            </div>
+          </div>
+
+          <h2>HeyShow khác gì PowerPoint, Canva?</h2>
+          <table class="doc">
+            <tr><th style="width:22%">Tiêu chí</th><th>HeyShow</th><th>PowerPoint / Canva</th></tr>
+            <tr><td>Định dạng nguồn</td><td>Code HTML thuần — đọc được, sửa được, diff được, nằm trong file <code>.html</code></td><td>File nhị phân / thiết kế đóng kín trong ứng dụng</td></tr>
+            <tr><td>Chi phí &amp; hạ tầng</td><td>Miễn phí, tự host trên hạ tầng cá nhân, không tài khoản đám mây</td><td>Giấy phép / thuê bao, dữ liệu nằm trên máy chủ hãng</td></tr>
+            <tr><td>Preview</td><td>Trực tiếp theo từng phím gõ, con trỏ ở slide nào preview nhảy tới slide đó</td><td>Chuyển qua chế độ trình chiếu riêng</td></tr>
+            <tr><td>AI hỗ trợ</td><td>Mô tả bằng tiếng Việt, AI sinh thẻ <code>&lt;section&gt;</code> chèn thẳng vào bài</td><td>Có ở một số gói trả phí</td></tr>
+            <tr><td>Công thức Toán</td><td>KaTeX ngay trong slide và cả trong bình luận: <code>$...$</code>, <code>$$...$$</code></td><td>Trình soạn công thức riêng, khó gõ nhanh</td></tr>
+            <tr><td>Chia sẻ</td><td>Một link công khai + Gallery + trang cá nhân tác giả, có like/comment</td><td>Xuất file gửi kèm, hoặc link xem của hãng</td></tr>
+            <tr><td>Tái sử dụng</td><td>Sao chép đoạn HTML giữa các bài, dùng lại <code>&lt;section-master&gt;</code> cho toàn bài</td><td>Mẫu (template) cố định, khó tuỳ biến sâu</td></tr>
+            <tr><td>Xuất bản offline</td><td>Tải file HTML chạy offline hoặc in PDF từ Dashboard</td><td>Xuất .pptx / .pdf trong ứng dụng</td></tr>
+          </table>
+
+          <h2>Changelog</h2>
+          <ul>
+            <li><b>10/2026 — v2.11:</b> tab <b>Import</b> nhận thêm <b>Markdown</b> (<code>.md</code>) và <b>LaTeX beamer</b> (<code>.tex</code>, ≤5MB) bên cạnh PowerPoint. Beamer: <code>\begin{frame}</code> → mỗi frame một slide, <code>\frametitle</code>/<code>\itemize</code>/<code>\enumerate</code>/<code>\alert</code>/<code>\note</code> đều chuyển đổi; <b>công thức toán</b> (<code>$...$</code>, <code>\[...\]</code>) được giữ nguyên để KaTeX hiển thị. Markdown: heading, danh sách lồng nhau, in đậm/nghiêng, bảng GFM, link. Ảnh/video/bảng không trích được sẽ thành placeholder kèm hướng dẫn dán link — cùng luồng "xem báo cáo rồi mới bấm Import" và thanh tiến trình như với <code>.pptx</code>.</li>
+            <li><b>10/2026 — v2.10:</b> tab Import nay có <b>thanh tiến trình</b>: hiển thị đúng % dung lượng file <code>.pptx</code> đã tải lên, rồi chuyển sang chế độ chạy "đang phân tích / đang chuyển đổi" để bạn biết HeyShow vẫn đang xử lý thay vì tưởng bị treo.</li>
+            <li><b>10/2026 — v2.9:</b> Dashboard có thêm tab <b>Import</b>: tải file PowerPoint <code>.pptx</code> (≤10MB) lên, HeyShow phân tích và báo cáo từng slide (chữ import được gì; ảnh/video/bảng/biểu đồ/SmartArt không import được gì) — bạn xem xét rồi mới bấm <b>Import</b> tạo bản nháp. Ảnh được thay bằng placeholder kèm hướng dẫn lấy link trực tiếp từ Google Drive; video hướng dẫn tải lên YouTube hoặc Gan Jing World rồi dán link nhúng.</li>
+            <li><b>10/2026 — v2.8:</b> trang <code>/dashboard</code> được tổ chức lại thành 3 tab: <b>Presentations</b> (tên file xám là link mở thẳng bài đã publish; mọi thao tác Sửa, Publish / Xuất bản lại, In ra PDF, Về nháp, Tải HTML, Đổi tên, Xoá gọn trong dropdown ⋮ đặt cùng hàng tên file), <b>Activities</b> (hoạt động thích / bình luận gần đây) và <b>Profile</b> (đổi Avatar, Full Name, Email, Số điện thoại, URL slug và mật khẩu).</li>
+            <li><b>10/2026 — v2.7:</b> trang quản trị <code>/admin_panel</code> được nâng cấp với <b>Quản lý người dùng</b>: 3 tab Users / AI / Admin, bảng tài khoản xếp theo ngày tạo (mới nhất trước) kèm ảnh đại diện, số nháp / public / lượt xem / lượt thích, nút ⋮ để đặt lại mật khẩu, đổi quyền user/admin hoặc xóa tài khoản (kèm bài vở); admin cũng có thể tạo tài khoản mới cho giáo viên.</li>
+            <li><b>10/2026 — v2.6:</b> trang <a href="/templates">/templates</a> — thư viện 12 mẫu sẵn: 6 mẫu bài trình chiếu (giáo án 5 bước, chuyên đề, hướng dẫn sử dụng, đố vui, báo cáo dự án, tiểu luận) và 6 mẫu slide tương tác; bấm “Dùng mẫu này” để tạo bản nháp ngay trong Design.</li>
+            <li><b>10/2026 — v2.5:</b> khung chat AI đổi thành 4 vị trí chèn (Slide Master, Slide hiện tại, Slide tiếp theo, Slide cuối cùng); AI được cung cấp ngữ cảnh HeyShow và sinh đúng dạng code theo từng vị trí.</li>
+            <li><b>10/2026 — v2.4:</b> chọn nhà cung cấp AI trong khung chat: Groq (mặc định) hoặc DeepSeek; trang Admin quản lý API key riêng cho từng nhà cung cấp.</li>
+            <li><b>10/2026 — v2.3:</b> AI hỗ trợ 4 chế độ chèn code (cuối file, tại con trỏ, sau slide hiện tại, viết lại vùng bôi đen / slide hiện tại); logo mọi trang trỏ về trang chủ.</li>
+            <li><b>10/2026 — v2.2:</b> giao diện nền sáng hệ màu amber đồng bộ toàn trang, logo &amp; favicon mới, trang Help này.</li>
+            <li><b>10/2026 — v2.1:</b> color picker kiểu VS Code, nhãn &amp; thu gọn từng slide, tìm kiếm/thay thế trong editor.</li>
+            <li><b>10/2026 — v2.0:</b> Dashboard quản lý bài (publish/nháp/đổi tên/xoá/xuất file), trang chủ giới thiệu, tách route <code>/design</code>, <code>/dashboard</code>.</li>
+            <li><b>09/2026 — v1.3:</b> sửa bình luận của chính mình trong Gallery.</li>
+            <li><b>09/2026 — v1.2:</b> công thức Toán KaTeX trong slide và bình luận, tooltip xem trước khi gõ.</li>
+            <li><b>09/2026 — v1.1:</b> Gallery công khai, lượt xem, thích, bình luận, trang cá nhân tác giả.</li>
+            <li><b>09/2026 — v1.0:</b> editor HTML + preview Reveal.js, lưu nháp, publish, AI hỗ trợ.</li>
+          </ul>
+        </section>
+
+        <!-- ============ 2. SLIDE MASTER ============ -->
+        <section class="block" id="master">
+          <h1><span class="num">2</span> Làm việc với Slide Master</h1>
+          <p class="lead">Một chỗ khai báo dùng chung cho mọi slide: header, footer, nền, logo.</p>
+          <p>
+            Thẻ <code>&lt;section-master&gt;</code> không phải là một slide. Khi render, toàn bộ nội dung bên trong nó
+            được gỡ ra và chèn vào <b>đầu mỗi slide lá</b> (slide không chứa slide con). Nhờ vậy bạn chỉ viết một lần
+            phần khung chung — tiêu đề góc, số trang, màu nền, logo trường — và mọi slide tự thừa hưởng.
+          </p>
+          <div class="callout">
+            <b>Mẹo:</b> đặt <code>&lt;section-master&gt;</code> ở đầu file. Mọi thuộc tính CSS trong master
+            (kể cả <code>background</code> của slide) đều áp dụng cho tất cả slide.
+          </div>
+          <div data-examples="master"></div>
+        </section>
+
+        <!-- ============ 3. SLIDES ============ -->
+        <section class="block" id="slides">
+          <h1><span class="num">3</span> Làm việc với các slide</h1>
+          <p class="lead">Mỗi thẻ <code>&lt;section&gt;</code> là một slide; lồng nhau tạo slide dọc.</p>
+          <ul>
+            <li><b>Slide ngang:</b> mỗi <code>&lt;section&gt;</code> ở cấp ngoài cùng là một slide theo chiều ngang.</li>
+            <li><b>Slide dọc:</b> đặt các <code>&lt;section&gt;</code> con bên trong một <code>&lt;section&gt;</code> mẹ — chúng thành một nhóm trượt dọc.</li>
+            <li><b>Hiện dần từng phần (fragment):</b> thêm <code>class="fragment"</code> vào phần tử; bấm phím mũi tên để hiện lần lượt.</li>
+            <li><b>Nền slide:</b> dùng <code>data-background-color</code>, <code>data-background-image</code>, <code>data-background-gradient</code> trên thẻ <code>&lt;section&gt;</code>.</li>
+            <li><b>Chữ nhỏ/ghi chú:</b> cứ viết HTML thường — <code>&lt;h2&gt;</code>, <code>&lt;p&gt;</code>, <code>&lt;ul&gt;</code>, <code>&lt;table&gt;</code>, <code>&lt;img&gt;</code>… đều hoạt động.</li>
+          </ul>
+          <div data-examples="slides"></div>
+        </section>
+
+        <!-- ============ 4. TEMPLATES ============ -->
+        <section class="block" id="templates">
+          <h1><span class="num">4</span> Một số mẫu</h1>
+          <p class="lead">
+            Các đối tượng quen thuộc trong PowerPoint — bảng, hình ảnh, shapes, biểu đồ, SmartArt — đều dựng được bằng
+            HTML + CSS thuần. Bấm <b>Copy</b> ở mỗi ví dụ rồi dán vào editor, sửa nội dung là xong.
+            Xem thêm bộ <b>mẫu hoàn chỉnh</b> (giáo án 5 bước, chuyên đề, đố vui, báo cáo dự án, tiểu luận và các slide tương tác) tại <a href="/templates">trang Templates</a> — có nút “Dùng mẫu này” để tạo thẳng bản nháp trong Design.
+          </p>
+
+          <h2 id="tpl-text">4.1 Văn bản &amp; bố cục</h2>
+          <p>Tiêu đề, danh sách, hai cột, căn giữa dọc — nền tảng của mọi slide.</p>
+          <div data-examples="tpl-text"></div>
+
+          <h2 id="tpl-table">4.2 Bảng (Table)</h2>
+          <p>Dùng thẻ <code>&lt;table&gt;</code> với CSS viền gọn; thêm <code>class="fragment"</code> cho từng dòng để hiện dần.</p>
+          <div data-examples="tpl-table"></div>
+
+          <h2 id="tpl-image">4.3 Hình ảnh (Images)</h2>
+          <p>Ảnh từ link trực tiếp, ảnh kèm chú thích, ảnh tràn nền slide, hai ảnh cạnh nhau.</p>
+          <div data-examples="tpl-image"></div>
+
+          <h2 id="tpl-shapes">4.4 Shapes</h2>
+          <p>Hình tròn, chữ nhật bo góc, mũi tên, khung chữ — đều là <code>&lt;div&gt;</code> với CSS.</p>
+          <div data-examples="tpl-shapes"></div>
+
+          <h2 id="tpl-chart">4.5 Biểu đồ (Chart)</h2>
+          <p>Biểu đồ cột và biểu đồ tròn bằng CSS thuần, không cần thư viện.</p>
+          <div data-examples="tpl-chart"></div>
+
+          <h2 id="tpl-smartart">4.6 SmartArt</h2>
+          <p>Sơ đồ quy trình, sơ đồ phân cấp, vòng tròn bước — mô phỏng SmartArt bằng flexbox.</p>
+          <div data-examples="tpl-smartart"></div>
+
+          <h2 id="tpl-extras">4.7 Code, nút, trích dẫn</h2>
+          <p>Khối code, nút bấm kiểu link, câu trích dẫn nổi bật.</p>
+          <div data-examples="tpl-extras"></div>
+        </section>
+
+        <!-- ============ 5. MATH ============ -->
+        <section class="block" id="math">
+          <h1><span class="num">5</span> Công thức Toán</h1>
+          <p class="lead">KaTeX có sẵn: <code>$...$</code> cho công thức trong dòng, <code>$$...$$</code> cho công thức khối.</p>
+          <p>
+            Gõ trực tiếp cú pháp LaTeX trong slide. Công thức cũng render trong bình luận ở Gallery, và editor có
+            tooltip xem trước ngay khi bạn đang gõ.
+          </p>
+          <div data-examples="math"></div>
+        </section>
+
+        <!-- ============ 6. DASHBOARD ============ -->
+        <section class="block" id="dashboard">
+          <h1><span class="num">6</span> Quản lý trong Dashboard</h1>
+          <p class="lead"><a href="/dashboard">/dashboard</a> là nơi quản lý toàn bộ bài của bạn, chia thành 4 tab: <b>Presentations</b>, <b>Activities</b>, <b>Profile</b> và <b>Import</b>.</p>
+          <p>Ở tab <b>Presentations</b>, bấm vào <b>tên file xám</b> (có phần mở rộng <code>.html</code>) để mở thẳng bài đã xuất bản ở tab mới; bài nháp chưa publish thì tên file chỉ hiển thị chữ xám. Mọi thao tác khác nằm trong dropdown <b>⋮</b> đặt cùng hàng tên file:</p>
+          <table class="doc">
+            <tr><th style="width:24%">Mục trong ⋮</th><th>Tác dụng</th></tr>
+            <tr><td>✏️ Sửa bài</td><td>Mở bài trong editor <code>/design</code> (bản nháp hoặc bản đã publish đều mở được để sửa).</td></tr>
+            <tr><td>🚀 Publish / 🔄 Xuất bản lại</td><td>Xuất bản lần đầu, hoặc đẩy bản sửa mới lên link cũ (link không đổi).</td></tr>
+            <tr><td>🖨 In ra PDF</td><td>Mở bản in PDF của Reveal.js — bấm Ctrl/Cmd+P rồi chọn “Save as PDF”.</td></tr>
+            <tr><td>📥 Về nháp</td><td>Gỡ bài khỏi Gallery và link công khai, giữ lại bản nháp để tiếp tục sửa.</td></tr>
+            <tr><td>💾 Tải HTML</td><td>Tải file HTML chạy offline (kể cả bài chưa publish).</td></tr>
+            <tr><td>✍️ Đổi tên</td><td>Đổi tên file; lượt xem/thích/bình luận được giữ nguyên.</td></tr>
+            <tr><td>🗑 Xoá</td><td>Xoá vĩnh viễn cả nháp lẫn bản publish — có hộp hỏi lại trước khi xoá.</td></tr>
+          </table>
+          <p>
+            Tab <b>Activities</b> liệt kê lượt thích và bình luận mới nhất trên các bài của bạn
+            (kèm tên người tương tác và nội dung bình luận); bấm vào để nhảy thẳng tới bài trong Gallery.
+            Mỗi bài trong Presentations còn hiển thị trạng thái <b>Nháp / Đã publish</b>, lượt xem, thích, bình luận và thời gian cập nhật.
+          </p>
+          <p>
+            Tab <b>Profile</b> cho phép đổi <b>ảnh đại diện</b> (bấm vào vòng tròn avatar, PNG/JPG/GIF/WebP dưới 1MB),
+            <b>Full Name</b>, <b>Email</b>, <b>Số điện thoại</b>, <b>URL slug</b> (đường dẫn trang cá nhân, tự động bỏ dấu)
+            và <b>mật khẩu mới</b> (để trống nếu không đổi). Full Name đã đặt sẽ hiển thị ngay trên header của Dashboard.
+          </p>
+          <p>
+            Tab <b>Import</b> chuyển file PowerPoint <b>.pptx</b> (≤10MB), <b>Markdown .md</b> hoặc <b>LaTeX beamer .tex</b> (≤5MB) thành bản nháp: kéo/thả hoặc chọn file, HeyShow phân tích
+            và hiển thị báo cáo từng slide (tiêu đề, số dòng chữ, ảnh/video nhúng, bảng/biểu đồ/SmartArt không import được, ghi chú).
+            Với <b>Markdown</b> và <b>beamer</b>, mỗi <code>---</code>/heading (md) hay <code>\begin{frame}</code> (tex) thành một slide; công thức toán <code>$...$</code> được giữ nguyên để KaTeX hiển thị.
+            Trong lúc chờ, <b>thanh tiến trình</b> báo đúng % dung lượng đã tải lên rồi chuyển sang chế độ chạy liên tục khi máy chủ
+            đang phân tích / chuyển đổi (file nhiều ảnh, video có thể mất vài chục giây).
+            Bạn <b>xem xét rồi mới bấm "Import thành bản nháp"</b> (hoặc Huỷ). Chữ và ghi chú được giữ nguyên; ảnh thành
+            <code>&lt;img src=""&gt;</code> — tải lên Google Drive, chia sẻ "Bất kỳ ai có đường dẫn" rồi dán link
+            <code>https://lh3.googleusercontent.com/d/&lt;ID&gt;</code>; video thành <code>&lt;iframe src=""&gt;</code> — tải lên
+            YouTube hoặc Gan Jing World rồi dán link nhúng (embed). File không được lưu trên server nếu bạn không bấm Import.
+          </p>
+        </section>
+
+        <!-- ============ 7. GALLERY ============ -->
+        <section class="block" id="gallery">
+          <h1><span class="num">7</span> Sử dụng Gallery</h1>
+          <p class="lead"><a href="/gallery">/gallery</a> là thư viện công khai các bài đã xuất bản.</p>
+          <ul>
+            <li><b>Tìm kiếm:</b> ô tìm đầu trang lọc theo tên bài hoặc tên tác giả; phân trang 12 bài/trang.</li>
+            <li><b>Xem nhanh:</b> bấm vào card để mở viewer hai khung — trái là bài trình chiếu chạy được, phải là thông tin và bình luận.</li>
+            <li><b>Thích:</b> nút ♡ để thích / bỏ thích (cần đăng nhập); mỗi người một lượt.</li>
+            <li><b>Bình luận:</b> viết tối đa 2000 ký tự, hỗ trợ công thức KaTeX; bình luận của chính mình có nút Sửa.</li>
+            <li><b>Trang tác giả:</b> bấm tên hoặc avatar tác giả để xem toàn bộ bài công khai của người đó.</li>
+            <li><b>Mở toàn màn hình:</b> link ở khung phải mở bài ở chế độ trình chiếu đầy đủ để chiếu thật.</li>
+          </ul>
+        </section>
+
+        <!-- ============ 8. DESIGN ============ -->
+        <section class="block" id="design">
+          <h1><span class="num">8</span> Sử dụng các tính năng Design</h1>
+          <p class="lead"><a href="/design">/design</a> — editor hai khung với các công cụ hỗ trợ soạn nhanh.</p>
+          <h3>Tìm kiếm &amp; thay thế</h3>
+          <p>Nút 🔍 Tìm hoặc <code>Ctrl/Cmd+F</code> mở panel tìm ngay trong editor: phân biệt hoa thường, khớp cả từ, regex, thay từng cái hoặc tất cả. Từ đang bôi đen sẽ tự tô sáng mọi chỗ trùng.</p>
+          <h3>Đổi màu kiểu VS Code</h3>
+          <p>Mọi mã màu trong code (hex, <code>rgb()</code>, <code>hsl()</code>, tên màu CSS) có một ô vuông màu nhỏ đứng trước. Bấm vào ô đó mở bảng chọn màu: kéo vùng sáng–đậm, thanh hue, thanh alpha, gõ hex, và 10 màu dùng gần đây. Kéo thả sửa màu trực tiếp trong code, preview cập nhật theo.</p>
+          <h3>Nhãn slide &amp; thu gọn</h3>
+          <p>Gutter bên trái gắn nhãn <code>★</code> (master), <code>S1</code>, <code>S2</code>, <code>S2.1</code>… Bấm nhãn để gập/mở code slide đó; hai nút “Thu gọn” / “Mở hết” trên thanh tiêu đề làm toàn bộ. Thanh tiêu đề cũng báo vị trí con trỏ và trạng thái chưa lưu.</p>
+          <h3>Snippets &amp; AI</h3>
+          <p>Gõ <code>section</code>, <code>fragment</code>, <code>math</code>, <code>columns</code>, <code>image</code>, <code>highlight</code>… rồi chọn trong danh sách autocomplete (<code>Ctrl+Space</code>) để chèn khung HTML sẵn. Nút ✨ góc trái dưới mở khung chat AI: mô tả yêu cầu bằng tiếng Việt, AI sinh code và chèn vào bài theo <b>vị trí</b> bạn chọn: (1) <b>Slide Master</b> — chèn thiết lập dùng chung (<code>&lt;style&gt;</code>, header, footer…) vào bên trong <code>&lt;section-master&gt;</code>, nếu bài chưa có Slide Master thì tự tạo mới ở đầu file; (2) <b>Slide hiện tại</b> — chèn nội dung vào cuối slide đang chứa con trỏ; (3) <b>Slide tiếp theo</b> — tạo slide <code>&lt;section&gt;</code> hoàn chỉnh ngay sau slide hiện tại; (4) <b>Slide cuối cùng</b> — thêm slide mới vào cuối file. Ở mỗi vị trí, AI tự nhận ngữ cảnh (code toàn file kèm nội dung Slide Master hoặc slide hiện tại) và được hướng dẫn sinh đúng dạng code: fragment dùng chung cho Master/slide hiện tại, thẻ <code>&lt;section&gt;</code> đầy đủ cho slide mới. Nhà cung cấp AI chọn giữa <b>Groq (mặc định)</b> và <b>DeepSeek</b>; key do quản trị nhập ở trang Admin, lựa chọn nào chưa có key sẽ bị khoá lại.</p>
+          <table class="doc">
+            <tr><th>Phím tắt</th><th>Tác dụng</th></tr>
+            <tr><td><code>Ctrl/Cmd + S</code></td><td>Lưu bản nháp</td></tr>
+            <tr><td><code>Ctrl/Cmd + F</code></td><td>Tìm kiếm / thay thế</td></tr>
+            <tr><td><code>Ctrl/Cmd + Z</code> / <code>Shift + Ctrl/Cmd + Z</code></td><td>Hoàn tác / làm lại</td></tr>
+            <tr><td><code>Ctrl/Cmd + /</code></td><td>Bật tắt comment dòng</td></tr>
+            <tr><td><code>Alt + ↑ / ↓</code></td><td>Di chuyển dòng lên / xuống</td></tr>
+            <tr><td><code>Ctrl + Space</code></td><td>Mở danh sách autocomplete / snippet</td></tr>
+          </table>
+        </section>
+
+        <!-- ============ 9. CONTACT ============ -->
+        <section class="block" id="contact">
+          <h1><span class="num">9</span> Liên hệ &amp; đóng góp</h1>
+          <p class="lead">HeyShow là dự án cá nhân, phi lợi nhuận, tự host — mọi góp ý đều được trân trọng.</p>
+          <div class="author-card">
+            <div class="ava">MP</div>
+            <div>
+              <div class="name">Nguyễn Đăng Minh Phúc</div>
+              <div class="role">Tác giả HeyShow ·
+                <a href="https://www.ganjingworld.com/@ndmphuc" target="_blank" rel="noopener">ganjingworld.com/@ndmphuc</a>
+              </div>
+            </div>
+          </div>
+          <h3>Cách đóng góp</h3>
+          <ul>
+            <li><b>Dùng và chia sẻ:</b> xuất bản bài của bạn và gửi link — mỗi bài trong Gallery là một lời giới thiệu.</li>
+            <li><b>Góp ý tính năng / báo lỗi:</b> để lại bình luận dưới bất kỳ bài nào trong Gallery, hoặc liên hệ tác giả qua trang cá nhân bên trên; mô tả càng cụ thể (bước thao tác, điều mong đợi) càng dễ xử lý.</li>
+            <li><b>Chia sẻ mẫu đẹp:</b> nếu bạn dựng được một mẫu bảng/biểu đồ/SmartArt hay, hãy publish nó — tác giả có thể đưa vào mục “Một số mẫu” của trang Help này kèm tên bạn.</li>
+            <li><b>Ý tưởng nội dung:</b> đề xuất thêm ví dụ công thức, snippet, hoặc mục hướng dẫn còn thiếu.</li>
+          </ul>
+          <div class="callout">
+            <b>Lưu ý:</b> HeyShow chạy trên hạ tầng cá nhân nên tài nguyên có hạn — hãy dùng hợp lý,
+            không đăng nội dung vi phạm pháp luật hoặc bản quyền người khác.
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      HeyShow — tự host trên hạ tầng cá nhân ·
+      <a href="/">Trang chủ</a> · <a href="/design">Thiết kế</a> · <a href="/dashboard">Dashboard</a> · <a href="/gallery">Gallery</a>
+    </footer>
+
+    <script type="module" src="/src/help.js"></script>
+  </body>
+</html>

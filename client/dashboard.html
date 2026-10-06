@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - HeyShow</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --bg-panel: #ffffff;
+        --bg-deep: #f3f4f6;
+        --text-color: #1f2937;
+        --muted: #6b7280;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --ink: #1c1917;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg-color); color: var(--text-color); min-height: 100vh; }
+      a { color: var(--accent-strong); text-decoration: none; }
+      .hidden { display: none !important; }
+
+      header {
+        position: sticky; top: 0; z-index: 50;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border-color);
+      }
+      .logo { font-weight: 800; font-size: 1.15rem; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
+      .logo img { width: 28px; height: 28px; }
+      .logo .wordmark span { color: var(--accent-strong); }
+      .nav-links { display: flex; gap: 16px; align-items: center; }
+      .nav-links a { color: var(--muted); font-size: 0.92rem; }
+      .nav-links a:hover { color: var(--text-color); }
+      .me { display: flex; align-items: center; gap: 8px; }
+      .me img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); border: 2px solid var(--border-color); }
+      .me .name { font-size: 0.9rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #btn-logout { background: none; border: 1px solid var(--border-color); color: var(--danger); border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; }
+      #btn-logout:hover { border-color: var(--danger); }
+
+      main { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+
+      /* Tabs */
+      .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; }
+      .tabs button {
+        background: transparent; color: var(--muted); border: 0;
+        border-bottom: 3px solid transparent; border-radius: 0;
+        padding: 9px 16px; font-size: 0.92rem; font-weight: 700; cursor: pointer; font-family: inherit;
+      }
+      .tabs button:hover { background: transparent; color: var(--text-color); }
+      .tabs button.active { color: var(--accent-strong); border-bottom-color: var(--accent-color); }
+      .tab-lead { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; }
+
+      /* Danh sách trình chiếu */
+      #items { display: flex; flex-direction: column; gap: 12px; }
+      #items-empty {
+        background: var(--bg-panel); border: 1px dashed var(--border-color); border-radius: 12px;
+        padding: 30px; text-align: center; color: var(--muted);
+      }
+
+      .item {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      .item-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .item-title { font-weight: 700; font-size: 1.02rem; word-break: break-word; }
+      .item-file { color: var(--muted); font-size: 0.78rem; word-break: break-all; }
+      a.item-file:hover { color: var(--accent-strong); text-decoration: underline; }
+      .badge { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+      .badge.published { background: rgba(22, 163, 74, 0.12); color: var(--success); }
+      .badge.draft { background: var(--bg-deep); color: var(--muted); }
+
+      .item-meta { color: var(--muted); font-size: 0.82rem; margin: 6px 0 0; display: flex; gap: 14px; flex-wrap: wrap; }
+
+      /* Dropdown ⋮ đặt cùng hàng tên file cho gọn */
+      .menu-wrap { position: relative; margin-left: auto; flex-shrink: 0; }
+      .menu-wrap button.dots {
+        width: 30px; height: 27px; padding: 0; font-size: 1rem; line-height: 1; text-align: center;
+        background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 6px;
+        cursor: pointer; font-family: inherit; color: var(--text-color);
+      }
+      .menu-wrap button.dots:hover { background: var(--bg-deep); }
+      .menu {
+        position: absolute; right: 0; top: 32px; z-index: 20; min-width: 180px;
+        background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.14); padding: 4px 0;
+      }
+      .menu button {
+        display: block; width: 100%; text-align: left; margin: 0; border: 0; border-radius: 0;
+        background: none; color: var(--text-color); font-weight: 500; font-size: 0.84rem;
+        padding: 8px 14px; cursor: pointer; font-family: inherit;
+      }
+      .menu button:hover { background: #fffbeb; }
+      .menu button.danger { color: var(--danger); }
+      .menu button:disabled { opacity: 1; cursor: default; }
+
+      /* Hoạt động */
+      #activity { display: flex; flex-direction: column; gap: 12px; }
+      #activity-empty { color: var(--muted); font-size: 0.85rem; font-style: italic; }
+      .act { display: flex; gap: 10px; font-size: 0.88rem; align-items: flex-start;
+        background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; }
+      .act img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); flex-shrink: 0; }
+      .act .body { min-width: 0; }
+      .act .who { font-weight: 700; }
+      .act .what { color: var(--muted); }
+      .act .text {
+        color: var(--text-color); background: var(--bg-deep);
+        border-radius: 8px; padding: 4px 8px; margin-top: 3px;
+        word-break: break-word;
+      }
+      .act time { color: var(--muted); font-size: 0.72rem; display: block; margin-top: 2px; }
+
+      /* Profile */
+      #profile-form {
+        background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px;
+        padding: 20px; max-width: 520px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      .avatar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+      #profile-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+        background: var(--bg-deep); border: 2px solid var(--border-color); cursor: pointer; }
+      #profile-avatar:hover { border-color: var(--accent-color); }
+      .avatar-hint { color: var(--muted); font-size: 0.8rem; }
+      .form-group { display: flex; flex-direction: column; margin-bottom: 14px; }
+      .form-group label { font-size: 0.85rem; font-weight: 700; margin-bottom: 5px; }
+      .form-group .hint { font-weight: 400; color: var(--muted); font-size: 0.75rem; margin-left: 6px; }
+      .form-group input {
+        background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 6px; padding: 9px 10px; font: inherit; font-size: 0.95rem;
+      }
+      .form-group input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(245,158,11,0.2); }
+      #btn-save-profile {
+        background: var(--accent-color); color: var(--ink); border: none; border-radius: 6px;
+        padding: 9px 18px; font-weight: 700; font-size: 0.95rem; cursor: pointer; font-family: inherit;
+      }
+      #btn-save-profile:hover { background: #fbbf24; }
+      #btn-save-profile:disabled { opacity: 0.6; cursor: wait; }
+      #profile-msg { font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+
+      /* Import PPTX */
+      #import-drop {
+        background: var(--bg-panel); border: 2px dashed var(--border-color); border-radius: 12px;
+        padding: 26px; text-align: center; color: var(--muted); font-size: 0.92rem; cursor: pointer;
+      }
+      #import-drop.drag { border-color: var(--accent-color); background: #fffbeb; }
+      #import-drop p { margin: 4px 0; }
+      .linklike { background: none; border: 0; color: var(--accent-strong); font-weight: 700; cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+      #import-status { font-size: 0.88rem; margin: 12px 0; color: var(--muted); }
+      #import-status.error { color: var(--danger); }
+      /* Progress import pptx */
+      .import-progress { margin: 14px 0; }
+      .import-progress .label { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+      .import-progress .label b { color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+      .import-progress .bar-wrap { height: 10px; background: var(--bg-deep); border: 1px solid var(--border-color); border-radius: 999px; overflow: hidden; }
+      .import-progress .bar { height: 100%; width: 0%; background: var(--accent-color); border-radius: 999px; transition: width 0.15s linear; }
+      .import-progress.processing .bar { width: 34%; animation: import-slide 1.1s infinite linear; }
+      @keyframes import-slide { from { transform: translateX(-110%); } to { transform: translateX(395%); } }
+      .import-summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+      .import-summary .chip {
+        background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 999px;
+        padding: 4px 12px; font-size: 0.82rem; font-weight: 700;
+      }
+      .import-summary .chip.bad { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+      .import-summary .chip.ok { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+      table.import-report { width: 100%; border-collapse: collapse; font-size: 0.83rem; background: var(--bg-panel); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+      table.import-report th, table.import-report td { border-bottom: 1px solid var(--border-color); padding: 7px 9px; text-align: left; vertical-align: top; }
+      table.import-report th { background: var(--bg-deep); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+      .media-guide {
+        background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px;
+        padding: 14px 16px; font-size: 0.86rem; margin: 14px 0; line-height: 1.55;
+      }
+      .media-guide b { color: var(--accent-strong); }
+      .media-guide code { background: var(--bg-deep); padding: 1px 5px; border-radius: 4px; font-size: 0.8rem; }
+      .import-actions { display: flex; gap: 10px; margin-top: 14px; }
+      .import-actions .primary { background: var(--accent-color); color: var(--ink); border: none; border-radius: 8px; padding: 9px 18px; font-weight: 700; font-size: 0.92rem; cursor: pointer; font-family: inherit; }
+      .import-actions .primary:hover { background: #fbbf24; }
+      .import-actions .primary:disabled { opacity: 0.6; cursor: wait; }
+      .import-actions .cancel { background: var(--bg-deep); color: var(--text-color); border: none; border-radius: 8px; padding: 9px 18px; font-weight: 700; font-size: 0.92rem; cursor: pointer; font-family: inherit; }
+
+      /* Modal xác nhận / đổi tên */
+      .modal-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        background: rgba(17, 24, 39, 0.45); backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center; padding: 20px;
+      }
+      .modal {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 22px; width: 380px; max-width: 100%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      }
+      .modal h3 { margin-bottom: 8px; font-size: 1.05rem; }
+      .modal p { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; word-break: break-word; }
+      .modal input {
+        width: 100%; background: var(--bg-panel); color: var(--text-color);
+        border: 1px solid var(--border-color); border-radius: 6px; padding: 9px 10px;
+        font: inherit; font-size: 0.95rem; margin-bottom: 16px;
+      }
+      .modal input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(245,158,11,0.2); }
+      .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+      .modal-btns button { border: none; border-radius: 8px; padding: 8px 18px; cursor: pointer; font-weight: 700; font-size: 0.9rem; }
+      .modal-btns .cancel { background: var(--bg-deep); color: var(--text-color); }
+      .modal-btns .confirm-danger { background: var(--danger); color: #ffffff; }
+      .modal-btns .confirm-ok { background: var(--accent-color); color: var(--ink); }
+
+      #toast {
+        position: fixed; bottom: 20px; right: 20px;
+        background: var(--accent-color); color: var(--ink);
+        padding: 10px 20px; border-radius: 6px; font-weight: bold;
+        transform: translateY(150%); transition: transform 0.3s; z-index: 200;
+        max-width: 90vw;
+      }
+      #toast.show { transform: translateY(0); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/" title="Trang chủ: https://heyshow.pedu.vn/"><img src="/heyshow-logo.svg" alt="HeyShow" /><span class="wordmark">Hey<span>Show</span></span></a>
+      <div class="nav-links">
+        <a href="/design">✏️ Thiết kế</a>
+        <a href="/gallery">🌐 Gallery</a>
+        <a href="/templates">🧩 Templates</a>
+        <a href="/help">❓ Help</a>
+        <div class="me">
+          <img id="me-avatar" src="" alt="Avatar" />
+          <span class="name" id="me-name"></span>
+          <button id="btn-logout" type="button">Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <h1>Dashboard</h1>
+      <p class="tab-lead">Quản lý bài trình chiếu, theo dõi hoạt động và cập nhật hồ sơ của bạn.</p>
+
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="presentations">📚 Presentations</button>
+        <button type="button" class="tab" data-tab="activities">🔔 Activities</button>
+        <button type="button" class="tab" data-tab="profile">👤 Profile</button>
+        <button type="button" class="tab" data-tab="import">📥 Import</button>
+      </div>
+
+      <!-- TAB: Presentations -->
+      <section id="tab-presentations">
+        <div id="items"><div id="items-empty" class="hidden">Chưa có trình chiếu nào. <a href="/design">Tạo bài đầu tiên →</a></div></div>
+      </section>
+
+      <!-- TAB: Activities -->
+      <section id="tab-activities" class="hidden">
+        <div id="activity"><div id="activity-empty">Chưa có lượt thích hay bình luận nào.</div></div>
+      </section>
+
+      <!-- TAB: Profile -->
+      <section id="tab-profile" class="hidden">
+        <div id="profile-form">
+          <div class="avatar-row">
+            <img id="profile-avatar" src="" alt="Avatar" title="Bấm để đổi ảnh đại diện" />
+            <div class="avatar-hint">Bấm vào ảnh để đổi ảnh đại diện<br />(PNG/JPG/GIF/WebP, tối đa 1MB)</div>
+            <input type="file" id="profile-avatar-upload" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" />
+          </div>
+          <div class="form-group">
+            <label for="profile-fullname">Full Name</label>
+            <input type="text" id="profile-fullname" placeholder="VD: Đặng Minh Phúc" maxlength="80" />
+          </div>
+          <div class="form-group">
+            <label for="profile-email">Email</label>
+            <input type="email" id="profile-email" placeholder="VD: ban@truong.edu.vn" />
+          </div>
+          <div class="form-group">
+            <label for="profile-phone">Số điện thoại</label>
+            <input type="tel" id="profile-phone" placeholder="VD: 0905 123 456" />
+          </div>
+          <div class="form-group">
+            <label for="profile-slug">URL slug<span class="hint">3-40 ký tự: a-z, 0-9, -, _</span></label>
+            <input type="text" id="profile-slug" placeholder="VD: dang-minh-phuc" />
+          </div>
+          <div class="form-group">
+            <label for="profile-pass">Mật khẩu mới<span class="hint">để trống nếu không đổi</span></label>
+            <input type="password" id="profile-pass" placeholder="••••••••" />
+          </div>
+          <button type="button" id="btn-save-profile">Lưu hồ sơ</button>
+          <div id="profile-msg"></div>
+        </div>
+      </section>
+
+      <!-- TAB: Import PPTX -->
+      <section id="tab-import" class="hidden">
+        <p class="tab-lead">Chuyển file PowerPoint <b>.pptx</b> (≤10MB), Markdown <b>.md</b> hoặc LaTeX beamer <b>.tex</b> (≤5MB) thành bản nháp HeyShow: tiêu đề, nội dung chữ, ghi chú và công thức toán được giữ nguyên; ảnh/video/bảng sẽ thành chỗ trống có hướng dẫn chèn link.</p>
+        <div id="import-drop">
+          <p>📎 Kéo thả file <b>.pptx</b> / <b>.md</b> / <b>.tex</b> vào đây, hoặc <button type="button" id="btn-pick-pptx" class="linklike">chọn file</button></p>
+          <p id="import-file-name" class="avatar-hint"></p>
+        </div>
+        <input type="file" id="import-file" accept=".pptx,.md,.markdown,.tex,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/markdown,text/plain" class="hidden" />
+        <div id="import-status"></div>
+        <div id="import-report"></div>
+      </section>
+    </main>
+
+    <!-- Modal xác nhận xoá -->
+    <div id="delete-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <h3>Xác nhận xoá</h3>
+        <p id="delete-msg"></p>
+        <div class="modal-btns">
+          <button type="button" class="cancel" id="delete-cancel">Huỷ</button>
+          <button type="button" class="confirm-danger" id="delete-confirm">Xoá vĩnh viễn</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal đổi tên -->
+    <div id="rename-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <h3>Đổi tên trình chiếu</h3>
+        <p id="rename-old"></p>
+        <input type="text" id="rename-input" placeholder="Tên mới (VD: bai-giang-1)" />
+        <div class="modal-btns">
+          <button type="button" class="cancel" id="rename-cancel">Huỷ</button>
+          <button type="button" class="confirm-ok" id="rename-confirm">Đổi tên</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script type="module" src="/src/dashboard.js"></script>
+  </body>
+</html>

@@ -1,0 +1,76 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1024 1024"
+  fill="none"
+>
+  <defs>
+    <linearGradient id="amber" x1="512" y1="100" x2="512" y2="930" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Top handle -->
+  <path
+    d="M480 170V105C480 76.3 503.3 53 532 53C560.7 53 584 76.3 584 105V170H480Z"
+    fill="url(#amber)"
+  />
+
+  <!-- Top bar -->
+  <rect
+    x="80"
+    y="145"
+    width="864"
+    height="90"
+    rx="45"
+    fill="url(#amber)"
+  />
+
+  <!-- Screen -->
+  <rect
+    x="125"
+    y="235"
+    width="774"
+    height="500"
+    fill="#FAFAFA"
+  />
+
+  <!-- Code symbol -->
+  <g
+    stroke="url(#amber)"
+    stroke-width="54"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <!-- < -->
+    <path d="M405 390L300 470L405 550"/>
+
+    <!-- / -->
+    <path d="M560 360L485 580"/>
+
+    <!-- > -->
+    <path d="M620 390L725 470L620 550"/>
+  </g>
+
+  <!-- Bottom bar -->
+  <rect
+    x="80"
+    y="735"
+    width="864"
+    height="90"
+    rx="45"
+    fill="url(#amber)"
+  />
+
+  <!-- Stand -->
+  <path
+    d="M480 825H544V875L720 1000C739 1014 766 1010 780 991C794 972 790 945 771 931L584 795H440L253 931C234 945 230 972 244 991C258 1010 285 1014 304 1000L480 875V825Z"
+    fill="url(#amber)"
+  />
+
+  <!-- Center leg -->
+  <path
+    d="M480 825H544V965C544 986 530 1000 512 1000C494 1000 480 986 480 965V825Z"
+    fill="url(#amber)"
+  />
+</svg>

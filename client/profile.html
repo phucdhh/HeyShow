@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HeyShow - Trang cá nhân</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --bg-panel: #ffffff;
+        --bg-deep: #f3f4f6;
+        --muted: #6b7280;
+        --danger: #dc2626;
+        --header-height: 56px;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        min-height: 100vh;
+      }
+
+      header {
+        height: var(--header-height);
+        background-color: var(--bg-panel);
+        border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 1.25rem; position: sticky; top: 0; z-index: 50;
+      }
+      .logo { font-weight: bold; font-size: 1.2rem; color: var(--accent-strong); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+      .logo img { width: 28px; height: 28px; }
+      .logo span { color: var(--text-color); font-weight: normal; }
+      .header-right { display: flex; align-items: center; gap: 12px; }
+      .header-right a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+      .header-right a:hover { color: var(--accent-strong); }
+
+      main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+      .profile-banner {
+        display: flex; align-items: center; gap: 18px;
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 20px 22px; margin-bottom: 24px;
+      }
+      .profile-banner img {
+        width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+        background: var(--bg-deep); border: 2px solid var(--border-color); flex-shrink: 0;
+      }
+      .profile-banner .who .name { font-size: 1.4rem; font-weight: 700; }
+      .profile-banner .who .sub { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+      #profile-empty { text-align: center; color: var(--muted); padding: 60px 0; }
+      #profile-error { text-align: center; color: var(--danger); padding: 60px 0; }
+
+      #profile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 10px; overflow: hidden; cursor: pointer;
+        transition: transform 0.15s, border-color 0.15s;
+        display: flex; flex-direction: column;
+      }
+      .card:hover { transform: translateY(-3px); border-color: var(--accent-color); }
+
+      .thumb {
+        position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+        background: #111; border-bottom: 1px solid var(--border-color);
+      }
+      .thumb iframe {
+        position: absolute; top: 0; left: 0;
+        width: 1280px; height: 720px; border: 0;
+        transform-origin: 0 0; pointer-events: none;
+      }
+      .thumb .thumb-placeholder {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: #9ca3af; font-size: 0.85rem;
+      }
+
+      .card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+      .card-title {
+        font-size: 1rem; font-weight: 600; color: var(--text-color);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
+      .card-meta .dot { color: var(--muted); }
+      .card-stats { display: flex; gap: 14px; font-size: 0.8rem; color: var(--muted); }
+      .card-stats span { display: inline-flex; align-items: center; gap: 5px; }
+
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/" title="Trang chủ: https://heyshow.pedu.vn/"><img src="/heyshow-logo.svg" alt="HeyShow" />HeyShow <span>Gallery</span></a>
+      <div class="header-right">
+        <a href="/gallery">Thư viện</a>
+        <a href="/design">Soạn thảo slide</a>
+        <a href="/templates">Templates</a>
+        <a href="/help">Help</a>
+      </div>
+    </header>
+
+    <main>
+      <div class="profile-banner hidden" id="profile-banner">
+        <img id="profile-avatar" alt="Avatar" />
+        <div class="who">
+          <div class="name" id="profile-name"></div>
+          <div class="sub" id="profile-count"></div>
+        </div>
+      </div>
+
+      <div id="profile-error" class="hidden"></div>
+      <div id="profile-empty" class="hidden">Người dùng này chưa xuất bản bài trình chiếu nào.</div>
+      <div id="profile-grid"></div>
+    </main>
+
+    <script type="module" src="/src/profile.js"></script>
+  </body>
+</html>

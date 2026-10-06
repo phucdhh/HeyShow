@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HeyShow - Trình soạn thảo Slide</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --text-color: #1f2937;
+        --muted: #6b7280;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --accent-deep: #b45309;
+        --bg-panel: #ffffff;
+        --bg-deep: #f3f4f6;
+        --danger: #dc2626;
+        --success: #16a34a;
+        --header-height: 50px;
+      }
+      
+      /* ... reset & body ... */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-color); color: var(--text-color); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+      /* --- Auth Overlay --- */
+      #auth-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(28, 25, 23, 0.45); backdrop-filter: blur(5px);
+        display: flex; justify-content: center; align-items: center; z-index: 9999;
+      }
+      .auth-box {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        padding: 30px; border-radius: 12px; width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      }
+      .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+      .auth-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; color: var(--muted); font-weight: bold; }
+      .auth-tab.active { color: var(--accent-deep); border-bottom: 2px solid var(--accent-color); }
+      .auth-form-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
+      .auth-form-group input { background: #fff; color: var(--text-color); border: 1px solid #d1d5db; padding: 10px; border-radius: 6px; font-size: 1rem; }
+      .auth-form-group input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+      .auth-btn { width: 100%; background: var(--accent-color); color: #1c1917; font-weight: bold; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+      .auth-btn:hover { background: var(--accent-strong); color: #fff; }
+      #auth-msg { margin-top: 15px; font-size: 0.9rem; text-align: center; color: var(--danger); }
+
+      header {
+        height: var(--header-height);
+        background-color: var(--bg-panel);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1rem;
+      }
+
+      .logo {
+        display: flex; align-items: center; gap: 8px;
+        font-weight: 800;
+        font-size: 1.15rem;
+        color: #1c1917;
+      }
+      .logo img { width: 30px; height: 30px; }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      select, button, input {
+        background-color: #fff;
+        color: var(--text-color);
+        border: 1px solid #d1d5db;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+      
+      input { cursor: text; }
+      select:focus, input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+
+      button:hover { background-color: #fffbeb; border-color: var(--accent-color); }
+      button.primary { background-color: var(--accent-color); color: #1c1917; font-weight: bold; border-color: var(--accent-color); }
+      button.primary:hover { background-color: var(--accent-strong); color: #fff; }
+
+      main {
+        display: flex;
+        flex: 1;
+        height: calc(100vh - var(--header-height));
+      }
+
+      .pane {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0; /* Ngăn CodeMirror đẩy flex ra ngoài */
+      }
+
+      .pane-header {
+        background: var(--bg-deep);
+        padding: 5px 10px;
+        font-size: 0.8rem;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      #editor-container {
+        flex: 1;
+        overflow: auto;
+        background: #fff;
+      }
+
+      .hidden { display: none !important; }
+      
+      /* AI Chat Bubbles */
+      .chat-msg { padding: 8px; border-radius: 6px; max-width: 90%; word-wrap: break-word; }
+      .chat-msg.user { background: #f3f4f6; align-self: flex-end; }
+      .chat-msg.ai { background: #fffbeb; align-self: flex-start; color: #92400e; border: 1px solid #fde68a; }
+      .chat-msg.error { background: #fef2f2; align-self: flex-start; color: var(--danger); border: 1px solid #fecaca; }
+      .chat-msg pre { background: #f9fafb; padding: 5px; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin-top: 5px; border: 1px solid var(--border-color); }
+
+      .dropdown-item:hover { background: #fffbeb; }
+      .dropdown-item:first-child { border-radius: 8px 8px 0 0; }
+      .dropdown-item:last-child { border-radius: 0 0 8px 8px; }
+
+      /* Override CodeMirror height to fill container */
+      .cm-editor {
+        height: 100%;
+      }
+
+      .resizer {
+        width: 6px;
+        background-color: var(--border-color);
+        cursor: col-resize;
+        position: relative;
+        z-index: 5;
+        flex-shrink: 0;
+      }
+      
+      .resizer:hover, .resizer:active {
+        background-color: var(--accent-color);
+      }
+
+      #preview-pane {
+        background-color: #fff;
+      }
+
+      #preview-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+
+      /* Notification Toast */
+      #toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: var(--success);
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 6px;
+        transform: translateY(150%);
+        transition: transform 0.3s;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+      #toast.show {
+        transform: translateY(0);
+      }
+
+      /* --- Thanh tiêu đề khung soạn thảo --- */
+      #editor-header { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+      #editor-header > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+      #editor-status { color: var(--accent-deep); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+      #editor-status.dirty { color: var(--danger); }
+      .pane-tools { margin-left: auto; display: flex; gap: 4px; flex-shrink: 0; }
+      .pane-tools button { padding: 2px 7px; font-size: 0.72rem; line-height: 1.5; white-space: nowrap; }
+
+      /* --- Nhãn slide (S1, S2, S2.1, ★ master) ở cột gutter --- */
+      .hs-slide-gutter { background: #fffbeb; }
+      .hs-badge {
+        display: inline-block; min-width: 20px; padding: 0 3px;
+        border-radius: 4px; font-size: 0.68rem; line-height: 1.6; text-align: center;
+        cursor: pointer; user-select: none; color: #6b7280; background: #e5e7eb;
+      }
+      .hs-badge-slide { background: var(--accent-color); color: #1c1917; font-weight: 700; }
+      .hs-badge-sub { background: #fde68a; color: #92400e; font-weight: 700; }
+      .hs-badge-master { background: #1c1917; color: #fbbf24; font-weight: 700; }
+      .hs-badge:hover { filter: brightness(1.08); }
+
+      /* --- Ô màu nhỏ cạnh mã màu trong editor --- */
+      .hs-swatch {
+        position: relative; display: inline-block; width: 0.95em; height: 0.95em;
+        margin: 0 3px -1px 0; border-radius: 3px; border: 1px solid rgba(0,0,0,0.25);
+        cursor: pointer; background-color: #fff;
+        background-image:
+          linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%),
+          linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%);
+        background-size: 8px 8px;
+        background-position: 0 0, 4px 4px;
+      }
+      .hs-swatch > i { position: absolute; inset: 0; border-radius: 2px; }
+      .hs-swatch:hover { border-color: var(--accent-strong); }
+
+      /* --- Bảng chọn màu --- */
+      .hs-picker {
+        position: fixed; z-index: 10001; width: 232px; padding: 10px;
+        background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        display: flex; flex-direction: column; gap: 8px;
+      }
+      .hs-sv { position: relative; height: 120px; border-radius: 5px; cursor: crosshair; touch-action: none; }
+      .hs-sv::before {
+        content: ""; position: absolute; inset: 0; border-radius: 5px;
+        background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent);
+      }
+      .hs-sv-handle {
+        position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px;
+        border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+        pointer-events: none;
+      }
+      .hs-hue, .hs-alpha {
+        -webkit-appearance: none; appearance: none; width: 100%; height: 12px; padding: 0;
+        border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;
+      }
+      .hs-hue { background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+      .hs-hue::-webkit-slider-thumb, .hs-alpha::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
+        border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,0.4); cursor: pointer;
+      }
+      .hs-hue::-moz-range-thumb, .hs-alpha::-moz-range-thumb {
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #fff; border: 1px solid rgba(0,0,0,0.4); cursor: pointer;
+      }
+      .hs-row { display: flex; align-items: center; gap: 8px; }
+      .hs-current { width: 26px; height: 26px; flex-shrink: 0; border-radius: 5px; border: 1px solid var(--border-color); }
+      .hs-hex {
+        flex: 1; min-width: 0; padding: 5px 7px; font-family: ui-monospace, monospace; font-size: 0.82rem;
+        background: #fff; color: var(--text-color); border: 1px solid #d1d5db; border-radius: 6px;
+      }
+      .hs-hex:focus { outline: none; border-color: var(--accent-color); }
+      .hs-hex.bad { border-color: var(--danger); }
+      .hs-recents { display: flex; flex-wrap: wrap; gap: 5px; min-height: 18px; }
+      .hs-recent { width: 18px; height: 18px; padding: 0; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer; }
+      .hs-recent:hover { border-color: var(--accent-strong); }
+      .hs-btns { display: flex; gap: 6px; }
+      .hs-btns button { flex: 1; padding: 5px 8px; font-size: 0.8rem; }
+
+      /* --- Khung tìm kiếm của CodeMirror --- */
+      .cm-panel.cm-search { background: #fffbeb; color: var(--text-color); padding: 8px; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
+      .cm-panel.cm-search input, .cm-panel.cm-search button { font-size: 0.82rem; }
+      .cm-panel.cm-search label { color: var(--muted); }
+      .cm-panel.cm-search [name="close"] { color: var(--text-color); font-size: 1rem; }
+      .cm-searchMatch { background: rgba(245, 158, 11, 0.25); }
+      .cm-searchMatch-selected { background: rgba(217, 119, 6, 0.45); }
+      .cm-selectionMatch { background: rgba(253, 230, 138, 0.6); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/" title="Trang chủ: https://heyshow.pedu.vn/" style="text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="/heyshow-logo.svg" alt="HeyShow" style="width: 28px; height: 28px;" />HeyShow</a>
+      <div class="controls">
+        <select id="file-select">
+          <option value="" disabled selected>-- Chọn file --</option>
+        </select>
+        <input type="text" id="new-file-name" placeholder="Tên file (VD: slide1)" />
+        <button id="btn-create">Tạo/Mở</button>
+        <span style="color:var(--border-color)">|</span>
+        <button id="btn-save">Save</button>
+        <button id="btn-publish" class="primary">Publish</button>
+
+        <!-- User Avatar & Dropdown -->
+        <div style="position: relative; display: flex; align-items: center; margin-left: 15px;">
+            <img id="user-avatar" src="" style="width: 36px; height: 36px; border-radius: 50%; cursor: pointer; object-fit: cover; border: 2px solid var(--border-color); background: var(--bg-deep);" title="Profile" />
+            <div id="user-dropdown" class="hidden" style="position: absolute; top: 45px; right: 0; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; width: 170px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 20;">
+                <a href="/dashboard" class="dropdown-item" style="display: block; padding: 10px; color: var(--text-color); text-decoration: none; border-bottom: 1px solid var(--border-color);">📊 Dashboard</a>
+                <a href="/templates" class="dropdown-item" style="display: block; padding: 10px; color: var(--text-color); text-decoration: none; border-bottom: 1px solid var(--border-color);">🧩 Templates</a>
+                <div id="btn-profile" class="dropdown-item" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color);">My Profile</div>
+                <div id="btn-logout" class="dropdown-item" style="padding: 10px; cursor: pointer; color: var(--danger);">Log out</div>
+            </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- Nút gọi AI nổi lên trên -->
+      <button id="btn-ai-toggle" style="position: absolute; bottom: 20px; left: 20px; z-radius: 50%; width: 50px; height: 50px; border-radius: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 1.5rem; display: flex; align-items: center; justify-content: center; z-index: 10;">✨</button>
+      
+      <!-- Khung Chat AI -->
+      <div id="ai-chat-panel" class="hidden" style="position: absolute; bottom: 80px; left: 20px; width: 350px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        <div style="background: var(--bg-deep); padding: 10px; border-bottom: 1px solid var(--border-color); font-weight: bold; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between;">
+            <span>Hỗ trợ soạn Slides</span>
+            <span id="btn-close-ai" style="cursor: pointer; color: var(--danger);">✖</span>
+        </div>
+        <div id="ai-chat-history" style="flex: 1; padding: 10px; height: 250px; overflow-y: auto; font-size: 0.9rem; display: flex; flex-direction: column; gap: 8px;">
+            <div style="color: var(--muted); font-style: italic;">Xin chào! Tôi có thể giúp bạn tạo thêm slide hoặc sửa code HTML. Hãy nhập yêu cầu bên dưới nhé!</div>
+        </div>
+        <div style="padding: 8px 10px 0; display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted);">
+            <label for="ai-provider" style="white-space: nowrap;">AI:</label>
+            <select id="ai-provider" style="width: fit-content; background: var(--bg-deep); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 5px 6px; font-size: 0.82rem;">
+                <option value="groq">Groq (mặc định)</option>
+                <option value="deepseek">DeepSeek</option>
+            </select>
+        </div>
+        <div style="padding: 8px 10px 0; display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted);">
+            <label for="ai-mode" style="white-space: nowrap;">Vị trí:</label>
+            <select id="ai-mode" style="width: fit-content; background: var(--bg-deep); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 5px 6px; font-size: 0.82rem;">
+                <option value="master">Slide Master (thiết lập chung)</option>
+                <option value="current">Slide hiện tại</option>
+                <option value="next" selected>Slide tiếp theo</option>
+                <option value="last">Slide cuối cùng</option>
+            </select>
+        </div>
+        <div style="padding: 10px; border-top: 1px solid var(--border-color); display: flex; gap: 5px;">
+            <input type="text" id="ai-prompt" placeholder="VD: Thêm 1 slide về AI..." style="flex: 1;" />
+            <button id="btn-ai-send" class="primary" style="margin-top: 0;">Gửi</button>
+        </div>
+      </div>
+      <div class="pane" id="editor-pane">
+        <div class="pane-header" id="editor-header">
+          <span>Editor</span>
+          <span id="editor-status">Chưa chọn file</span>
+          <span class="pane-tools">
+            <button id="btn-search" type="button" title="Tìm trong file (Ctrl/Cmd + F)">🔍 Tìm</button>
+            <button id="btn-fold-all" type="button" title="Thu gọn toàn bộ slide">Thu gọn</button>
+            <button id="btn-unfold-all" type="button" title="Mở toàn bộ slide">Mở hết</button>
+          </span>
+        </div>
+        <div id="editor-container"></div>
+      </div>
+
+      <!-- Thanh kéo để thay đổi kích thước 2 khung -->
+      <div class="resizer" id="resizer"></div>
+
+      <!-- Khung phải: Preview Reveal.js -->
+      <div class="pane" id="preview-pane">
+        <div class="pane-header" style="background:#f3f4f6; color:#374151;">Preview</div>
+        <iframe id="preview-iframe"></iframe>
+      </div>
+    </main>
+    
+    <div id="toast">Thông báo</div>
+
+    <!-- Màn hình Auth -->
+    <div id="auth-overlay" class="hidden">
+        <div class="auth-box">
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="tab-login">Đăng nhập</div>
+                <div class="auth-tab" id="tab-register">Đăng ký</div>
+            </div>
+            
+            <div class="auth-form-group">
+                <label>Tên đăng nhập (Username)</label>
+                <input type="text" id="auth-user" placeholder="VD: user123" />
+            </div>
+            <div class="auth-form-group">
+                <label>Mật khẩu</label>
+                <input type="password" id="auth-pass" placeholder="***" />
+            </div>
+            
+            <button id="btn-auth-submit" class="auth-btn">Đăng nhập</button>
+            <div id="auth-msg"></div>
+        </div>
+    </div>
+
+    <!-- Màn hình Profile Modal -->
+    <div id="profile-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.5); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 10000;">
+        <div class="auth-box" style="width: 400px; position: relative;">
+            <span id="btn-close-profile" style="position: absolute; top: 10px; right: 15px; cursor: pointer; font-size: 1.2rem; color: var(--muted);">✖</span>
+            <h2 style="color: var(--accent-color); margin-bottom: 20px; margin-top: 0; text-align: center;">Hồ sơ của bạn</h2>
+            
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img id="profile-avatar-preview" src="" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-color); cursor: pointer;" title="Nhấn để đổi ảnh" />
+                <input type="file" id="profile-avatar-upload" accept="image/*" class="hidden" />
+            </div>
+
+            <div class="auth-form-group">
+                <label>Username (viết liền, không dấu tiếng Việt)</label>
+                <input type="text" id="profile-url-slug" placeholder="VD: ndmphuc" />
+            </div>
+            
+            <div class="auth-form-group">
+                <label>Email</label>
+                <input type="email" id="profile-email" placeholder="VD: example@email.com" />
+            </div>
+            
+            <div class="auth-form-group">
+                <label>Mật khẩu mới (Để trống nếu giữ nguyên)</label>
+                <input type="password" id="profile-new-pass" placeholder="***" />
+            </div>
+            
+            <button id="btn-save-profile" class="auth-btn" style="margin-top: 10px;">Lưu thay đổi</button>
+            <div id="profile-msg" style="margin-top: 15px; font-size: 0.9rem; text-align: center;"></div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

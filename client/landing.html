@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HeyShow - Tạo bài trình chiếu bằng HTML</title>
+    <meta name="description" content="HeyShow: soạn slide HTML với preview Reveal.js thời gian thực, AI hỗ trợ, color picker, gallery công khai. Miễn phí, tự host." />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --bg-panel: #ffffff;
+        --bg-deep: #f3f4f6;
+        --text-color: #1f2937;
+        --muted: #6b7280;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --accent-deep: #b45309;
+        --ink: #1c1917;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg-color); color: var(--text-color);
+        line-height: 1.6;
+      }
+      a { color: var(--accent-color); text-decoration: none; }
+
+      header {
+        position: sticky; top: 0; z-index: 50;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 24px;
+        background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border-color);
+      }
+      .logo { font-weight: 800; font-size: 1.25rem; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
+      .logo img { width: 30px; height: 30px; }
+      .logo .wordmark span { color: var(--accent-strong); }
+      .nav-links { display: flex; gap: 18px; align-items: center; }
+      .nav-links a { color: var(--muted); font-size: 0.95rem; }
+      .nav-links a:hover { color: var(--text-color); }
+      .btn {
+        display: inline-block; padding: 10px 22px; border-radius: 8px;
+        font-weight: 700; font-size: 1rem; cursor: pointer; border: none;
+      }
+      .btn-primary { background: var(--accent-color); color: var(--ink); }
+      .btn-primary:hover { background: #fbbf24; }
+      .btn-ghost { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); }
+      .btn-ghost:hover { border-color: var(--accent-color); color: var(--accent-strong); }
+      .btn-sm { padding: 6px 14px; font-size: 0.9rem; }
+
+      .hero {
+        text-align: center;
+        padding: 90px 24px 60px;
+        background:
+          radial-gradient(600px 300px at 20% 0%, rgba(245, 158, 11, 0.12), transparent),
+          radial-gradient(600px 300px at 80% 10%, rgba(251, 191, 36, 0.10), transparent);
+      }
+      .hero h1 {
+        font-size: clamp(2rem, 5vw, 3.4rem);
+        font-weight: 800; line-height: 1.2; margin-bottom: 18px;
+      }
+      .hero h1 em { color: var(--accent-strong); font-style: normal; }
+      .hero p.sub {
+        max-width: 640px; margin: 0 auto 32px;
+        color: var(--muted); font-size: 1.1rem;
+      }
+      .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+      .stats {
+        display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;
+        padding: 34px 24px 50px;
+      }
+      .stat-card {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 18px 28px; min-width: 150px; text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      .stat-card .num { font-size: 1.9rem; font-weight: 800; color: var(--accent-strong); }
+      .stat-card .label { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+
+      section.block { max-width: 1060px; margin: 0 auto; padding: 40px 24px 60px; }
+      section.block > h2 { text-align: center; font-size: 1.7rem; margin-bottom: 8px; }
+      section.block > p.lead { text-align: center; color: var(--muted); margin-bottom: 34px; }
+
+      .features {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;
+      }
+      .feature {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      .feature .icon { font-size: 1.6rem; margin-bottom: 8px; }
+      .feature h3 { font-size: 1.05rem; margin-bottom: 6px; }
+      .feature p { color: var(--muted); font-size: 0.92rem; }
+
+      .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; counter-reset: step; }
+      .step {
+        position: relative;
+        background: var(--bg-deep); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 22px 20px 18px;
+      }
+      .step::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; top: -14px; left: 18px;
+        width: 28px; height: 28px; border-radius: 50%;
+        background: var(--accent-color); color: var(--ink);
+        font-weight: 800; display: flex; align-items: center; justify-content: center;
+      }
+      .step h3 { font-size: 1rem; margin-bottom: 6px; }
+      .step p { color: var(--muted); font-size: 0.9rem; }
+
+      .cta-final {
+        text-align: center; padding: 60px 24px 80px;
+        background: linear-gradient(180deg, transparent, rgba(245, 158, 11, 0.08));
+      }
+      .cta-final h2 { font-size: 1.8rem; margin-bottom: 12px; }
+      .cta-final p { color: var(--muted); margin-bottom: 26px; }
+
+      footer {
+        border-top: 1px solid var(--border-color);
+        padding: 22px 24px; text-align: center;
+        color: var(--muted); font-size: 0.85rem;
+      }
+      footer a { color: var(--muted); }
+      footer a:hover { color: var(--accent-color); }
+
+      @media (max-width: 640px) {
+        .nav-links a.desk { display: none; }
+        .hero { padding-top: 60px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/"><img src="/heyshow-logo.svg" alt="HeyShow" /><span class="wordmark">Hey<span>Show</span></span></a>
+      <div class="nav-links">
+        <a href="/gallery">Gallery</a>
+        <a class="desk" href="/templates">Templates</a>
+        <a id="nav-dashboard" href="/dashboard">Dashboard</a>
+        <a class="desk" href="/help">Help</a>
+        <a class="btn btn-primary btn-sm" href="/design">Design</a>
+      </div>
+    </header>
+
+    <div class="hero">
+      <h1>Tạo bài trình chiếu <em>bằng HTML</em>,<br />hỗ trợ tương tác</h1>
+      <p class="sub">
+        HeyShow là công cụ soạn các bài trình chiếu bằng cách viết mã HTML (có AI hỗ trợ), xem trước trực tiếp, rồi xuất bản thành liên kết công khai.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/design">✨ Bắt đầu thiết kế</a>
+        <a class="btn btn-ghost" href="/gallery">Xem Gallery</a>
+        <a class="btn btn-ghost" href="/dashboard">Dashboard của tôi</a>
+      </div>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stat-card"><div class="num" id="stat-presentations">–</div><div class="label">Bài trình chiếu</div></div>
+      <div class="stat-card"><div class="num" id="stat-views">–</div><div class="label">Lượt xem</div></div>
+      <div class="stat-card"><div class="num" id="stat-likes">–</div><div class="label">Lượt thích</div></div>
+      <div class="stat-card"><div class="num" id="stat-comments">–</div><div class="label">Bình luận</div></div>
+      <div class="stat-card"><div class="num" id="stat-users">–</div><div class="label">Nhà thiết kế</div></div>
+    </div>
+
+    <section class="block" id="features">
+      <h2>Tính năng chính</h2>
+      <p class="lead">Những thứ bạn cần để soạn và chia sẻ bài trình chiếu.</p>
+      <div class="features">
+        <div class="feature">
+          <div class="icon">⚡</div>
+          <h3>Editor 2 khung, preview thời gian thực</h3>
+          <p>Soạn mã HTML bên trái, các slide hiện ngay bên phải. Con trỏ ở slide nào, preview sẽ nhảy tới slide đó.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🎨</div>
+          <h3>Color picker giúp chọn màu nhanh</h3>
+          <p>Mọi mã màu trong code hiện ô màu nhỏ; bấm vào để kéo-chọn màu, xem trước trực tiếp.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🗂️</div>
+          <h3>Nhãn &amp; thu gọn từng slide</h3>
+          <p>Gutter gắn nhãn ★, S1, S2.1… — bấm để đóng/mở code từng slide, luôn biết con trỏ đang ở slide thứ mấy.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🤖</div>
+          <h3>AI hỗ trợ soạn slide</h3>
+          <p>Mô tả yêu cầu bằng tiếng Việt, AI hỗ trợ sinh thẻ &lt;section&gt; hoàn chỉnh; kèm snippets cho slide, cột, công thức…</p>
+        </div>
+        <div class="feature">
+          <div class="icon">📐</div>
+          <h3>Công thức Toán học KaTeX</h3>
+          <p>Viết <code>$...$</code>, <code>$$...$$</code> ngay trong slide và trong cả các bình luận ở Gallery.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🌐</div>
+          <h3>Publish + Gallery công khai</h3>
+          <p>Một nút xuất bản thành link chia sẻ; bài xuất hiện trong Gallery với lượt xem, thích, bình luận và trang cá nhân.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">📦</div>
+          <h3>Dashboard quản lý</h3>
+          <p>Xem toàn bộ bài của bạn: xuất bản, đưa về nháp, đổi tên, xoá, theo dõi reactions và bình luận mới nhất.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">💾</div>
+          <h3>Xuất HTML / PDF</h3>
+          <p>Tải bài trình chiếu về dạng file HTML chạy offline, hoặc in ra PDF ngay từ trình duyệt.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Cách HeyShow hoạt động</h2>
+      <p class="lead">Ba bước từ ý tưởng tới link trình chiếu.</p>
+      <div class="steps">
+        <div class="step">
+          <h3>Soạn slide</h3>
+          <p>Mở <a href="/design">trang thiết kế</a>, tạo file nháp và viết các thẻ <code>&lt;section&gt;</code> — hoặc nhờ AI sinh giúp.</p>
+        </div>
+        <div class="step">
+          <h3>Xem trước &amp; tinh chỉnh</h3>
+          <p>Preview Reveal.js cập nhật ngay khi gõ; đổi màu bằng color picker, gập/mở slide, tìm kiếm nhanh.</p>
+        </div>
+        <div class="step">
+          <h3>Xuất bản &amp; chia sẻ</h3>
+          <p>Bấm Publish để có link công khai, theo dõi lượt xem và bình luận trong <a href="/dashboard">Dashboard</a>.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="cta-final">
+      <h2>Sẵn sàng tạo bài trình chiếu đầu tiên?</h2>
+      <p>Miễn phí — chỉ cần một tài khoản để bắt thiết kế.</p>
+      <a class="btn btn-primary" href="/design">Bắt đầu ngay</a>
+    </div>
+
+    <footer>
+      HeyShow — Phát triển bởi <a href="https://www.ganjingworld.com/@ndmphuc"> Nguyễn Đăng Minh Phúc</a> ·
+      <a href="https://heygeo.pedu.vn/">HeyGeo</a> · <a href="https://heytex.pedu.vn/">HeyTeX</a> 
+     </footer>
+
+    <script type="module" src="/src/landing.js"></script>
+  </body>
+</html>

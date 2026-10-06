@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Templates - HeyShow</title>
+    <meta name="description" content="Thư viện mẫu sẵn của HeyShow: mẫu bài trình chiếu (giáo án, chuyên đề, hướng dẫn, đố vui, báo cáo dự án, tiểu luận) và mẫu slide (thống kê, đồ thị tham số, trắc nghiệm, ghép đôi, điền khuyết, puzzle)." />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/heyshow-logo.svg" />
+    <style>
+      :root {
+        --bg-color: #f9fafb;
+        --bg-panel: #ffffff;
+        --bg-deep: #f3f4f6;
+        --text-color: #1f2937;
+        --muted: #6b7280;
+        --border-color: #e5e7eb;
+        --accent-color: #f59e0b;
+        --accent-strong: #d97706;
+        --accent-deep: #b45309;
+        --ink: #1c1917;
+        --code-bg: #1c1917;
+        --code-text: #f5f5f4;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg-color); color: var(--text-color);
+        line-height: 1.65;
+      }
+      a { color: var(--accent-strong); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      header {
+        position: sticky; top: 0; z-index: 50;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 24px;
+        background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border-color);
+      }
+      .logo { font-weight: 800; font-size: 1.15rem; color: var(--text-color); display: flex; align-items: center; gap: 8px; text-decoration: none; }
+      .logo:hover { text-decoration: none; }
+      .logo img { width: 28px; height: 28px; }
+      .logo .wordmark span { color: var(--accent-strong); }
+      .nav-links { display: flex; gap: 16px; align-items: center; }
+      .nav-links a { color: var(--muted); font-size: 0.92rem; }
+      .nav-links a:hover { color: var(--text-color); text-decoration: none; }
+      .nav-links a.btn-primary { background: var(--accent-color); color: var(--ink); font-weight: 700; padding: 7px 16px; border-radius: 8px; }
+      .nav-links a.btn-primary:hover { background: #fbbf24; }
+
+      .hero {
+        max-width: 1000px; margin: 0 auto; padding: 34px 24px 6px; text-align: center;
+      }
+      .hero h1 { font-size: 1.7rem; }
+      .hero h1 span { color: var(--accent-strong); }
+      .hero p { color: var(--muted); margin-top: 8px; }
+
+      .layout { max-width: 1060px; margin: 0 auto; padding: 20px 24px 80px; }
+
+      section.block { margin-bottom: 34px; scroll-margin-top: 70px; }
+      section.block > h2 {
+        font-size: 1.3rem; display: flex; align-items: center; gap: 10px;
+        border-bottom: 2px solid var(--accent-color); padding-bottom: 8px; margin-bottom: 6px;
+      }
+      section.block > h2 .num {
+        background: var(--accent-color); color: var(--ink);
+        width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 1rem; font-weight: 800;
+      }
+      section.block > p.lead { color: var(--muted); margin-bottom: 16px; font-size: 0.95rem; }
+
+      /* Thẻ mẫu: preview + code */
+      .tpl {
+        border: 1px solid var(--border-color); border-radius: 10px;
+        overflow: hidden; margin: 16px 0; background: var(--bg-panel);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        scroll-margin-top: 70px;
+      }
+      .tpl-head {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        background: var(--bg-deep); border-bottom: 1px solid var(--border-color);
+        padding: 9px 12px;
+      }
+      .tpl-head .ex-title { font-weight: 700; font-size: 0.95rem; }
+      .tpl-head .desc { flex-basis: 100%; color: var(--muted); font-size: 0.85rem; margin-top: -2px; }
+      .tpl-head .spacer { flex: 1; }
+      .tpl-head button {
+        border: 1px solid var(--border-color); border-radius: 6px;
+        padding: 5px 12px; font-size: 0.8rem; cursor: pointer; font-family: inherit;
+        background: var(--bg-panel); color: var(--text-color);
+      }
+      .tpl-head button:hover { border-color: var(--accent-color); color: var(--accent-deep); }
+      .tpl-head button.use {
+        background: var(--accent-color); border-color: var(--accent-strong);
+        color: var(--ink); font-weight: 700;
+      }
+      .tpl-head button.use:hover { background: #fbbf24; color: var(--ink); }
+      .tpl .preview { border-bottom: 1px solid var(--border-color); background: #111; position: relative; }
+      .tpl .preview iframe { width: 100%; height: 380px; border: 0; display: block; }
+      .tpl .preview .preview-label {
+        position: absolute; top: 6px; right: 8px; z-index: 2;
+        background: rgba(28, 25, 23, 0.75); color: #fbbf24;
+        font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+        padding: 2px 8px; border-radius: 999px; pointer-events: none;
+      }
+      .tpl details.code { border-top: 1px solid var(--border-color); }
+      .tpl details.code > summary {
+        cursor: pointer; padding: 8px 12px; font-size: 0.85rem; font-weight: 600;
+        color: var(--accent-deep); background: #fffbeb; list-style: none;
+      }
+      .tpl details.code > summary::-webkit-details-marker { display: none; }
+      .tpl details.code > summary::before { content: "▸ "; }
+      .tpl details.code[open] > summary::before { content: "▾ "; }
+      .tpl details.code pre {
+        background: var(--code-bg); color: var(--code-text);
+        padding: 12px 14px; overflow-x: auto; max-height: 420px;
+        font-size: 0.8rem; line-height: 1.55; margin: 0;
+      }
+      .tpl .note { padding: 8px 12px; font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--border-color); }
+
+      footer {
+        border-top: 1px solid var(--border-color);
+        padding: 22px 24px; text-align: center;
+        color: var(--muted); font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/" title="Trang chủ: https://heyshow.pedu.vn/"><img src="/heyshow-logo.svg" alt="HeyShow" /><span class="wordmark">Hey<span>Show</span></span> <span style="color:var(--muted); font-weight:600;">Templates</span></a>
+      <div class="nav-links">
+        <a href="/gallery">Gallery</a>
+        <a href="/help">Help</a>
+        <a href="/dashboard">Dashboard</a>
+        <a class="btn-primary" href="/design">Thiết kế slide</a>
+      </div>
+    </header>
+
+    <div class="hero">
+      <h1>Thư viện <span>mẫu sẵn</span> của HeyShow</h1>
+      <p>Chọn một mẫu bên dưới — bấm <b>“Dùng mẫu này”</b> để tạo ngay bản nháp trong trình soạn thảo, hoặc <b>“Copy”</b> code để tự dán vào bất cứ đâu.</p>
+    </div>
+
+    <div class="layout">
+      <section class="block" id="decks">
+        <h2><span class="num">1</span> Mẫu bài trình chiếu</h2>
+        <p class="lead">Cả một bộ slide hoàn chỉnh theo từng thể loại: giáo án 5 bước, chuyên đề, hướng dẫn sử dụng, đố vui, báo cáo dự án và tiểu luận. Bấm “Dùng mẫu này” (cần đăng nhập) — HeyShow sẽ tạo một file nháp mới với toàn bộ nội dung mẫu.</p>
+        <div data-templates="decks"></div>
+      </section>
+
+      <section class="block" id="slides">
+        <h2><span class="num">2</span> Mẫu slide</h2>
+        <p class="lead">Những slide đơn lẻ dùng chung được cho mọi bài: thống kê, đồ thị có tham số, và các dạng tương tác (trắc nghiệm, ghép đôi, điền khuyết, puzzle) — hoạt động hoàn toàn bằng HTML/CSS, không cần JavaScript. Bấm “Copy” rồi dán vào file đang soạn, đặt con trỏ ở nơi muốn chèn.</p>
+        <div data-templates="slides"></div>
+      </section>
+    </div>
+
+    <footer>
+      HeyShow · <a href="https://heyshow.pedu.vn/">heyshow.pedu.vn</a> · <a href="/gallery">Gallery</a> · <a href="/help">Help</a>
+    </footer>
+
+    <script type="module" src="/src/templates.js"></script>
+  </body>
+</html>
