@@ -53,6 +53,12 @@ fi
 
 echo "==> Kiểm tra tính nguyên vẹn"
 tar -tzf "$OUT" >/dev/null
+# tar -tzf vẫn thành công trên stream rỗng, nên phải đòi đúng file tài khoản:
+# bản sao thiếu db.json khôi phục không ra gì.
+if ! tar -tzf "$OUT" | grep -qx 'data/db\.json'; then
+    echo "!! Bản sao không chứa data/db.json — không khôi phục được. Giữ file để xem: $OUT" >&2
+    exit 1
+fi
 
 BYTES=$(wc -c < "$OUT" | tr -d ' ')
 if [[ "$BYTES" -lt 1024 ]]; then
