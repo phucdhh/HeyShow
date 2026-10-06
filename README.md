@@ -102,7 +102,7 @@ Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) �
 
 - **Backend:** Node.js + Express 5, `jsonwebtoken` (JWT có `tv` — phiên bản token để thu hồi), `axios` (gọi Groq / DeepSeek), `jszip` + `fast-xml-parser` (import .pptx tại `server/src/pptx.js`), `dotenv`; module import .md/.tex tại `server/src/textimport.js` (JS thuần, không thêm dependency)
 - **Frontend:** Vite (nhiều entry), CodeMirror 6 (editor), Reveal.js 5.1.0 + KaTeX (preview & trình chiếu, load từ CDN), `client/src/api.js` là tầng gọi API/auth dùng chung cho mọi trang
-- **Kiểm tra chất lượng:** ESLint 9 flat config (`no-undef: error`, `eqeqeq: smart`) + `node --test` (bộ 47 test: API tích hợp, module, import) — chạy bằng `npm run lint` và `npm test` ở thư mục gốc
+- **Kiểm tra chất lượng:** ESLint 9 flat config (`no-undef: error`, `eqeqeq: smart`) + `node --test` (bộ 51 test: API tích hợp, module, import) — chạy bằng `npm run lint` và `npm test` ở thư mục gốc
 - **Lưu trữ:** file JSON + thư mục trên đĩa (không có database), có cache trong bộ nhớ và hàng đợi ghi nguyên tử
 - **Quản lý tiến trình:** PM2 (giữ server luôn chạy trên Fold 4)
 - **Kết nối mạng:** Cloudflare Tunnel (cloudflared)
@@ -115,7 +115,7 @@ Repo `https://github.com/phucdhh/HeyShow` (**đang ở chế độ private**) �
    cd client && npm run dev     # editor với hot reload
    cd server && npm run dev     # backend (nodemon)
 
-   npm test                     # 47 test, chạy trên kho dữ liệu tạm (không đụng ./data)
+   npm test                     # 51 test, chạy trên kho dữ liệu tạm (không đụng ./data)
    npm run lint                 # ESLint toàn repo
    ```
    Muốn test giao diện trên một kho dữ liệu riêng: `HEYSHOW_DATA_DIR=/tmp/du-lieu-thu node server/src/app.js`.
@@ -185,7 +185,7 @@ Server đọc `.env` trong thư mục `server/` nếu có (file này bị `.giti
 - Tài khoản tự đăng ký luôn nhận bậc thấp nhất `user`; bậc cao hơn do admin gán.
 - **Hạn mức tính theo số tên bài khác nhau** mà tài khoản sở hữu (một bài vừa có nháp vừa có bản publish chỉ tính 1). Hết hạn mức thì API trả `403` kèm thông báo nêu rõ bậc quyền, con số và cách xử lý (xóa bớt bài hoặc xin nâng quyền); editor và dashboard hiện `đã dùng/tối đa` ngay trên thanh công cụ để người dùng biết trước.
 - **Không cho chiếm dụng route của hệ thống.** `RESERVED_SLUGS` (`api`, `admin_panel`, `assets`, `src`, `gallery`, `dashboard`, `design`, `help`, `templates`, `show`, `health`, `favicon.svg`, `icons.svg`) được so sánh **không phân biệt hoa/thường** trong `isValidUsername` / `isValidSlug` / `resolveSlugDir`, vì Express cũng khớp đường dẫn không phân biệt hoa/thường — so đúng hoa thường thì tài khoản `Gallery` vẫn che mất trang `/gallery`. Cuối file có chốt chặn lúc khởi động: thêm route cấp một mà quên khai báo tên dự phòng thì server báo lỗi ngay thay vì âm thầm hở.
-- **Không hai tài khoản tranh một URL.** Tên đăng nhập và slug mới bị chặn trùng theo kiểu bỏ qua hoa/thường (`nameTaken`), kể cả trùng với slug của người khác. Lý do: trên điện thoại hệ tệp phân biệt hoa/thường nên `Phuc` và `PHUC` tạo được hai thư mục êm xuôi, nhưng `/Phuc/ten-bai.html` chỉ mở được bài của một trong hai người.
+- **Không hai tài khoản tranh một URL.** `nameTaken` chặn tên đăng nhập và slug mới theo ba kiểu so sánh, tất cả bỏ qua hoa/thường: đúng tên đăng nhập của người khác, đúng **tên thư mục trên đĩa** của người khác (`userDir` lọc ký tự nên tài khoản cũ `Minh Nhật Phan` sống trong `users/MinhNhtPhan`), và đúng **slug suy ra từ tên** (`defaultSlug` bỏ dấu chấm nên `minhnht.phan` cũng trỏ về `minhnhtphan`). Lý do: trên điện thoại hệ tệp phân biệt hoa/thường nên `Phuc` và `PHUC` tạo được hai thư mục êm xuôi, nhưng `/Phuc/ten-bai.html` chỉ mở được bài của một trong hai người — và một tài khoản trùng tên thư mục thì đọc/ghi được thẳng vào tệp của tài khoản kia.
 
 ### Mật khẩu
 
@@ -389,7 +389,7 @@ Mỗi user có một trang công khai tại **`/<urlSlug>/`** (ví dụ `https:/
 - [x] Avatar ra file riêng, không nhúng base64 vào db.json.
 - [x] Một token + một tầng API chung (`client/src/api.js`) cho mọi trang.
 - [x] Giới hạn tần suất cho AI và like/comment, security headers toàn cục.
-- [x] Bộ test (`node --test`, 47 test) + ESLint chạy được bằng `npm test` / `npm run lint`.
+- [x] Bộ test (`node --test`, 51 test) + ESLint chạy được bằng `npm test` / `npm run lint`.
 - [x] Script deploy có kiểm tra `/health` và script sao lưu `data/`.
 - [ ] Chế độ điều khiển từ xa (Remote control).
 - [ ] Backup tự động có lịch (cron trên Mac hoặc Termux) + một bản copy off-device.

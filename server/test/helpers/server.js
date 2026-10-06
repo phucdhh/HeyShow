@@ -29,9 +29,12 @@ function mkdtemp() {
 }
 
 // Boot server, chờ dòng "is running at" rồi trả về { url, adminPassword, stop }
-async function startServer() {
+// dbSeed: nội dung db.json ghi xuống TRƯỚC khi khởi động, dùng cho các tài khoản cũ
+// mà API hiện tại không tạo được (ví dụ tên đăng nhập có dấu cách và dấu câu).
+async function startServer({ dbSeed } = {}) {
     const port = await freePort();
     const dataDir = mkdtemp();
+    if (dbSeed) fs.writeFileSync(path.join(dataDir, 'db.json'), JSON.stringify(dbSeed), { mode: 0o600 });
     const child = spawn(process.execPath, [APP], {
         cwd: SERVER_ROOT,
         env: { ...process.env, PORT: String(port), HEYSHOW_DATA_DIR: dataDir }

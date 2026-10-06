@@ -163,6 +163,33 @@ test('hai tên chỉ khác nhau hoa thường không cùng chiếm một URL', a
     }
 });
 
+// Tài khoản đời cũ có loginId không thuộc USERNAME_RE ("Minh Nhật Phan"), thư mục trên
+// đĩa là tên đã lọc ký tự ("MinhNhtPhan") và slug cũng vậy. Người mới đăng ký "MinhNhtPhan"
+// sẽ chiếm đúng thư mục đó; "minhnht.phan" thì chiếm đúng slug đó vì defaultSlug bỏ dấu chấm.
+test('không cho đăng ký tên trùng thư mục hoặc trùng slug của tài khoản có dấu', async () => {
+    const legacy = await startServer({
+        dbSeed: {
+            users: { 'Minh Nhật Phan': { passwordHash: 'scrypt$00$00', role: 'user' } },
+            config: { aiKeys: { groq: '', deepseek: '' } }
+        }
+    });
+    try {
+        for (const name of ['MinhNhtPhan', 'minhnhtphan', 'minhnht.phan', '@minhnht.phan']) {
+            const res = await apiRequest(legacy.url, 'POST', '/api/auth/register', {
+                body: { username: name, password: 'matkhau123' }
+            });
+            assert.equal(res.status, 400, `"${name}" đụng tới tài khoản "Minh Nhật Phan"`);
+            assert.match(res.json.error, /đã tồn tại/);
+        }
+        const free = await apiRequest(legacy.url, 'POST', '/api/auth/register', {
+            body: { username: 'minhnht.phan2', password: 'matkhau123' }
+        });
+        assert.equal(free.status, 200, 'tên không đụng thư mục lẫn slug vẫn đăng ký bình thường');
+    } finally {
+        await legacy.stop();
+    }
+});
+
 test('đổi slug cũng bị chặn nếu trùng route hoặc trùng tên người khác', async () => {
     // Dùng tài khoản riêng để không làm đổi slug của tuser mà các test khác đang tham chiếu
     await srv.api('POST', '/api/admin/users', { body: { username: 'tslug', password: 'matkhau123' } });

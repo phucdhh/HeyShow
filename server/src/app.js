@@ -78,9 +78,15 @@ function slugOf(loginId, user) {
 // Tách khỏi db.json để thao tác like/view/comment không đụng vào dữ liệu tài khoản.
 // Key: "<loginId>/<tenFile.html>" - ổn định kể cả khi user đổi urlSlug.
 
+// Tên thư mục thật trên đĩa: mọi ký tự ngoài bảng ASCII an toàn đều bị bỏ.
+// Tài khoản cũ kiểu "Minh Nhật Phan" vì thế sống trong users/MinhNhtPhan.
+function folderOf(loginId) {
+    return String(loginId || '').replace(/[^a-zA-Z0-9@._-]/g, '');
+}
+
 // Chặn path traversal: loại bỏ mọi ký tự không hợp lệ (bao gồm '/' và '\')
 function userDir(username) {
-    const safe = String(username || '').replace(/[^a-zA-Z0-9@._-]/g, '');
+    const safe = folderOf(username);
     if (!safe || safe === '.' || safe === '..') return null;
     return path.join(USERS_DIR, safe);
 }
@@ -404,11 +410,20 @@ function isValidSlug(slug) {
 // URL không phân biệt hoa/thường nên "Phuc" và "PHUC" là hai user tranh nhau một địa chỉ.
 // Trên điện thoại hệ tệp phân biệt hoa/thường, cả hai thư mục cùng tồn tại êm xuôi, vì vậy
 // chỉ có thể chặn ngay từ lúc nhận tên.
+// So ba kiểu: tên đăng nhập, tên thư mục trên đĩa và slug suy ra từ tên. Tài khoản cũ
+// "Minh Nhật Phan" có thư mục "MinhNhtPhan" và slug "MinhNhtPhan"; "minhnht.phan" ngày nay
+// đăng ký được nhưng cho ra đúng hai địa chỉ đó — nếu không chặn thì một người đọc-de được
+// bài của người kia.
 function nameTaken(db, candidate, exceptLoginId) {
-    const lower = String(candidate).toLowerCase();
+    const values = [String(candidate).toLowerCase(), defaultSlug(candidate).toLowerCase()];
     for (const [loginId, user] of Object.entries(db.users)) {
         if (exceptLoginId && loginId === exceptLoginId) continue;
-        if (loginId.toLowerCase() === lower || slugOf(loginId, user).toLowerCase() === lower) return true;
+        const owned = [
+            loginId.toLowerCase(),
+            folderOf(loginId).toLowerCase(),
+            slugOf(loginId, user).toLowerCase()
+        ];
+        if (values.some(v => owned.includes(v))) return true;
     }
     return false;
 }
@@ -805,8 +820,10 @@ function quotaError(loginId) {
 // Ngày tạo tài khoản: ưu tiên createdAt trong db; tài khoản cũ lấy mtime thư mục user làm xấp xỉ
 function userCreatedAt(loginId, user) {
     if (Number.isFinite(user.createdAt)) return user.createdAt;
+    const dir = userDir(loginId);
+    if (!dir) return null;
     try {
-        return fs.statSync(path.join(USERS_DIR, loginId)).mtimeMs;
+        return fs.statSync(dir).mtimeMs;
     } catch (e) {
         return null;
     }
