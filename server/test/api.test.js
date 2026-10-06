@@ -134,6 +134,17 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
         assert.ok(src.includes(GUARD), `${file} phải giữ đúng rule của bản publish`);
     }
 
+    // CSP sandbox biến sessionStorage thành bẫy ném SecurityError, còn Reveal 5.1 thì gọi
+    // nó mỗi lần chuyển slide -> vuốt trên điện thoại chết hẳn. Bản publish phải tự đỡ
+    // chỗ đó TRƯỚC khi nạp reveal.js.
+    const SHIM = "Object.defineProperty(window, 'sessionStorage'";
+    assert.ok(slideHtml.includes(SHIM), 'file publish phải có shim sessionStorage');
+    const REVEAL = '<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.js">';
+    assert.ok(slideHtml.indexOf(SHIM) < slideHtml.indexOf(REVEAL),
+        'shim phải chạy trước script Reveal.js');
+    assert.ok(!/allow-same-origin/.test(slide.headers.get('content-security-policy')),
+        'không được gỡ origin mờ để đổi lấy việc sửa lỗi');
+
     // link kiểu cũ /<slug>/<file>.html vẫn mở được vì nhiều người đã chia sẻ
     const legacy = await fetch(`${srv.url}/tmaster/hist.html`);
     assert.equal(legacy.status, 200);
