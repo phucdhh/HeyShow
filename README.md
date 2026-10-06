@@ -22,7 +22,7 @@
 - **Bình luận theo luồng (thread) kiểu Facebook**: mỗi bình luận có thể nhận trả lời, trả lời hiển thị thụt lề dưới bình luận gốc; người dùng giới hạn **một cấp trả lời** để mạch hội thoại không bị thắt nút. Tác giả sửa/xóa bình luận của mình; chủ bài và admin xóa được bình luận của người khác.
 - **Gallery công khai** tại `/gallery` trưng bày mọi bài đã publish dưới dạng card (thumbnail, tác giả, lượt xem, lượt thích, bình luận) kèm ô tìm kiếm theo tên/tác giả; bấm vào card mở trình xem hai khung kiểu mạng xã hội.
 - **Trang hướng dẫn** tại `/help`: 9 mục (Giới thiệu HeyShow, Slide Master, viết slide, các mẫu Table/Image/Shapes/Chart/SmartArt, công thức Toán KaTeX, Dashboard, Gallery, tính năng Design, liên hệ & đóng góp). Mỗi ví dụ có nút **Copy** và **preview Reveal.js thật** (lazy-load bằng IntersectionObserver để không nạp cùng lúc nhiều iframe).
-- **Thư viện mẫu** tại `/templates`: 6 **mẫu bài trình chiếu** (giáo án 5 bước, chuyên đề Toán, hướng dẫn sử dụng, đố vui, báo cáo dự án GitHub, tiểu luận) và 6 **mẫu slide** (thống kê, đồ thị hàm số có tham số, trắc nghiệm, ghép đôi, điền khuyết, puzzle — tương tác bằng HTML/CSS thuần). Mẫu có preview Reveal.js, nút Copy code, và riêng mẫu cả bài có nút **“Dùng mẫu này”** tạo thẳng bản nháp trong `/design`.
+- **Thư viện mẫu** tại `/templates`: **23 mẫu** chia 10 danh mục — 10 **mẫu bài trình chiếu** (2 giáo án Toán/Ngữ văn 5 bước, 2 chuyên đề, hướng dẫn sử dụng, đố vui, 2 báo cáo/tiểu luận, 2 bộ trình diễn tính năng Reveal.js) và 13 **mẫu slide** (bìa, mục lục, cảm ơn, thống kê, đồ thị tham số, ba con số, so sánh, dòng thời gian, bảng, và 4 dạng tương tác trắc nghiệm/ghép đôi/điền khuyết/puzzle bằng HTML/CSS thuần). Sidebar danh mục bám theo cuộn, ô tìm kiếm **bỏ dấu** nên gõ `giao an` vẫn ra "Giáo án". Mẫu nào cũng có preview Reveal.js (fragment hiện sẵn trong preview để không thấy khoảng trống), nút Copy code, và riêng mẫu cả bài có nút **“Dùng mẫu này”** tạo thẳng bản nháp trong `/design`. Danh mục khai báo ở `GROUPS` trong `client/src/templates.js`: thêm mẫu chỉ cần khai báo `group`, cả trang và sidebar tự sinh.
 - Trang quản trị riêng tại `/admin_panel`, chia 3 tab: **Users** (bảng liệt kê mọi tài khoản theo thứ tự mới nhất trước — Avatar thật, role kèm **hạn mức bài `đã dùng/tối đa`**, URL slug, số nháp / bài public / lượt xem / lượt thích / ngày tạo, nút ⋮ để đặt lại mật khẩu, **chuyển giữa cả 4 bậc quyền**, xóa — kèm form tạo user mới), **AI** (cấu hình API Key Groq / DeepSeek) và **Admin** (đổi mật khẩu admin). Nhãn quyền và con số hạn mức trong form lấy từ `GET /api/admin/users` chứ không hardcode trong HTML, nên đổi hạn mức trong `server/src/access.js` là giao diện tự đúng. Đặt lại mật khẩu, đổi quyền, xóa tài khoản kèm toàn bộ bài vở và số liệu của họ (chặn tự đổi quyền / tự xóa chính mình; xóa phải gõ lại đúng tên để xác nhận).
 
 ## 2. Kiến trúc hệ thống
@@ -67,7 +67,7 @@ HeyShow/
 │   ├── gallery.html               # Trang Gallery công khai (entry "gallery")
 │   ├── profile.html               # Trang cá nhân tác giả
 │   ├── help.html                  # Trang hướng dẫn sử dụng tại /help (entry "help")
-│   ├── templates.html             # Trang thư viện mẫu tại /templates (entry "templates")
+│   ├── templates.html             # Trang thư viện mẫu tại /templates: layout sidebar + nội dung, markup rỗng để client/src/templates.js render theo GROUPS (entry "templates")
 │   ├── src/
 │   │   ├── api.js                 # Tầng API/auth DÙNG CHUNG: token, fetch, lỗi 401/403
 │   │   ├── main.js dashboard.js gallery.js admin.js profile.js ...
@@ -283,7 +283,7 @@ Mọi route `/api/*` (trừ auth, stats, gallery, profile, `/api/p/:user/:file`,
 | GET | `/dashboard` | công khai | Trang quản lý trình chiếu của user (chưa đăng nhập sẽ được dẫn về màn đăng nhập rồi quay lại) |
 | GET | `/gallery` | công khai | Trang Gallery |
 | GET | `/help` | công khai | Trang hướng dẫn sử dụng HeyShow (9 mục, ví dụ code kèm preview Reveal.js) |
-| GET | `/templates` | công khai | Thư viện 12 mẫu bài/slide, preview Reveal.js + nút "Dùng mẫu này" tạo bản nháp |
+| GET | `/templates` | công khai | Thư viện 23 mẫu bài/slide theo 10 danh mục: sidebar điều hướng, tìm kiếm bỏ dấu, preview Reveal.js + nút "Dùng mẫu này" tạo bản nháp |
 | GET | `/show/<slug>/` · `/<slug>/` | công khai | Trang cá nhân của user (các bài đã publish) |
 | GET | `/show/<slug>/<file>.html` | công khai | **Slide đã publish, có CSP sandbox** (đường dẫn chính) |
 | GET | `/<slug>/<file>.html` | công khai | Slide đã publish, cùng CSP sandbox — chỉ để tương thích link cũ |

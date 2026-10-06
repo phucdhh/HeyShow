@@ -57,11 +57,55 @@
       .hero h1 span { color: var(--accent-strong); }
       .hero p { color: var(--muted); margin-top: 8px; }
 
-      .layout { max-width: 1060px; margin: 0 auto; padding: 20px 24px 80px; }
+      .layout {
+        max-width: 1180px; margin: 0 auto; padding: 12px 24px 80px;
+        display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 30px; align-items: start;
+      }
 
-      section.block { margin-bottom: 34px; scroll-margin-top: 70px; }
+      /* Sidebar: danh mục + ô tìm, dính theo cuộn để chuyển mục nhanh */
+      .side { position: sticky; top: 66px; max-height: calc(100vh - 80px); overflow: auto; padding: 4px 0 12px; }
+      .side-search {
+        width: 100%; padding: 8px 11px; font: inherit; font-size: 0.86rem;
+        color: var(--text-color); background: var(--bg-panel);
+        border: 1px solid var(--border-color); border-radius: 8px;
+      }
+      .side-search:focus { outline: 2px solid var(--accent-color); outline-offset: 1px; border-color: var(--accent-color); }
+      .side .side-kind {
+        margin: 16px 6px 4px; font-size: 0.68rem; font-weight: 800;
+        letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted);
+      }
+      .nav-item {
+        display: flex; align-items: baseline; gap: 8px;
+        padding: 6px 9px; border-radius: 7px; border-left: 3px solid transparent;
+        color: var(--text-color); font-size: 0.86rem; line-height: 1.35;
+      }
+      .nav-item:hover { background: var(--bg-deep); text-decoration: none; }
+      .nav-item.active { background: #fff7e6; border-left-color: var(--accent-color); color: var(--accent-deep); font-weight: 700; }
+      .nav-item .nav-label { flex: 1; }
+      .nav-item .nav-cnt { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+      .nav-item.active .nav-cnt { color: var(--accent-strong); }
+      .nav-item.muted { opacity: 0.38; }
+      .side-cta {
+        display: block; margin-top: 16px; padding: 8px 10px; text-align: center;
+        background: var(--accent-color); color: var(--ink); font-weight: 700;
+        font-size: 0.84rem; border-radius: 8px;
+      }
+      .side-cta:hover { background: #fbbf24; text-decoration: none; color: var(--ink); }
+
+      .content { min-width: 0; }
+      .kind-head { margin: 26px 0 4px; padding-bottom: 8px; border-bottom: 3px solid var(--ink); scroll-margin-top: 70px; }
+      .kind-head:first-of-type { margin-top: 4px; }
+      .kind-head h2 { font-size: 1.22rem; }
+      .kind-head p { color: var(--muted); font-size: 0.87rem; margin-top: 4px; }
+      .empty {
+        margin: 30px 0; padding: 22px; text-align: center;
+        border: 1px dashed var(--border-color); border-radius: 10px;
+        color: var(--muted); background: var(--bg-panel);
+      }
+
+      section.block { margin-bottom: 30px; scroll-margin-top: 78px; }
       section.block > h2 {
-        font-size: 1.3rem; display: flex; align-items: center; gap: 10px;
+        font-size: 1.12rem; display: flex; align-items: center; gap: 10px;
         border-bottom: 2px solid var(--accent-color); padding-bottom: 8px; margin-bottom: 6px;
       }
       section.block > h2 .num {
@@ -70,7 +114,8 @@
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 1rem; font-weight: 800;
       }
-      section.block > p.lead { color: var(--muted); margin-bottom: 16px; font-size: 0.95rem; }
+      section.block > h2 .live { margin-left: auto; font-size: 0.74rem; font-weight: 700; color: var(--muted); }
+      section.block > p.lead { color: var(--muted); margin-bottom: 16px; font-size: 0.93rem; }
 
       /* Thẻ mẫu: preview + code */
       .tpl {
@@ -121,6 +166,28 @@
       }
       .tpl .note { padding: 8px 12px; font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--border-color); }
 
+      /* Màn hẹp: sidebar thành dải chip cuộn ngang, nội dung chiếm hết bề ngang */
+      @media (max-width: 900px) {
+        .layout { grid-template-columns: 1fr; gap: 0; padding: 8px 16px 60px; }
+        .side { position: static; max-height: none; overflow: visible; margin-bottom: 10px; }
+        #tpl-nav { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px; }
+        .side .side-kind { display: none; }
+        .nav-item { flex: 0 0 auto; border: 1px solid var(--border-color); border-left-width: 1px; white-space: nowrap; }
+        .nav-item.active { border-color: var(--accent-strong); }
+        .nav-item .nav-cnt { display: none; }
+        .side-cta { display: none; }
+        .tpl .preview iframe { height: 300px; }
+      }
+
+      /* Điện thoại: thanh header không đủ chỗ cho cả menu, giữ lại logo + nút chính */
+      @media (max-width: 620px) {
+        header { padding: 8px 14px; }
+        .nav-links { gap: 8px; }
+        .nav-links a:not(.btn-primary) { display: none; }
+        .hero { padding: 24px 16px 4px; }
+        .hero h1 { font-size: 1.35rem; }
+      }
+
       footer {
         border-top: 1px solid var(--border-color);
         padding: 22px 24px; text-align: center;
@@ -145,17 +212,15 @@
     </div>
 
     <div class="layout">
-      <section class="block" id="decks">
-        <h2><span class="num">1</span> Mẫu bài trình chiếu</h2>
-        <p class="lead">Cả một bộ slide hoàn chỉnh theo từng thể loại: giáo án 5 bước, chuyên đề, hướng dẫn sử dụng, đố vui, báo cáo dự án và tiểu luận. Bấm “Dùng mẫu này” (cần đăng nhập) — HeyShow sẽ tạo một file nháp mới với toàn bộ nội dung mẫu.</p>
-        <div data-templates="decks"></div>
-      </section>
-
-      <section class="block" id="slides">
-        <h2><span class="num">2</span> Mẫu slide</h2>
-        <p class="lead">Những slide đơn lẻ dùng chung được cho mọi bài: thống kê, đồ thị có tham số, và các dạng tương tác (trắc nghiệm, ghép đôi, điền khuyết, puzzle) — hoạt động hoàn toàn bằng HTML/CSS, không cần JavaScript. Bấm “Copy” rồi dán vào file đang soạn, đặt con trỏ ở nơi muốn chèn.</p>
-        <div data-templates="slides"></div>
-      </section>
+      <aside class="side">
+        <input id="tpl-search" class="side-search" type="search" autocomplete="off"
+               placeholder="Tìm mẫu… (giao an, đồ thị)" aria-label="Tìm mẫu" />
+        <nav id="tpl-nav" aria-label="Danh mục mẫu"></nav>
+        <a class="side-cta" href="/design">Thiết kế slide mới</a>
+      </aside>
+      <main class="content" id="tpl-content">
+        <p class="empty" id="tpl-empty" hidden>Không có mẫu nào khớp từ khóa. Thử từ khác — không cần gõ dấu, ví dụ <code>giao an</code>, <code>do thi</code>, <code>trac nghiem</code>.</p>
+      </main>
     </div>
 
     <footer>

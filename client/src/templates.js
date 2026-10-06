@@ -2,9 +2,56 @@
 // Mỗi mẫu là code HeyShow thô, xem được preview thật và tạo bản nháp chỉ với một bấm.
 import { previewHtml } from './reveal-preview.js';
 
+// Danh mục cho sidebar. kind: 'deck' = cả bài (có nút "Dùng mẫu này" tạo bản nháp),
+// 'slide' = slide đơn lẻ (chỉ Copy rồi dán vào bài đang soạn). Thứ tự mảng là thứ tự
+// trên trang và trên sidebar — thêm mẫu thì chỉ cần khai báo group của nó ở đây.
+const GROUPS = [
+    {
+        id: 'giao-an', kind: 'deck', label: 'Giáo án lên lớp',
+        lead: 'Bộ slide đứng lớp theo đúng cấu trúc dự giờ: hoạt động khởi động → hình thành kiến thức → luyện tập → vận dụng → củng cố, có mục tiêu và tình huống mở đầu.'
+    },
+    {
+        id: 'chuyen-de', kind: 'deck', label: 'Chuyên đề & bồi dưỡng',
+        lead: 'Bài giảng sâu hơn sách giáo khoa: lý thuyết → ví dụ giải từng bước → bài tập → mở rộng. Dùng cho chuyên đề bồi dưỡng học sinh giỏi và ôn thi.'
+    },
+    {
+        id: 'quy-trinh', kind: 'deck', label: 'Hướng dẫn & quy trình',
+        lead: 'Dạy người khác làm một việc: chuẩn bị → từng bước thực hiện → lỗi thường gặp → mẹo. Đổi tên phần mềm/quy trình là dùng được ngay.'
+    },
+    {
+        id: 'hoat-dong', kind: 'deck', label: 'Hoạt động & game',
+        lead: 'Slide chơi trên lớp: đố vui có đáp án hiện dần, câu lạc bộ, trò chơi ôn chương. Hoàn toàn bằng HTML/CSS nên chạy ổn định khi chiếu.'
+    },
+    {
+        id: 'bao-cao', kind: 'deck', label: 'Báo cáo & tiểu luận',
+        lead: 'Trình bày kết quả làm việc: vấn đề → giải pháp → số liệu → kết luận. Phù hợp báo cáo dự án, tiểu luận, nghiệm thu đề tài.'
+    },
+    {
+        id: 'reveal', kind: 'deck', label: 'Hiệu ứng Reveal.js',
+        lead: 'Những gì Reveal.js làm được mà mẫu thông thường không dùng tới: slide dọc lồng nhau, các kiểu hiện dần, nền màu/gradient/hoạ tiết và chuyển cảnh riêng từng slide. Vừa là mẫu, vừa là tài liệu để học theo.'
+    },
+    {
+        id: 'mo-dau', kind: 'slide', label: 'Mở đầu & kết bài',
+        lead: 'Ba slide quyết định ấn tượng của cả bài: trang bìa, mục lục và trang cảm ơn — cùng một họ màu để dán vào bất kỳ bài nào.'
+    },
+    {
+        id: 'so-lieu', kind: 'slide', label: 'Số liệu & đồ thị',
+        lead: 'Biểu đồ cột, biểu đồ tròn, ba con số lớn và đồ thị hàm số vẽ bằng SVG/CSS thuần — sửa số liệu là hình vẽ đổi theo, không cần thư viện.'
+    },
+    {
+        id: 'bo-cuc', kind: 'slide', label: 'Bảng, sơ đồ & bố cục',
+        lead: 'Những khung dựng sẵn để bài có nhịp: so sánh hai phương án, dòng thời gian dự án và bảng số liệu có dòng nhấn mạnh.'
+    },
+    {
+        id: 'tuong-tac', kind: 'slide', label: 'Slide tương tác',
+        lead: 'Học sinh bấm trực tiếp trên slide khi trình chiếu: trắc nghiệm đổi màu đúng/sai, ghép đôi, điền khuyết, puzzle giải mã từ khóa.'
+    }
+];
+
 const DECKS = [
     {
         id: 'giao-an',
+        group: 'giao-an',
         fileName: 'giao-an-dinh-ly-pythagore.html',
         title: 'Giáo án — Định lý Pythagore (Toán 8, tiết 3)',
         desc: 'Bài học 5 bước: Mở đầu · Hình thành kiến thức · Luyện tập · Vận dụng & mở rộng · Củng cố bài học.',
@@ -88,6 +135,7 @@ const DECKS = [
 
     {
         id: 'chuyen-de',
+        group: 'chuyen-de',
         fileName: 'chuyen-de-bat-dang-thuc-am-gm.html',
         title: 'Chuyên đề — Bất đẳng thức AM–GM và ứng dụng (Toán 10)',
         desc: 'Trình bày một chuyên đề bồi dưỡng: tổng quan → lý thuyết → ví dụ có lời giải từng bước → bài tập → kết luận.',
@@ -167,6 +215,7 @@ const DECKS = [
 
     {
         id: 'huong-dan',
+        group: 'quy-trinh',
         fileName: 'huong-dan-su-dung-heyshow.html',
         title: 'Hướng dẫn sử dụng — Tạo bài trình chiếu với HeyShow',
         desc: 'Mẫu "làm theo từng bước": giới thiệu → chuẩn bị → 3 bước thực hiện → tính năng nâng cao → mẹo & phím tắt.',
@@ -245,6 +294,7 @@ const DECKS = [
 
     {
         id: 'do-vui',
+        group: 'hoat-dong',
         fileName: 'do-vui-toan-hoc.html',
         desc: 'Game show 4 câu đố: mỗi câu hiện phương án → đáp án dần theo phím bấm, slide cuối tổng kết.',
         title: 'Đố vui Toán học — "Ai nhanh hơn bạn rùa?"',
@@ -305,6 +355,7 @@ const DECKS = [
 
     {
         id: 'bao-cao-du-an',
+        group: 'bao-cao',
         fileName: 'bao-cao-du-an-github.html',
         title: 'Báo cáo dự án — Chuẩn báo cáo repo GitHub',
         desc: 'Vấn đề → giải pháp → kiến trúc → kết quả → roadmap → cách đóng góp; có sơ đồ khối và thẻ số liệu.',
@@ -397,6 +448,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
 
     {
         id: 'tieu-luan',
+        group: 'bao-cao',
         fileName: 'tieu-luan-nghien-cuu.html',
         title: 'Tiểu luận — Trình bày kết quả nghiên cứu',
         desc: 'Bố cục học thuật: tóm tắt → đặt vấn đề → phương pháp → kết quả (biểu đồ) → bàn luận → tài liệu tham khảo.',
@@ -475,12 +527,431 @@ npm run dev   # mở http://localhost:3000</code></pre>
   <p style="font-size:0.45em; color:#6b7280; text-align:left; max-width:740px; margin:14px auto 0;">
     Tài liệu tham khảo: Parasuraman &amp; ctv (1988)…; Trần &amp; Nguyễn (2023)… — trình bày theo APA 7.</p>
 </section>`
+    },
+
+    {
+        id: 'giao-an-ngu-van',
+        fileName: 'giao-an-ngu-van-dat-nuoc.html',
+        title: 'Giáo án — Đất Nước (Ngữ văn 12, 2 tiết)',
+        desc: 'Giáo án Ngữ văn theo 5 bước: mục tiêu phát triển năng lực → khởi động → đọc hiểu theo hệ thống câu hỏi → luyện tập → vận dụng sáng tạo.',
+        note: 'Đổi bài khác: giữ nguyên khung câu hỏi đọc hiểu (nội dung + nghệ thuật), thay ngữ liệu và đáp án. Các câu trả lời đặt trong fragment để HS nói trước, GV chốt sau.',
+        group: 'giao-an',
+        code: String.raw`<section-master>
+  <style>
+    .reveal .slides section { background:#1b2a24; border-radius:14px; padding:28px; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#f0c987; }
+    .reveal .chu-de { color:#9ec9ac; }
+    .giai-doan { display:inline-block; background:#f0c987; color:#1b2a24;
+                 padding:4px 16px; border-radius:999px; font-size:0.45em;
+                 font-weight:bold; margin-bottom:14px; }
+    .reveal .noi-dung { font-size:0.56em; text-align:left; max-width:800px; margin:0 auto; }
+    .reveal .khieu-van { font-style:italic; color:#e7d5b8; font-size:0.6em; }
+    .reveal .dap-an { color:#9ec9ac; }
+    .reveal blockquote { background:#22342c; border-left:4px solid #f0c987;
+                         padding:12px 18px; font-size:0.6em; text-align:left;
+                         max-width:760px; margin:0 auto; }
+  </style>
+  <header style="position:absolute; top:10px; left:20px; font-size:0.36em; color:#7d9b8a;">
+    Giáo án Ngữ văn 12 · Tiết 57–58
+  </header>
+  <footer style="position:absolute; bottom:10px; right:20px; font-size:0.34em; color:#7d9b8a;">
+    GV: … · Trường THPT …
+  </footer>
+</section-master>
+
+<section>
+  <h1>ĐẤT NƯỚC</h1>
+  <p style="font-size:0.6em;">Nguyễn Đình Thi · Trích trường ca "Mặt đường khát vọng" (1948–1955)</p>
+  <p class="chu-de" style="font-size:0.48em;">Đọc hiểu văn bản — 2 tiết</p>
+</section>
+
+<section>
+  <span class="giai-doan">MỤC TIÊU</span>
+  <ul class="noi-dung">
+    <li class="fragment">Cảm nhận được tư tưởng Đất Nước của nhân dân và giọng thơ trữ tình pha chính luận của Nguyễn Đình Thi.</li>
+    <li class="fragment">Phân tích được hình ảnh thơ, nhịp điệu, sự kết tự sự trong đoạn trích.</li>
+    <li class="fragment">Viết được đoạn văn nghị luận 150 chữ về một ý thơ trong bài.</li>
+  </ul>
+</section>
+
+<section data-background-color="#16221d">
+  <span class="giai-doan">BƯỚC 1 · KHỞI ĐỘNG</span>
+  <h2>Sự kiện nào gợi cho anh/chị về hai chữ "Đất Nước"?</h2>
+  <p class="khieu-van">Chiếu 5 hình ảnh: mùa gặt, biên giới, biển đảo, phố cổ, lễ hội — yêu cầu HS viết 1 từ khoá vào phiếu học tập.</p>
+  <p class="fragment" style="font-size:0.5em;">→ Kết nối vào bài: mỗi thời đại có một cách định nghĩa Đất Nước của riêng mình.</p>
+</section>
+
+<section>
+  <span class="giai-doan">BƯỚC 2 · HÌNH THÀNH KIẾN THỨC</span>
+  <h2>Tác giả — tác phẩm</h2>
+  <ul class="noi-dung">
+    <li class="fragment">Nguyễn Đình Thi (1924–2003): nhạc sĩ, nhà văn, nhà thơ — nghệ sĩ đa tài.</li>
+    <li class="fragment">"Mặt đường khát vọng" sáng tác 1948–1955; đoạn trích nằm ở giữa trường ca.</li>
+    <li class="fragment">Bố cục đoạn trích: Đất Nước mùa thu — Đất Nước gian khổ — Đất Nước của nhân dân.</li>
+  </ul>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#1b2a24,#0f1a16)">
+  <span class="giai-doan">ĐỌC HIỂU · PHẦN 1</span>
+  <h2>Đất Nước mùa thu</h2>
+  <blockquote>"Mùa thu nay khác rồi<br>Tôi đứng vui nghe giữa núi đồi<br>Gió thổi rừng tre phấp phới<br>Trời thu thay áo mới<br>Trong biếc nói cười thiết tha"</blockquote>
+  <p class="noi-dung fragment" style="margin-top:16px;"><b>Câu hỏi:</b> Đại từ "tôi" trong khổ thơ là ai? So với "tôi" của thơ mới 1932–1945 thì có gì khác?</p>
+  <p class="noi-dung dap-an fragment"><b>Chốt:</b> "tôi" của người chiến sĩ trong niềm vui chiến thắng — cái tôi đã hoà vào cái ta của cộng đồng.</p>
+</section>
+
+<section>
+  <span class="giai-doan">ĐỌC HIỂU · PHẦN 2</span>
+  <h2>Đất Nước gian lao mà anh hùng</h2>
+  <ul class="noi-dung">
+    <li class="fragment">Hình ảnh buổi đầu kháng chiến, "những đêm dài cơ cực", lời ca dao "giặc đến nhà đàn bà cũng đánh" → chất liệu của lịch sử và dân tộc.</li>
+    <li class="fragment">Nhịp thơ đổi: câu dài kể, câu ngắn đúc kết → âm hưởng sử thi.</li>
+    <li class="fragment">Nghệ thuật: kết hợp tự sự với trữ tình, dẫn ca dao, dùng thành ngữ.</li>
+  </ul>
+</section>
+
+<section data-background-color="#22342c">
+  <span class="giai-doan">ĐỌC HIỂU · PHẦN 3</span>
+  <h2>Đất Nước của nhân dân</h2>
+  <blockquote>"Nước chúng ta<br>Nước những người chưa bao giờ khuất<br>Đêm đêm rì rầm trong tiếng đất<br>Những buổi ngày xưa vọng nói về"</blockquote>
+  <ul class="noi-dung">
+    <li class="fragment">Liệt kê những người vô danh: làm ra hạt lúa, truyền ngọn lửa, dạy tiếng nói, làm ra Đất Nước.</li>
+    <li class="fragment">Tư tưởng cốt lõi: nhân dân là người làm nên Đất Nước.</li>
+    <li class="fragment fragment highlight-current-green">Chú ý: đây là điểm gặp gỡ với tư tưởng "Khoan thư sức dân" của Nguyễn Trãi.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="giai-doan">BƯỚC 3 · LUYỆN TẬP</span>
+  <h2>Đọc diễn cảm và hồi đáp</h2>
+  <ul class="noi-dung" style="text-align:left; max-width:720px; margin:0 auto;">
+    <li>Hai nhóm đọc diễn cảm phần 1 và phần 3; nêu cách nhấn giọng.</li>
+    <li class="fragment" style="color:#9ec9ac;">→ Gợi ý: phần 1 rộn ràng, hơi nhanh; phần 3 chậm, trang trọng.</li>
+    <li>Trả lời 3 câu hỏi cuối bài vào vở.</li>
+    <li class="fragment" style="color:#9ec9ac;">→ Gợi ý: ngắn gọn theo ý 2 của mỗi mục bài học.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="giai-doan">BƯỚC 4 · VẬN DỤNG</span>
+  <h2>Viết đoạn văn 150 chữ</h2>
+  <p class="noi-dung">"Đất Nước là những gì gần gũi và thiêng liêng nhất." Anh/chị hiểu ý kiến trên như thế nào? Hãy viết đoạn văn nghị luận.</p>
+  <ul class="noi-dung">
+    <li class="fragment">Dàn ý nhanh: giải thích → biểu hiện → dẫn chứng từ bài thơ → phản đề → bài học.</li>
+    <li class="fragment">Chấm 2 bài bằng rubric 4 mức; nhận xét chung.</li>
+  </ul>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#0f1a16,#22342c)">
+  <span class="giai-doan">BƯỚC 5 · CỦNG CỐ</span>
+  <h2>Cần nhớ</h2>
+  <ul class="noi-dung">
+    <li class="fragment">Tư tưởng Đất Nước của nhân dân.</li>
+    <li class="fragment">Chất sử thi: kết tự sự trong trữ tình, nhịp thơ thay đổi.</li>
+    <li class="fragment">Về nhà: soạn phần tiếp theo, học thuộc 10 câu thơ hay nhất.</li>
+  </ul>
+</section>`
+    },
+
+    {
+        id: 'chuyen-de-on-thi',
+        fileName: 'chuyen-de-on-thi-ham-so.html',
+        title: 'Chuyên đề ôn thi — Ứng dụng đạo hàm khảo sát hàm số',
+        desc: 'Chuyên đề ôn thi tốt nghiệp: ma trận đề theo 4 mức độ → kiến thức phải thuộc → bài tập tăng dần độ khó → mẹo bấm máy và lỗi hay gặp.',
+        note: 'Giữ khung "nhận biết → thông hiểu → vận dụng → vận dụng cao" khi đổi chuyên đề khác; bảng ma trận chỉ cần đổi số câu/điểm.',
+        group: 'chuyen-de',
+        code: String.raw`<section-master>
+  <style>
+    .reveal .slides section { background:#141b2d; border-radius:14px; padding:26px; }
+    .reveal h1, .reveal h2, .reveal h3 { color:#8ab4ff; }
+    .cap { display:inline-block; padding:3px 14px; border-radius:6px; font-size:0.42em;
+           font-weight:bold; margin-bottom:12px; background:#8ab4ff; color:#141b2d; }
+    .cap.t2 { background:#5dd6a0; }
+    .cap.t3 { background:#f5a35a; }
+    .cap.t4 { background:#e879a6; }
+    .reveal .nb { font-size:0.55em; text-align:left; max-width:800px; margin:0 auto; }
+    .reveal table { border-collapse:collapse; font-size:0.5em; margin:0 auto; }
+    .reveal th, .reveal td { border:1px solid #3b4a6b; padding:7px 14px; }
+    .reveal th { background:#1f2a44; color:#cdd9f2; }
+    .reveal .loixuong { color:#e879a6; }
+    .reveal .diem { color:#5dd6a0; }
+  </style>
+  <header style="position:absolute; top:10px; left:20px; font-size:0.36em; color:#7d8bb0;">
+    Chuyên đề ôn thi TN THPT · Toán
+  </header>
+</section-master>
+
+<section>
+  <h1>KHẢO SÁT HÀM SỐ</h1>
+  <p style="font-size:0.58em;">Ứng dụng đạo hàm · 8 tiết · Mục tiêu: không mất điểm câu nào dưới 8 điểm</p>
+</section>
+
+<section>
+  <span class="cap">MA TRẬN ĐỀ</span>
+  <h2>Hàm số trong đề thi những năm gần đây</h2>
+  <table>
+    <tr><th>Mức độ</th><th>Số câu</th><th>Điểm</th><th>Dạng thường gặp</th></tr>
+    <tr class="fragment"><td>Nhận biết</td><td>3</td><td>1,5</td><td>Đọc BBT, tìm cực trị</td></tr>
+    <tr class="fragment"><td>Thông hiểu</td><td>3</td><td>1,5</td><td>Tính đơn điệu, GTLN–GTNN</td></tr>
+    <tr class="fragment"><td>Vận dụng</td><td>2</td><td>1,0</td><td>Biện luận số giao điểm</td></tr>
+    <tr class="fragment"><td>V. dụng cao</td><td>1</td><td>0,5</td><td>Tham số, tiếp tuyến qua điểm</td></tr>
+  </table>
+  <p class="fragment" style="font-size:0.48em;">→ 3 câu đầu chắc chắn làm được trong 5 phút nếu thuộc bảng dưới đây.</p>
+</section>
+
+<section data-background-color="#0e1424">
+  <span class="cap">NHẬN BIẾT</span>
+  <h2>Bốn điều phải thuộc</h2>
+  <ul class="nb">
+    <li class="fragment">$y' = 0$ tại $x_0$ và $y'$ đổi dấu từ $+$ sang $-$ ⇒ $x_0$ là điểm <b>max</b>.</li>
+    <li class="fragment">Hàm trùng phương $y = ax^4 + bx^2 + c$ có 3 cực trị ⇔ $ab &lt; 0$.</li>
+    <li class="fragment">Hàm nhất biến $y = \dfrac{ax + b}{cx + d}$ luôn đơn điệu trên từng khoảng xác định.</li>
+    <li class="fragment">Tiệm cận đứng của $\dfrac{ax+b}{cx+d}$ là $x = -\dfrac{d}{c}$.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="cap t2">THÔNG HIỂU</span>
+  <h2>Bài 1 — Đọc bảng biến thiên</h2>
+  <p class="nb">Cho đồ thị $y = f(x)$ như hình; tìm số nghiệm của $f(x) = m$.</p>
+  <ul class="nb">
+    <li class="fragment">Bước 1: xác định GTLN, GTNN trên từng khoảng ⇒ vẽ đường thẳng $y = m$.</li>
+    <li class="fragment">Bước 2: đếm giao điểm; $m$ nằm giữa 2 giá trị cực trị thì có 3 nghiệm.</li>
+    <li class="fragment diem">Đáp án: $-1 &lt; m &lt; 3$ có 3 nghiệm.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="cap t3">VẬN DỤNG</span>
+  <h2>Bài 2 — Biện luận bằng đồ thị</h2>
+  <p class="nb">Tìm $m$ để $x^3 - 3x^2 - m = 0$ có đúng hai nghiệm phân biệt.</p>
+  <ul class="nb">
+    <li class="fragment">Đưa về $f(x) = x^3 - 3x^2$ cắt $y = m$.</li>
+    <li class="fragment">BBT: max $= 0$ tại $x = 0$, min $= -4$ tại $x = 2$.</li>
+    <li class="fragment diem">Hai nghiệm ⇔ $m = 0$ hoặc $m = -4$ (đường thẳng đi qua điểm cực trị).</li>
+    <li class="fragment loixuong">Lỗi hay gặp: quên trường hợp tiếp xúc, chỉ viết khoảng $-4 &lt; m &lt; 0$.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="cap t4">VẬN DỤNG CAO</span>
+  <h2>Bài 3 — Tham số trong hàm trùng phương</h2>
+  <p class="nb">Có bao nhiêu giá trị nguyên của $m \in [0;10]$ để $y = x^4 - 2mx^2 + 3$ có ba cực trị tạo thành tam giác có bán kính đường tròn ngoại tiếp bằng 1?</p>
+  <ul class="nb">
+    <li class="fragment">Ba cực trị: $A(0;3)$, $B\left(-\sqrt{m};\,3 - m^2\right)$, $C\left(\sqrt{m};\,3 - m^2\right)$.</li>
+    <li class="fragment">$R = 1$ ⇒ lập phương trình theo $m$, đặt $t = \sqrt{m}$ để hạ bậc.</li>
+    <li class="fragment diem">Kết quả: $m = 1$ ⇒ <b>1</b> giá trị nguyên thoả mãn.</li>
+  </ul>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#0e1424,#1f2a44)">
+  <span class="cap">MÈO &amp; TỔNG KẾT</span>
+  <h2>Chiến trường 45 phút phần hàm số</h2>
+  <ul class="nb">
+    <li class="fragment">Câu nhận biết: dùng máy tính cầm tay đạo hàm nhanh, không trình bày dài.</li>
+    <li class="fragment">Câu biện luận: luôn vẽ phác đồ thị trước khi viết khoảng $m$.</li>
+    <li class="fragment">Bẫy kinh điển: điều kiện $ab &lt; 0$ của hàm trùng phương, nghiệm kép.</li>
+    <li class="fragment">Bài về nhà: đề minh hoạ 2025, phần hàm số — tự bấm giờ 12 phút.</li>
+  </ul>
+</section>`
+    },
+
+    {
+        id: 'reveal-chuyen-canh',
+        fileName: 'reveal-chuyen-canh-va-nen.html',
+        title: 'Reveal.js — Chuyển cảnh và nền slide',
+        desc: 'Bộ mẫu trình diễn đúng các tính năng Reveal.js: chuyển cảnh riêng từng slide (fade, convex, concave, zoom), đổi tốc độ, nền gradient và nền hoạ tiết bằng CSS.',
+        note: 'Đây là mẫu "học bằng cách xem": mỗi slide chú thích ngay tính năng nó dùng. Bấm → để cảm nhận sự khác nhau giữa các kiểu transition.',
+        group: 'reveal',
+        code: String.raw`<section-master>
+  <style>
+    .reveal h1, .reveal h2, .reveal h3 { color:#ffe08a; }
+    .tag { display:inline-block; background:rgba(255,255,255,0.14); border:1px solid rgba(255,224,138,0.5);
+           color:#ffe08a; padding:3px 14px; border-radius:999px; font-size:0.4em;
+           font-family:ui-monospace,monospace; margin-bottom:16px; }
+    .reveal .ghi { font-size:0.46em; color:#cfe3ff; }
+    .nen-hoat-tiet { background:radial-gradient(circle at 20% 20%, rgba(255,224,138,0.18) 0 2px, transparent 3px),
+                    radial-gradient(circle at 70% 60%, rgba(138,180,255,0.18) 0 2px, transparent 3px),
+                    radial-gradient(circle at 40% 85%, rgba(255,224,138,0.12) 0 2px, transparent 3px), #10233a;
+                    background-size:120px 120px, 160px 160px, 90px 90px, auto; }
+  </style>
+</section-master>
+
+<section data-background-color="#0c1c30">
+  <h1>CHUYỂN CẢNH &amp; NỀN</h1>
+  <p style="font-size:0.55em;">Những gì Reveal.js làm được — demo ngay trên slide</p>
+  <p class="ghi">Bấm phím phải để xem từng kiểu transition</p>
+</section>
+
+<section data-transition="fade">
+  <span class="tag">data-transition="fade"</span>
+  <h2>Fade</h2>
+  <p class="ghi">Slide cũ mờ dần, slide mới hiện dần — kiểu dịu nhất, hợp khi đổi chủ đề.</p>
+</section>
+
+<section data-transition="convex">
+  <span class="tag">data-transition="convex"</span>
+  <h2>Convex</h2>
+  <p class="ghi">Slide lồi ra phía trước như đang lật khỏi mặt cầu — chữ mặc định của Reveal.</p>
+</section>
+
+<section data-transition="concave">
+  <span class="tag">data-transition="concave"</span>
+  <h2>Concave</h2>
+  <p class="ghi">Ngược lại với convex: mặt phẳng bị "hút" vào trong khi rời đi.</p>
+</section>
+
+<section data-transition="zoom" data-transition-speed="slow">
+  <span class="tag">data-transition="zoom" data-transition-speed="slow"</span>
+  <h2>Zoom chậm</h2>
+  <p class="ghi">Phóng to toàn bộ slide; thêm <code>fast</code> hoặc <code>slow</code> để đổi tốc độ.</p>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg, #16305c, #7c2d5e)" data-background-transition="fade">
+  <span class="tag">data-background-gradient + data-background-transition</span>
+  <h2>Nền gradient đổi mềm</h2>
+  <p class="ghi">Không cần ảnh: <code>linear-gradient()</code> hay <code>radial-gradient()</code> đều dùng được, và nền chuyển mờ thay vì trượt.</p>
+</section>
+
+<section class="nen-hoat-tiet">
+  <span class="tag">CSS thuần trong section-master</span>
+  <h2>Nền hoạ tiết</h2>
+  <p class="ghi">Nhiều lớp <code>radial-gradient</code> lặp lại tạo chấm màu; <code>background-size</code> quyết định mật độ.</p>
+</section>
+
+<section>
+  <span class="tag">stack dọc — nested &lt;section&gt;</span>
+  <h2>Slide lồng nhau</h2>
+  <p class="ghi">Ba slide này nằm trong cùng một ô: xuống dưới để đi hết, rồi mới sang phải.</p>
+  <section data-transition="slide">
+    <h3>Dọc · 1</h3>
+    <p class="ghi">Mục lục → bấm ↓</p>
+  </section>
+  <section data-transition="slide">
+    <h3>Dọc · 2</h3>
+    <p class="ghi">Nội dung → bấm ↓</p>
+  </section>
+  <section data-transition="slide">
+    <h3>Dọc · 3</h3>
+    <p class="ghi">Kết luận → bấm ↓ để sang slide ngang tiếp theo</p>
+  </section>
+</section>
+
+<section data-background-color="#0c1c30">
+  <span class="tag">data-transition-speed="fast"</span>
+  <h2>Vẫn còn nhiều thứ để thử</h2>
+  <ul style="font-size:0.5em; text-align:left; max-width:660px; margin:0 auto;">
+    <li class="fragment"><code>data-background-image="đường-dẫn-ảnh"</code> — nền bằng ảnh, đi kèm <code>data-background-size="cover"</code>.</li>
+    <li class="fragment"><code>data-background-video</code> — nền bằng video, có <code>data-background-video-loop</code>.</li>
+    <li class="fragment"><code>data-preload</code> — tải trước slide tiếp theo khi mạng chậm.</li>
+    <li class="fragment">Khai báo một lần cho cả bài: <code>transition</code>, <code>transitionSpeed</code>, <code>backgroundTransition</code> trong <code>Reveal.initialize</code>.</li>
+  </ul>
+</section>`
+    },
+
+    {
+        id: 'reveal-fragment-stack',
+        fileName: 'reveal-fragment-hieu-ung.html',
+        title: 'Reveal.js — Hiện dần: mọi kiểu fragment',
+        desc: 'Toàn bộ các lớp fragment của Reveal.js trên một bộ slide: fade-up/left/right, current-visible, grow, shrink, strike, highlight và thứ tự hiện bằng data-fragment-index.',
+        note: 'Dùng làm "bảng tra" khi soạn bài: cần hiệu ứng nào thì chép đúng class đó. Mọi fragment đều chạy bằng HTML/CSS, không cần viết script.',
+        group: 'reveal',
+        code: String.raw`<section-master>
+  <style>
+    .reveal .slides section { background:#12233a; border-radius:14px; }
+    .reveal h1, .reveal h2, .reveal h3 { color:#7fe3c0; }
+    .ten { display:inline-block; background:rgba(127,227,192,0.15); color:#7fe3c0;
+           padding:2px 12px; border-radius:6px; font-size:0.42em; font-family:ui-monospace,monospace; }
+    .reveal .ghi { font-size:0.44em; color:#b9cbe4; }
+    .reveal .demo { font-size:0.62em; }
+  </style>
+</section-master>
+
+<section data-background-color="#0b1828">
+  <h1>FRAGMENT</h1>
+  <p style="font-size:0.55em;">Một nút bấm — một nội dung hiện ra</p>
+  <p class="ghi">Bấm → để đi qua từng kiểu</p>
+</section>
+
+<section>
+  <span class="ten">fade-up · fade-down · fade-left · fade-right</span>
+  <h2>Vừa hiện vừa trượt</h2>
+  <div class="demo">
+    <p class="fragment fade-up">fade-up ↑</p>
+    <p class="fragment fade-down">fade-down ↓</p>
+    <p class="fragment fade-left">fade-left ←</p>
+    <p class="fragment fade-right">fade-right →</p>
+  </div>
+</section>
+
+<section>
+  <span class="ten">current-visible</span>
+  <h2>Chỉ một dòng sáng tại một thời điểm</h2>
+  <div class="demo">
+    <p class="fragment current-visible">Bước 1: đọc đề, gạch chân dữ kiện</p>
+    <p class="fragment current-visible">Bước 2: chọn công thức</p>
+    <p class="fragment current-visible">Bước 3: tính và thử lại</p>
+  </div>
+  <p class="ghi">Dòng trước tự ẩn khi dòng sau hiện — hợp với các bước hướng dẫn.</p>
+</section>
+
+<section>
+  <span class="ten">fade-in-then-semi-out</span>
+  <h2>Hiện rồi mờ đi một nửa</h2>
+  <div class="demo">
+    <p class="fragment fade-in-then-semi-out">Ý chính 1</p>
+    <p class="fragment fade-in-then-semi-out">Ý chính 2</p>
+    <p class="fragment fade-in-then-semi-out">Ý chính 3</p>
+  </div>
+  <p class="ghi">Vẫn nhìn thấy ý cũ nhưng mắt học sinh dồn vào ý mới.</p>
+</section>
+
+<section>
+  <span class="ten">grow · shrink · semi-fade-out</span>
+  <h2>To lên, thu nhỏ, hoặc nhoà</h2>
+  <div class="demo">
+    <p class="fragment grow">grow — phóng to</p>
+    <p class="fragment shrink">shrink — thu nhỏ</p>
+    <p class="fragment semi-fade-out">semi-fade-out — mờ dần khi có cái mới</p>
+  </div>
+</section>
+
+<section>
+  <span class="ten">strike · highlight-*</span>
+  <h2>Gạch nối và tô màu</h2>
+  <div class="demo">
+    <p class="fragment strike">Đáp án sai bị gạch</p>
+    <p class="fragment highlight-red">highlight-red</p>
+    <p class="fragment highlight-green">highlight-green</p>
+    <p class="fragment highlight-blue">highlight-blue</p>
+    <p class="fragment highlight-current-yellow">highlight-current-* chỉ tô khi đang ở fragment đó</p>
+  </div>
+</section>
+
+<section>
+  <span class="ten">data-fragment-index</span>
+  <h2>Đổi thứ tự hiện mà không đổi vị trí trong HTML</h2>
+  <div class="demo">
+    <p class="fragment" data-fragment-index="3">index 3 — hiện cuối</p>
+    <p class="fragment" data-fragment-index="1">index 1 — hiện đầu</p>
+    <p class="fragment" data-fragment-index="2">index 2</p>
+  </div>
+  <p class="ghi">Nhóm cùng chỉ số sẽ hiện cùng lúc — dùng khi muốn hai cột xuất hiện đồng thời.</p>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#0b1828,#1c3f5a)">
+  <span class="ten">fragment + bài kiểm tra nhanh</span>
+  <h2>Ứng dụng: đáp án hiện sau câu hỏi</h2>
+  <p style="font-size:0.62em;">Hỏi: Tích của hai nghiệm phương trình $x^2 - 5x + 6 = 0$ bằng bao nhiêu?</p>
+  <p class="fragment" style="color:#7fe3c0;">→ $S = a + b = 5$, $P = a \cdot b = 6$.</p>
+  <p class="fragment" style="font-size:0.44em; color:#b9cbe4;">Theo định lý Viète: $P = \dfrac{c}{a}$.</p>
+</section>`
     }
 ];
 
 const SLIDES = [
     {
         id: 'thong-ke',
+        group: 'so-lieu',
         title: 'Slide Thống kê — bảng + biểu đồ cột + biểu đồ tròn',
         desc: 'Một slide tổng hợp ba cách trình bày số liệu, các thành phần hiện dần theo phím bấm.',
         note: 'Sửa số liệu trong bảng, chiều cao cột (px tỉ lệ %) và các mốc phần trăm trong conic-gradient.',
@@ -511,6 +982,7 @@ const SLIDES = [
 
     {
         id: 'do-thi-tham-so',
+        group: 'so-lieu',
         title: 'Slide Đồ thị hàm số có tham số',
         desc: 'Họ parabol y = (x − m)² vẽ bằng SVG (path Bézier, không cần thư viện), kèm quy luật tịnh tiến theo tham số m.',
         note: 'Mỗi đường cong là một <path d="M … Q …"> — sao chép path và đổi hoành độ đỉnh/đầu cuối để thêm đường ứng với m khác.',
@@ -537,6 +1009,7 @@ const SLIDES = [
 
     {
         id: 'trac-nghiem',
+        group: 'tuong-tac',
         title: 'Slide Câu hỏi trắc nghiệm nhiều lựa chọn',
         desc: 'Bấm đáp án: đúng chuyển xanh, sai chuyển đỏ, giải thích hiện ra sau khi trả lời — thuần HTML/CSS.',
         note: 'Đổi các id (c1a…c1d) khi thêm câu khác trong cùng bài; đáp án đúng là input có class="ok".',
@@ -568,6 +1041,7 @@ const SLIDES = [
 
     {
         id: 'ghep-doi',
+        group: 'tuong-tac',
         title: 'Slide Câu hỏi ghép đôi',
         desc: 'Hai cột A–B cần nối; học sinh thảo luận rồi bấm "Xem đáp án" để kiểm tra.',
         note: 'Đổi số dòng: thêm mỗi cặp vào cả hai cột và cập nhật chuỗi đáp án trong phần chi tiết.',
@@ -604,6 +1078,7 @@ const SLIDES = [
 
     {
         id: 'dien-khuyet',
+        group: 'tuong-tac',
         title: 'Slide Câu hỏi điền khuyết',
         desc: 'Chỗ trống là ô nhập được ngay trên slide (bấm/nhập trực tiếp khi thuyết trình), đáp án hiện dần bằng fragment.',
         note: 'Khi trình chiếu: bấm chuột vào ô rồi gõ — mũi tên trái/phải vẫn lật slide như thường.',
@@ -629,6 +1104,7 @@ const SLIDES = [
 
     {
         id: 'puzzle',
+        group: 'tuong-tac',
         title: 'Slide Trò chơi Puzzle — giải mã từ khóa',
         desc: 'Lưới 6 ô úp: trả lời đúng câu hỏi nào, bấm lật ô đó để lộ một chữ; ghép 6 chữ thành từ khóa.',
         note: 'Đổi chữ cái mặt sau và câu hỏi theo chủ đề; mỗi ô là một checkbox CSS — bấm lại để lật úp trở lại.',
@@ -657,6 +1133,235 @@ const SLIDES = [
     <input type="checkbox" id="pz6"><label for="pz6"><span class="mat-truoc">Câu 6<br>Tổng góc tam giác?</span><span class="mat-sau">C</span></label>
   </div>
   <p style="font-size:0.5em; color:#fbbf24; margin-top:12px;">Từ khóa: T-O-A-N-Ọ-C 🎉</p>
+</section>`
+    },
+
+    {
+        id: 'slide-title-hero',
+        group: 'mo-dau',
+        title: 'Slide Trang bìa kiểu lớn',
+        desc: 'Bìa mở đầu: nhãn nhỏ phía trên, tiêu đề cỡ lớn, một dòng định nghĩa, tên người trình bày và ngày tháng ở cuối.',
+        note: 'Chỉ đổi chữ, không cần sửa style. Muốn chắc màu trên mọi theme thì bỏ các thuộc tính color đi để theme của bài quyết định.',
+        code: String.raw`<section data-background-gradient="linear-gradient(135deg, #10233a, #1c3f5a)">
+  <p style="font-size:0.4em; letter-spacing:0.28em; text-transform:uppercase; color:#fbbf24;">
+    Báo cáo chuyên đề · 2026
+  </p>
+  <h1 style="font-size:1.15em; margin:18px 0 10px;">Tiêu đề bài trình chiếu</h1>
+  <p style="font-size:0.55em; color:#cfe3ff; max-width:780px; margin:0 auto;">
+    Một câu định nghĩa nội dung sẽ nói trong 15 phút tới.
+  </p>
+  <div style="width:90px; height:3px; background:#f59e0b; margin:26px auto;"></div>
+  <p style="font-size:0.42em; color:#8fa8c4;">Nguyễn Văn A · Trường THCS … · 15/10/2026</p>
+</section>`
+    },
+
+    {
+        id: 'slide-muc-luc',
+        group: 'mo-dau',
+        title: 'Slide Mục lục hai cột có số thứ tự',
+        desc: 'Nội dung bài học hiện dần từng mục, số thứ tự trong ô tròn, chia hai cột để không tràn slide.',
+        note: 'Sao chép cặp div "muc" để thêm ý; mỗi mục là một fragment nên học sinh đi theo đúng tiến trình.',
+        code: String.raw`<section>
+  <h2>Nội dung chính</h2>
+  <div style="display:flex; gap:34px; justify-content:center; font-size:0.55em; text-align:left;">
+    <div style="flex:1; max-width:420px;">
+      <div class="fragment muc" style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
+        <span style="flex:0 0 34px; height:34px; border-radius:50%; background:#f59e0b; color:#111;
+                     display:flex; align-items:center; justify-content:center; font-weight:bold;">1</span>
+        <span>Mở đầu: tình huống thực tế</span>
+      </div>
+      <div class="fragment muc" style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
+        <span style="flex:0 0 34px; height:34px; border-radius:50%; background:#f59e0b; color:#111;
+                     display:flex; align-items:center; justify-content:center; font-weight:bold;">2</span>
+        <span>Định lý và cách chứng minh</span>
+      </div>
+      <div class="fragment muc" style="display:flex; gap:12px; align-items:center;">
+        <span style="flex:0 0 34px; height:34px; border-radius:50%; background:#f59e0b; color:#111;
+                     display:flex; align-items:center; justify-content:center; font-weight:bold;">3</span>
+        <span>Luyện tập</span>
+      </div>
+    </div>
+    <div style="flex:1; max-width:420px;">
+      <div class="fragment muc" style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
+        <span style="flex:0 0 34px; height:34px; border-radius:50%; background:#38bdf8; color:#111;
+                     display:flex; align-items:center; justify-content:center; font-weight:bold;">4</span>
+        <span>Vận dụng vào tình huống chiếc thang</span>
+      </div>
+      <div class="fragment muc" style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
+        <span style="flex:0 0 34px; height:34px; border-radius:50%; background:#38bdf8; color:#111;
+                     display:flex; align-items:center; justify-content:center; font-weight:bold;">5</span>
+        <span>Mở rộng: màn hình tivi 16:9</span>
+      </div>
+      <div class="fragment muc" style="display:flex; gap:12px; align-items:center;">
+        <span style="flex:0 0 34px; height:34px; border-radius:50%; background:#38bdf8; color:#111;
+                     display:flex; align-items:center; justify-content:center; font-weight:bold;">6</span>
+        <span>Củng cố và bài tập về nhà</span>
+      </div>
+    </div>
+  </div>
+</section>`
+    },
+
+    {
+        id: 'slide-cam-on',
+        group: 'mo-dau',
+        title: 'Slide Kết bài — Cảm ơn & liên hệ',
+        desc: 'Trang cuối: lời cảm ơn, một câu hỏi để mở discussion, khối thông tin liên hệ và tài liệu tham khảo.',
+        note: 'Thêm link tài liệu bằng thẻ a bình thường; khi export PDF nhớ kiểm tra link còn đọc được.',
+        code: String.raw`<section data-background-color="#10233a">
+  <h2 style="font-size:0.95em;">Cảm ơn đã theo dõi</h2>
+  <p style="font-size:0.6em; color:#cfe3ff; max-width:680px; margin:14px auto;">
+    Câu hỏi còn lại? Hãy nêu một tình huống thực tế mà bạn muốn dùng định lý này.
+  </p>
+  <div style="display:flex; gap:40px; justify-content:center; margin-top:28px; font-size:0.42em; color:#8fa8c4;">
+    <div>
+      <div style="color:#fbbf24; font-weight:bold; margin-bottom:4px;">LIÊN HỆ</div>
+      <div>Nguyễn Văn A</div>
+      <div>email@truong.edu.vn</div>
+    </div>
+    <div>
+      <div style="color:#fbbf24; font-weight:bold; margin-bottom:4px;">TÀI LIỆU</div>
+      <div>SGK Toán 8, trang 89–94</div>
+      <div>Bộ đề minh hoạ 2026</div>
+    </div>
+  </div>
+</section>`
+    },
+
+    {
+        id: 'slide-big-number',
+        group: 'so-lieu',
+        title: 'Slide Ba con số lớn (KPI)',
+        desc: 'Ba chỉ số nổi bật cỡ chữ rất lớn, kèm nhãn giải thích và xu hướng tăng/giảm — dạng hay dùng trong báo cáo.',
+        note: 'Mỗi khối là một fragment nên có thể bấm từng số. Đổi mũi tên ↑ ↓ và màu xanh/đỏ theo chiều tốt/xấu của chỉ số.',
+        code: String.raw`<section>
+  <h2>Kết quả sau một học kỳ</h2>
+  <div style="display:flex; gap:30px; justify-content:center; margin-top:20px;">
+    <div class="fragment" style="width:280px; text-align:center;">
+      <div style="font-size:1.5em; font-weight:bold; color:#a6e3a1; line-height:1.1;">92%</div>
+      <div style="font-size:0.45em; margin-top:8px;">Học sinh đạt mức Hoàn thành tốt</div>
+      <div style="font-size:0.38em; color:#a6e3a1;">↑ 14 điểm so với học kỳ trước</div>
+    </div>
+    <div class="fragment" style="width:280px; text-align:center;">
+      <div style="font-size:1.5em; font-weight:bold; color:#fbbf24; line-height:1.1;">3,4×</div>
+      <div style="font-size:0.45em; margin-top:8px;">Số lượt tự học trên nền tảng</div>
+      <div style="font-size:0.38em; color:#a6e3a1;">↑ 2,1×</div>
+    </div>
+    <div class="fragment" style="width:280px; text-align:center;">
+      <div style="font-size:1.5em; font-weight:bold; color:#f87171; line-height:1.1;">8</div>
+      <div style="font-size:0.45em; margin-top:8px;">Học sinh cần hỗ trợ thêm</div>
+      <div style="font-size:0.38em; color:#a6e3a1;">↓ từ 17</div>
+    </div>
+  </div>
+  <p style="font-size:0.36em; color:#999999; margin-top:26px;">Nguồn: cơ sở dữ liệu điểm trường, trích xuất ngày 12/05/2026 (n = 118).</p>
+</section>`
+    },
+
+    {
+        id: 'slide-so-sanh',
+        group: 'bo-cuc',
+        title: 'Slide So sánh hai phương án',
+        desc: 'Hai cột đối xứng với dấu ✓ / ✗, hợp khi chọn công cụ, so hai phương pháp hoặc hai quan điểm.',
+        note: 'Cột trái nền xanh, cột phải nền đỏ; muốn so nhiều hơn hai thì nhân đôi cụm div và giảm width xuống 300px.',
+        code: String.raw`<section>
+  <h2>Học theo bài hay học theo chuyên đề?</h2>
+  <div style="display:flex; gap:22px; justify-content:center; font-size:0.48em; margin-top:16px;">
+    <div style="flex:1; max-width:430px; background:rgba(166,227,161,0.10); border:1px solid #3f6212;
+                border-radius:12px; padding:16px 18px; text-align:left;">
+      <div style="color:#a6e3a1; font-weight:bold; margin-bottom:10px;">Theo bài</div>
+      <ul style="margin:0; padding-left:22px;">
+        <li>Đúng tiến độ chương trình, dễ đối chiếu đề kiểm tra</li>
+        <li class="fragment">Kiến thức liền mạch, ít phải nhảy chương</li>
+        <li class="fragment">Học sinh yếu theo được từng bước</li>
+      </ul>
+      <div class="fragment" style="color:#f87171; margin-top:10px;">✗ Khó đào sâu một chủ đề xuyên suốt</div>
+    </div>
+    <div style="flex:1; max-width:430px; background:rgba(248,113,113,0.10); border:1px solid #7f1d1d;
+                border-radius:12px; padding:16px 18px; text-align:left;">
+      <div style="color:#f87171; font-weight:bold; margin-bottom:10px;">Theo chuyên đề</div>
+      <ul style="margin:0; padding-left:22px;">
+        <li>Đào sâu, phù hợp học sinh giỏi và ôn thi</li>
+        <li class="fragment">Kết nối được nhiều chương trong một chủ đề</li>
+        <li class="fragment">Có tài liệu dùng lại được nhiều năm</li>
+      </ul>
+      <div class="fragment" style="color:#f87171; margin-top:10px;">✗ Dễ lệch tiến độ, học sinh yếu hụt kiến thức</div>
+    </div>
+  </div>
+</section>`
+    },
+
+    {
+        id: 'slide-timeline',
+        group: 'bo-cuc',
+        title: 'Slide Dòng thời gian 4 mốc',
+        desc: 'Trục ngang với các mốc tròn, mỗi mốc có nhãn và mô tả ngắn — kể tiến trình một dự án hoặc một giai đoạn lịch sử.',
+        note: 'Trục là một div cao 3px; thêm mốc thì sao chép khối "moc" và chia đều left theo phần trăm. Muốn 5–6 mốc thì hạ font-size xuống 0.3em.',
+        code: String.raw`<section>
+  <h2>Tiến trình dự án 4 tuần</h2>
+  <div style="position:relative; margin:40px auto 0; max-width:820px; height:120px; font-size:0.42em;">
+    <div style="position:absolute; left:6%; right:6%; top:16px; height:3px; background:#4b5563;"></div>
+    <div class="fragment moc" style="position:absolute; left:6%; width:21%; text-align:center;">
+      <div style="width:20px; height:20px; border-radius:50%; background:#f59e0b; margin:8px auto;"></div>
+      <div style="font-weight:bold; color:#fbbf24;">Tuần 1</div>
+      <div>Khảo sát nhu cầu, chọn chủ đề</div>
+    </div>
+    <div class="fragment moc" style="position:absolute; left:27%; width:21%; text-align:center;">
+      <div style="width:20px; height:20px; border-radius:50%; background:#38bdf8; margin:8px auto;"></div>
+      <div style="font-weight:bold; color:#38bdf8;">Tuần 2</div>
+      <div>Xây nguyên mẫu, thử nội bộ</div>
+    </div>
+    <div class="fragment moc" style="position:absolute; left:48%; width:21%; text-align:center;">
+      <div style="width:20px; height:20px; border-radius:50%; background:#a78bfa; margin:8px auto;"></div>
+      <div style="font-weight:bold; color:#a78bfa;">Tuần 3</div>
+      <div>Chạy thử với 2 lớp thực nghiệm</div>
+    </div>
+    <div class="fragment moc" style="position:absolute; left:69%; width:21%; text-align:center;">
+      <div style="width:20px; height:20px; border-radius:50%; background:#a6e3a1; margin:8px auto;"></div>
+      <div style="font-weight:bold; color:#a6e3a1;">Tuần 4</div>
+      <div>Đo kết quả, viết báo cáo</div>
+    </div>
+  </div>
+  <p style="font-size:0.36em; color:#999999; margin-top:24px;">Mốc hiện dần theo từng phím bấm — vừa kể vừa chỉ.</p>
+</section>`
+    },
+
+    {
+        id: 'slide-bang',
+        group: 'bo-cuc',
+        title: 'Slide Bảng dữ liệu có dòng nhấn mạnh',
+        desc: 'Bảng nhiều cột, kẻ sọc, một dòng được tô để hướng mắt vào số liệu cần bàn; từng hàng hiện dần.',
+        note: 'Hàng đang so sánh thì thêm class "dang-xem" (viền vàng). Bảng dài quá 8 hàng nên chia thành hai slide thay vì thu nhỏ chữ.',
+        code: String.raw`<section>
+  <h2>So sánh ba phương án dạy học</h2>
+  <table style="border-collapse:collapse; font-size:0.46em; margin:16px auto 0;">
+    <tr style="background:#1f2a44; color:#cdd9f2;">
+      <th style="border:1px solid #3b4a6b; padding:8px 18px;">Phương án</th>
+      <th style="border:1px solid #3b4a6b; padding:8px 18px;">Thời lượng</th>
+      <th style="border:1px solid #3b4a6b; padding:8px 18px;">Điểm trung bình</th>
+      <th style="border:1px solid #3b4a6b; padding:8px 18px;">HS chủ động</th>
+    </tr>
+    <tr class="fragment" style="background:rgba(255,255,255,0.04);">
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">Thuyết trình</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">45 phút</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">6,4</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">22%</td>
+    </tr>
+    <tr class="fragment dang-xem" style="outline:2px solid #fbbf24;">
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">Kết hợp hoạt động nhóm</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">45 phút</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px; color:#a6e3a1; font-weight:bold;">8,1</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px; color:#a6e3a1;">68%</td>
+    </tr>
+    <tr class="fragment" style="background:rgba(255,255,255,0.04);">
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">Học trên nền tảng số</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">60 phút</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">7,6</td>
+      <td style="border:1px solid #3b4a6b; padding:8px 18px;">55%</td>
+    </tr>
+  </table>
+  <p class="fragment" style="font-size:0.4em; color:#cfe3ff; margin-top:20px;">
+    → Cùng thời lượng, phương án có hoạt động nhóm cho kết quả cao nhất.
+  </p>
 </section>`
     }
 ];
@@ -754,20 +1459,123 @@ function buildCard(t, kind) {
     return card;
 }
 
-const ALL = { decks: DECKS, slides: SLIDES };
-document.querySelectorAll('[data-templates]').forEach(holder => {
-    const list = ALL[holder.dataset.templates] || [];
-    list.forEach(t => holder.appendChild(buildCard(t, holder.dataset.templates === 'decks' ? 'deck' : 'slide')));
+// Sidebar dựa vào GROUPS nên cùng một đoạn render sinh ra cả hai: thêm mẫu chỉ việc
+// khai báo, khỏi phải sửa templates.html.
+function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+}
+
+const ALL = [...DECKS, ...SLIDES];
+const content = document.getElementById('tpl-content');
+const nav = document.getElementById('tpl-nav');
+const emptyMsg = document.getElementById('tpl-empty');
+const KINDS = {
+    deck: { title: 'Mẫu bài trình chiếu', hint: 'Cả một bộ slide hoàn chỉnh. Bấm “Dùng mẫu này” (cần đăng nhập) để HeyShow tạo ngay một file nháp mới với toàn bộ nội dung mẫu.' },
+    slide: { title: 'Mẫu slide', hint: 'Slide đơn lẻ dùng chung được cho mọi bài. Bấm “Copy” rồi dán vào file đang soạn, đặt con trỏ ở nơi muốn chèn.' },
+};
+
+// emptyMsg nằm sẵn trong markup nên phải chèn phía trước nó, nếu không thông báo
+// "không tìm thấy" bị đẩy xuống cuối trang và người đọc phải cuộn tới đó mới thấy.
+function addToContent(node) {
+    content.insertBefore(node, emptyMsg);
+}
+
+const sections = [];   // { group, sec, live, cards: [{ card, hay }] } — tìm kiếm lọc theo cards
+const kindHeads = {};
+let lastKind = null;
+
+GROUPS.forEach((g, i) => {
+    if (g.kind !== lastKind) {
+        lastKind = g.kind;
+        const head = el('div', 'kind-head');
+        head.append(el('h2', null, KINDS[g.kind].title), el('p', null, KINDS[g.kind].hint));
+        addToContent(head);
+        kindHeads[g.kind] = head;
+        nav.appendChild(el('div', 'side-kind', KINDS[g.kind].title));
+    }
+    const sec = el('section', 'block');
+    sec.id = 'g-' + g.id;
+    const live = el('span', 'live');
+    const h2 = el('h2');
+    h2.append(el('span', 'num', String(i + 1)), el('span', 'g-label', g.label), live);
+    sec.appendChild(h2);
+    if (g.lead) sec.appendChild(el('p', 'lead', g.lead));
+    const holder = el('div', 'g-cards');
+    sec.appendChild(holder);
+    addToContent(sec);
+
+    const cards = ALL.filter(t => t.group === g.id).map(t => {
+        const card = buildCard(t, g.kind);
+        const hay = fold([t.title, t.desc, t.note, t.id].join(' '));
+        holder.appendChild(card);
+        return { card, hay };
+    });
+    sections.push({ group: g, sec, live, cards });
+
+    const link = el('a', 'nav-item');
+    link.href = '#g-' + g.id;
+    link.dataset.target = 'g-' + g.id;
+    link.append(el('span', 'nav-label', g.label), el('span', 'nav-cnt', String(cards.length)));
+    nav.appendChild(link);
 });
 
-// Nạp Reveal vào iframe preview khi cuộn tới gần, tránh tải 12 iframe một lúc
+// Tìm kiếm: bỏ dấu để gõ "giao an" vẫn ra "Giáo án", tiếng Việt có dấu vẫn khớp.
+function fold(s) {
+    return (s || '').toLowerCase().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+}
+
+const search = document.getElementById('tpl-search');
+function applyFilter() {
+    const q = fold(search.value.trim());
+    let shown = 0;
+    sections.forEach(({ group, sec, live, cards }) => {
+        let visible = 0;
+        cards.forEach(({ card, hay }) => {
+            const ok = !q || hay.includes(q);
+            card.hidden = !ok;
+            if (ok) visible++;
+        });
+        sec.hidden = visible === 0;
+        live.textContent = q && visible !== cards.length ? visible + '/' + cards.length : String(cards.length);
+        shown += visible;
+    });
+    Object.entries(kindHeads).forEach(([kind, head]) => {
+        head.hidden = !sections.some(s => s.group.kind === kind && !s.sec.hidden);
+    });
+    emptyMsg.hidden = shown > 0;
+    nav.querySelectorAll('.nav-item').forEach(a => {
+        const sec = document.getElementById(a.dataset.target);
+        a.classList.toggle('muted', !sec || sec.hidden);
+    });
+}
+search.addEventListener('input', applyFilter);
+
+// Sidebar sáng lên theo mục đang đọc
+const links = [...nav.querySelectorAll('.nav-item')];
+function updateActive() {
+    let cur = sections[0];
+    sections.forEach(s => {
+        if (!s.sec.hidden && s.sec.getBoundingClientRect().top <= 90) cur = s;
+    });
+    links.forEach(a => a.classList.toggle('active', cur && a.dataset.target === cur.sec.id));
+}
+window.addEventListener('scroll', updateActive, { passive: true });
+window.addEventListener('resize', updateActive);
+
+applyFilter();
+updateActive();
+
+// Nạp Reveal vào iframe preview khi cuộn tới gần, tránh tải hàng chục iframe một lúc
 const io = new IntersectionObserver(entries => {
     entries.forEach(entry => {
         if (!entry.isIntersecting) return;
         const card = entry.target;
         const iframe = card.querySelector('iframe');
-        const id = card.id.slice(2);
-        const t = [...DECKS, ...SLIDES].find(x => x.id === id);
+        const t = ALL.find(x => x.id === card.id.slice(2));
         if (iframe && t && !iframe.srcdoc) iframe.srcdoc = previewHtml(t.code);
         io.unobserve(card);
     });

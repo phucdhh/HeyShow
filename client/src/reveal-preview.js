@@ -19,6 +19,11 @@ export function previewHtml(code) {
                 display: none !important;
             }
         }
+        /* Preview chỉ để xem bố cục nên cho hiện sẵn mọi fragment. Nếu không, những slide
+           dựng toàn nội dung trong fragment (dòng thời gian, ba con số) chỉ còn khoảng trống. */
+        .reveal .slides section .fragment {
+            opacity: 1 !important; visibility: visible !important; transform: none !important;
+        }
     </style>
 </head>
 <body>

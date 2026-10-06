@@ -200,6 +200,35 @@ test('nâng cấp Reveal: server và client cùng phiên bản, đúng layout c�
     assert.ok(html.includes(optsOf(server)), 'bài publish phải mang cấu hình KaTeX chung');
 });
 
+// Sidebar và các mục trên trang /templates đều sinh từ GROUPS + khai báo group của từng mẫu.
+// Khai báo lệch một ký tự là mẫu biến mất khỏi trang trong im lặng (không lỗi, không cảnh báo),
+// nên test chốt lại tính khép kín của bộ dữ liệu đó.
+test('thư viện mẫu: danh mục khép kín, mọi bài trình chiếu có tên file', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../../client/src/templates.js'), 'utf8');
+    const groups = [...src.matchAll(/^ {8}id: '([a-z-]+)', kind: '(deck|slide)',/gm)]
+        .map(m => ({ id: m[1], kind: m[2] }));
+    const used = [...src.matchAll(/^ {8}group: '([a-z-]+)',/gm)].map(m => m[1]);
+    const ids = [...src.matchAll(/^ {8}id: '([a-z-]+)',$/gm)].map(m => m[1]);
+    const fileNames = [...src.matchAll(/^ {8}fileName: '([^']+)',/gm)].map(m => m[1]);
+
+    assert.ok(groups.length >= 10, 'GROUPS phải có danh mục cho sidebar');
+    assert.equal(ids.length, used.length, 'mọi mẫu phải được gán group');
+    assert.equal(new Set(ids).size, ids.length, 'id mẫu phải duy nhất — preview và neo đường dẫn dựa vào id');
+    for (const g of used) {
+        assert.ok(groups.some(x => x.id === g), `group "${g}" không có trong GROUPS: mẫu sẽ không hiện ra trang`);
+    }
+    for (const g of groups) {
+        assert.ok(used.includes(g.id), `danh mục "${g.id}" rỗng: sidebar sẽ có một mục không có nội dung`);
+    }
+    // Render chỉ in một nhãn "Mẫu bài/Mẫu slide" mỗi khi kind đổi, nên hai loại lẫn lộn là mất nhãn.
+    const kinds = groups.map(g => g.kind).join(' ');
+    assert.ok(!kinds.includes('slide deck'),
+        `GROUPS phải xếp hết bài trình chiếu trước slide đơn, đang là: ${kinds}`);
+    const deckCount = used.filter(g => groups.some(x => x.id === g && x.kind === 'deck')).length;
+    assert.equal(fileNames.length, deckCount,
+        'mẫu cả bài cần fileName để nút "Dùng mẫu này" tạo file nháp');
+});
+
 // Route cấp một được khớp không phân biệt hoa/thường, nên "Gallery" cũng che mất
 // /gallery y như "gallery". Kiểm cả hai kiểu viết để không ai chiếm được trang.
 test('không cho đăng ký tên trùng route hệ thống, kể cả viết hoa khác nhau', async () => {
