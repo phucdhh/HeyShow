@@ -281,6 +281,93 @@ test('textimport: beamer giữ công thức nguyên vẹn để KaTeX hiển th�
     assert.ok(!/&amp;(amp|lt|gt|#39);/.test(draft), 'escape HTML hai lần');
 });
 
+// Giáo viên dùng \newcommand{\dd}{\,\mathrm{d}} trong preamble rồi viết \dd ở mọi tích phân.
+// KaTeX không biết \dd, nó báo "Undefined control sequence" và HỦY CẢ công thức, nên bản nháp
+// có giữ đủ \[ \] đi nữa vẫn ra LaTeX thô. Kèm ba lỗi khác lấy từ chính file thật
+// (tich_phan_dien_tich.tex): trang tiêu đề beamer dùng \titlepage chứ không phải \maketitle,
+// hình vẽ TikZ chứa toàn "$x$", "$y$" giả, và lệnh dựng hình để sót tham số ra slide.
+test('textimport: beamer thật — lệnh tự định nghĩa, hình TikZ, trang tiêu đề', () => {
+    const tex = [
+        '\\documentclass{beamer}',
+        '\\newcommand{\\dd}{\\,\\mathrm{d}}',
+        '\\title[Rút gọn]{Tích phân trong tính diện tích\\\\và ứng dụng}',
+        '\\subtitle{Giải tích 1}',
+        '\\author{Họ và tên}',
+        '\\date{\\today}',
+        '\\begin{document}',
+        '\\begin{frame}',
+        '  \\titlepage',
+        '\\end{frame}',
+        '\\begin{frame}{Từ tổng Riemann}',
+        'Chia $[a,b]$ thành $n$ đoạn, khi đó',
+        '\\[',
+        'S \\approx \\int_a^b f(x)\\dd x .',
+        '\\]',
+        '\\vspace{-2mm}',
+        '\\begin{columns}[c]',
+        '\\column{0.5\\textwidth}',
+        '\\begin{block}{Định lý}',
+        'Nếu $F\'(x)=f(x)$ thì $\\int_a^b f(x)\\dd x = F(b)-F(a)$.',
+        '\\end{block}',
+        '\\column{0.5\\textwidth}',
+        '\\begin{tikzpicture}',
+        '  \\begin{axis}[xlabel={$x$},ylabel={$y$}]',
+        '    \\addplot {x^2};',
+        '  \\end{axis}',
+        '  \\node at (0,0) {$y=x^2$};',
+        '\\end{tikzpicture}',
+        '\\end{columns}',
+        'Hết phần một. \\\\[6mm]',
+        '\\begin{multline}',
+        'a = b \\\\ + c',
+        '\\end{multline}',
+        '\\[ D = \\int_0^{q_0} (60-2q)\\dd q = 900 \\]',
+        '\\end{frame}',
+        '\\end{document}'
+    ].join('\n');
+
+    const analysis = textimport.analyze(tex, 'tex');
+    const draft = textimport.buildDraftHtml(analysis, 'tich_phan_dien_tich.tex');
+    const flat = draft.replace(/\s+/g, ' ');
+    const tho = flat.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+    // 1) \dd phải được thay bằng nghĩa của nó TRƯỚC khi công thức bị tách ra
+    assert.ok(!/\\dd(?![a-zA-Z])/.test(tho), '\\dd lọt tới KaTeX là cả công thức mất');
+    assert.ok(tho.includes('\\[ S \\approx \\int_a^b f(x)\\,\\mathrm{d} x . \\]'), 'công thức hiển thị bị thay máu sai');
+    assert.ok(tho.includes('$\\int_a^b f(x)\\,\\mathrm{d} x = F(b)-F(a)$'), 'block trong cột cũng phải được thay');
+    assert.ok(!tho.includes('\\newcommand'), 'định nghĩa không được in ra slide');
+
+    // 2) Trang tiêu đề: đúng một slide, lấy từ \title/\subtitle/\author, \today thành ngày
+    assert.equal(analysis.slides.length, 2, 'đừng nhập \\titlepage thành slide trống');
+    assert.equal(analysis.slides[0].title, 'Tích phân trong tính diện tích và ứng dụng',
+        '\\title[ngắn]{dài} phải lấy phần {dài}, còn \\\\ phải thành khoảng trắng');
+    assert.ok(draft.includes('Giải tích 1') && draft.includes('Họ và tên'), 'subtitle/author phải vào slide đầu');
+    assert.ok(!draft.includes('\\today') && /\d{1,2}\/\d{1,2}\/\d{4}/.test(draft), '\\today phải thành ngày');
+
+    // 3) TikZ/pgfplots: vứt cả khối, đếm để báo ⚠, không để "$x$" giả lẫn vào bài
+    assert.equal(analysis.slides[1].charts, 1, 'tikzpicture phải tính là hình không import được');
+    assert.ok(!draft.includes('addplot') && !draft.includes('xlabel='), 'code vẽ hình lọt ra slide');
+    assert.ok(!flat.includes('$x$'), 'cặp $..$ trong \\node là công thức giả');
+    assert.ok(draft.includes('HÌNH VẼ TikZ'), 'phải có ⚠ nói về hình vẽ');
+
+    // 4) Lệnh dựng hình: tham số của chúng là code, không phải nội dung
+    assert.ok(!draft.includes('-2mm') && !draft.includes('textwidth'), '\\vspace/\\column phải im lặng');
+    assert.ok(!draft.includes('6mm'), '"\\\\[6mm]" là nới khoảng cách dòng');
+    assert.ok(!flat.includes('[c]'), 'tuỳ chọn [c] của columns sót lại');
+
+    // 5) Dấu \[ đứng sau \\ (xuống dòng) không được mở công thức: ghép nhầm là nuốt sang dấu
+    //    \] của công thức kế tiếp, hỏng cả hai.
+    assert.ok(tho.includes('\\[ D = \\int_0^{q_0} (60-2q)\\,\\mathrm{d} q = 900 \\]'), 'công thức sau \\\\[6mm] bị ghép đôi lệch');
+
+    // 6) multline: KaTeX không có môi trường này, đổi sang gathered để khỏi hủy công thức
+    assert.ok(!draft.includes('multline'), 'multline phải được đổi tên');
+    assert.ok(tho.includes('\\begin{gathered}'), 'multline phải thành gathered');
+
+    // 7) Thứ tự đọc được: nội dung theo đúng mạch của slide gốc
+    const p1 = flat.indexOf('S \\approx'), p2 = flat.indexOf('Định lý'), p3 = flat.indexOf('Hết phần một');
+    assert.ok(p1 >= 0 && p1 < p2 && p2 < p3, `trật tự slide bị đảo: ${p1} / ${p2} / ${p3}`);
+});
+
 test('textimport: file trống hoặc không có frame thì báo lỗi rõ ràng', () => {
     assert.throws(() => textimport.analyze('\n\n   \n', 'md'), /Không tìm thấy slide nào/);
     assert.throws(() => textimport.analyze('\\begin{document}\\end{document}', 'tex'), /begin\{frame\}/);

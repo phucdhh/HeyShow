@@ -28,7 +28,7 @@ function finalize(slide) {
     slide.bullets = slide.blocks.filter(b => b.type === 'bullet');
     return slide;
 }
-function plainTex(html) { return String(html).replace(/<[^>]+>/g, '').trim(); }
+function plainTex(html) { return String(html).replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').trim(); }
 // Bỏ tag + giải mã entity để lấy văn bản thuần (dùng cho tiêu đề/ghi chú hiển thị trên report)
 function toPlain(html) {
     return plainTex(html)
@@ -146,37 +146,120 @@ function analyzeTex(text) {
     // cắt comment, nếu không "50\% của học sinh" làm mất cả đoạn văn phía sau.
     text = String(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').replace(/\\%/g, PCT_MARK);
     text = stripTexComments(text).split(PCT_MARK).join('\\%');
+    text = expandUserMacros(text);
     MATH = []; // kho token công thức chỉ sống trong một lần import (hàm này chạy đồng bộ, không có await)
     const slides = [];
-    const meta = { title: braceArg(text, 'title'), author: braceArg(text, 'author'), date: braceArg(text, 'date'), institute: braceArg(text, 'institute') };
-    if (meta.title && /\\maketitle\b/.test(text)) {
+    const meta = {
+        title: braceArg(text, 'title'), subtitle: braceArg(text, 'subtitle'),
+        author: braceArg(text, 'author'), date: braceArg(text, 'date'), institute: braceArg(text, 'institute')
+    };
+    // Beamer dựng trang tiêu đề bằng \titlepage đặt trong một frame, Article dùng \maketitle:
+    // cả hai lấy nội dung từ preamble chứ không viết trong frame.
+    if (meta.title && (/\\maketitle\b/.test(text) || /\\titlepage\b/.test(text))) {
         const s = newSlide(1);
         s.title = toPlain(inlineTex(meta.title));
-        if (meta.author) s.blocks.push({ type: 'para', text: inlineTex(meta.author) });
-        if (meta.institute) s.blocks.push({ type: 'para', text: inlineTex(meta.institute) });
-        if (meta.date) s.blocks.push({ type: 'para', text: inlineTex(meta.date) });
+        if (meta.subtitle) s.subtitle = inlineTex(meta.subtitle);
+        for (const v of [meta.author, meta.institute, meta.date]) {
+            const t = inlineTex(v); if (t) s.blocks.push({ type: 'para', text: t });
+        }
         finalize(s); slides.push(s);
     }
     const fre = /\\begin\{frame\}(?:\[[^\]]*\])?\s*(?:\{([^{}]*)\})?([\s\S]*?)\\end\{frame\}/g;
     let m;
-    while ((m = fre.exec(text))) slides.push(finalize(parseTexFrame(m[1] || '', m[2], slides.length + 1)));
+    while ((m = fre.exec(text))) {
+        // Frame chỉ có \titlepage đã được thay bằng slide tiêu đề ở trên, không nhập trùng
+        if (/^\s*\\(?:titlepage|maketitle)\s*$/.test(m[2])) continue;
+        slides.push(finalize(parseTexFrame(m[1] || '', m[2], slides.length + 1)));
+    }
     if (!slides.length) throw new Error('Không tìm thấy \\begin{frame} nào — đây có phải slide beamer không?');
     return { slides, kind: 'tex' };
 }
 
 function stripTexComments(text) { return text.replace(/(^|[^\\])%[^\n]*/g, '$1'); }
 
-function braceArg(s, name) {
-    const idx = s.indexOf('\\' + name + '{');
-    if (idx < 0) return '';
-    let i = idx + name.length + 2, depth = 1, out = '';
+// Đọc nhóm {...} cân bằng bắt đầu tại s[i] (phải là '{'). end = -1 khi ngoặc không đóng.
+function readBraced(s, i) {
+    let depth = 0, out = '';
     for (; i < s.length; i++) {
         const c = s[i];
         if (c === '{') { depth++; if (depth > 1) out += c; }
-        else if (c === '}') { depth--; if (depth === 0) break; out += c; }
-        else out += c;
+        else if (c === '}') { depth--; if (depth === 0) return { body: out.trim(), end: i }; out += c; }
+        else if (depth > 0) out += c;
+        else break;
     }
-    return out.trim();
+    return { body: out.trim(), end: -1 };
+}
+
+// Tham số bắt buộc của một lệnh: \title[ngắn]{dài} — ngoặc vuông đi trước, bỏ nó mới tới {dài}.
+function braceArg(s, name) {
+    const re = new RegExp('\\\\' + name + '(?![a-zA-Z])\\s*(?:\\[[^\\]]*\\])?\\s*\\{');
+    const m = re.exec(s);
+    if (!m) return '';
+    return readBraced(s, m.index + m[0].length - 1).body;
+}
+
+// ---- Lệnh do người dùng tự định nghĩa ----
+// Preamble hay khai báo \newcommand{\dd}{\,\mathrm{d}} rồi dùng \dd trong khắp các tích phân.
+// KaTeX không biết \dd, nó báo "Undefined control sequence" và hủy *toàn bộ* công thức chứa nó,
+// nên phải thay nghĩa của lệnh vào thẳng văn bản trước khi công thức được tách ra.
+function collectUserMacros(text) {
+    const defs = new Map();
+    const ranges = [];
+    const re = /\\(?:renewcommand|providecommand|newcommand)\*?\s*\{?\s*\\([a-zA-Z]+)\s*\}?\s*(?:\[\s*(\d)\s*\])?\s*|\\def\s*\\([a-zA-Z]+)\s*(?:\[\s*(\d)\s*\])?\s*/g;
+    let m;
+    while ((m = re.exec(text))) {
+        let i = re.lastIndex;
+        while (/\s/.test(text[i] || '')) i++;
+        if (text[i] !== '{') continue;
+        const r = readBraced(text, i);
+        if (r.end < 0) continue;
+        defs.set(m[1] || m[3], { params: +(m[2] || m[4] || 0), body: r.body });
+        ranges.push([m.index, r.end + 1]);
+        re.lastIndex = r.end + 1;
+    }
+    // Định nghĩa phải bị xoá TRƯỚC khi thay thế, nếu không "\newcommand{\dd}{...}" sẽ bị chính
+    // lệnh \dd bên trong nó thay máu.
+    for (const [a, b] of ranges.sort((x, y) => y[0] - x[0])) text = text.slice(0, a) + text.slice(b);
+    return { defs, text };
+}
+
+function expandUserMacros(text) {
+    const { defs, text: rest } = collectUserMacros(text);
+    if (!defs.size) return rest;
+    let s = rest;
+    // Lệnh này có thể dùng lệnh khác trong định nghĩa của nó, nên lặp tới khi ổn định (có trần
+    // để một định nghĩa tự tham chiếu "\newcommand{\a}{\a}" không treo máy).
+    for (let pass = 0; pass < 6; pass++) {
+        const prev = s;
+        for (const [name, def] of defs) {
+            const re = new RegExp('\\\\' + name + '(?![a-zA-Z])', 'g');
+            let m, out = '', cut = 0;
+            while ((m = re.exec(s))) {
+                const use = expandAt(s, m.index + m[0].length, def);
+                if (!use) continue; // thiếu tham số {..}: để nguyên lệnh còn hơn cắt đôi câu
+                out += s.slice(cut, m.index) + use.body;
+                cut = use.end;
+                re.lastIndex = use.end;
+            }
+            if (cut) s = out + s.slice(cut);
+        }
+        if (s === prev) break;
+    }
+    return s;
+}
+
+function expandAt(s, i, def) {
+    let body = def.body, end = i;
+    for (let k = 0; k < def.params; k++) {
+        let j = end;
+        while (/\s/.test(s[j] || '')) j++;
+        if (s[j] !== '{') return null;
+        const r = readBraced(s, j);
+        if (r.end < 0) return null;
+        body = body.split('#' + (k + 1)).join(r.body);
+        end = r.end + 1;
+    }
+    return { body, end };
 }
 
 // Tách nội dung các môi trường cân bằng \begin{name}...\end{name}; trả về phần còn lại + mảng inner
@@ -222,6 +305,13 @@ function splitTopLevel(str, marker) {
 
 function parseTexFrame(title, body, index) {
     const slide = newSlide(index);
+    // TikZ/pgfplots là code vẽ hình chứ không phải nội dung: \node[right]{$y=x^2$} để lại cặp
+    // $..$ giả giữa câu, KaTeX render thành chữ nghiêng lẫn vào văn bản, còn ngoặc nhọn của
+    // tham số vẽ phá luôn nhịp tách đoạn. Vứt cả khối, báo lại bằng ⚠ ở textMedia.
+    for (const tn of ['tikzpicture', 'circuitikz', 'axis', 'scope']) {
+        const r = extractBalanced(body, tn);
+        if (r.blocks.length) { slide.charts += r.blocks.length; body = r.rest; }
+    }
     // Giữ công thức TRƯỚC khi cắt môi trường và tách đoạn: \[ ... \] thường dài vài dòng
     // và có thể bị dòng trống cắt đôi, còn \begin{array} trong "\[ \]" sẽ bị dropEnv vứt
     // mất nếu chờ tới lượt inlineTex.
@@ -236,37 +326,73 @@ function parseTexFrame(title, body, index) {
     s = s.replace(/\\includegraphics(?:\[[^\]]*\])?\s*\{([^{}]*)\}/g, (_, p) => { addTexImage(slide, p); return ''; });
     slide.tables += (s.match(/\\begin\{(tabular|tabularx|longtable|array)\}/g) || []).length;
     for (const tn of ['tabular', 'tabularx', 'longtable', 'array', 'table']) s = dropEnv(s, tn);
-    for (const b of collectBodies(s)) parseTexBody(b, slide);
+    parseTexBody(s, slide);
     slide.title = title ? toPlain(inlineTex(title)) : '';
     return slide;
 }
 
-// Mở các môi trường cột để thân cột được parse như body thường
-function collectBodies(s) {
-    let out = [s];
-    out = out.flatMap(x => { const r = extractBalanced(x, 'columns'); return r.blocks.length ? [r.rest, ...r.blocks] : [x]; });
-    out = out.flatMap(x => { const r = extractBalanced(x, 'column'); return r.blocks.length ? [r.rest, ...r.blocks] : [x]; });
-    return out;
+// Trả về nội dung của môi trường bắt đầu tại s[i] và vị trí ngay sau \end{name} tương ứng
+// (đếm cả môi trường trùng tên lồng bên trong). null khi ngoặc không đóng.
+function takeEnv(s, i, name) {
+    const b = '\\begin{' + name + '}', e = '\\end{' + name + '}';
+    let depth = 0, j = i, buf = '';
+    while (j < s.length) {
+        if (s.startsWith(b, j)) { depth++; j += b.length; if (depth > 1) buf += b; continue; }
+        if (s.startsWith(e, j)) {
+            depth--;
+            if (depth === 0) return { inner: buf, end: j + e.length };
+            buf += e; j += e.length; continue;
+        }
+        if (depth > 0) buf += s[j];
+        j++;
+    }
+    return null;
 }
 
+// Môi trường gần nhất trong danh sách, kèm vị trí: \begin{name}
+function nextEnv(s, names) {
+    let best = null;
+    for (const n of names) {
+        const i = s.indexOf('\\begin{' + n + '}');
+        if (i >= 0 && (!best || i < best.i)) best = { i, name: n };
+    }
+    return best;
+}
+
+const TEX_BLOCK_ENV = ['block', 'alertblock', 'exampleblock', 'theoremblock', 'definitionblock', 'example'];
+const TEX_LIST_ENV = ['itemize', 'enumerate'];
+const TEX_WRAP_ENV = ['columns', 'column', 'center', 'figure', 'quote']; // chỉ dựng hình, mở ra giữ nguyên thứ tự
+const TEX_DROP_ENV = ['verbatim'];
+const TEX_ANY_ENV = [...TEX_BLOCK_ENV, ...TEX_LIST_ENV, ...TEX_WRAP_ENV, ...TEX_DROP_ENV];
+
+// Duyệt thân slide theo đúng thứ tự xuất hiện. Cách cũ gom riêng từng loại môi trường rồi nối
+// lại, hệ quả là công thức nằm trong \begin{columns} hay sau \begin{block} bị trôi xuống cuối
+// slide, giáo viên đọc không theo được mạch của bài.
 function parseTexBody(s, slide) {
-    s = s.replace(/^\s*\{[^{}]*\}/, ''); // bỏ {width} / {block-title} còn sót
-    for (const bn of ['block', 'alertblock', 'exampleblock', 'theoremblock', 'definitionblock', 'example']) {
-        const r = extractBalanced(s, bn);
-        for (const inner of r.blocks) {
-            let t = inner; const bt = /^\s*\{([^{}]*)\}/.exec(t);
-            if (bt) { slide.blocks.push({ type: 'para', text: `<strong>${inlineTex(bt[1])}</strong>`, heading: 4 }); t = t.slice(bt[0].length); }
-            parseTexBody(t, slide);
-        }
-        s = r.rest;
+    s = s.replace(/^\s*\[[^\]]*\]/, ''); // bỏ [c] / [t] của \begin{columns} còn sót
+    s = s.replace(/^\s*\{[^{}]*\}/, ''); // bỏ {0.5\textwidth} / {block-title} còn sót
+    for (;;) {
+        const at = nextEnv(s, TEX_ANY_ENV);
+        if (!at) { addTexProse(s, slide); return; }
+        addTexProse(s.slice(0, at.i), slide);
+        const env = takeEnv(s, at.i, at.name);
+        if (!env) { addTexProse(s.slice(at.i), slide); return; }
+        if (TEX_BLOCK_ENV.includes(at.name)) {
+            let inner = env.inner;
+            const bt = /^\s*\{([^{}]*)\}/.exec(inner);
+            if (bt) {
+                slide.blocks.push({ type: 'para', text: `<strong>${inlineTex(bt[1])}</strong>`, heading: 4 });
+                inner = inner.slice(bt[0].length);
+            }
+            parseTexBody(inner, slide);
+        } else if (TEX_LIST_ENV.includes(at.name)) parseItems(env.inner, 0, slide);
+        else if (TEX_WRAP_ENV.includes(at.name)) parseTexBody(env.inner, slide);
+        s = s.slice(env.end);
     }
-    for (const en of ['itemize', 'enumerate']) {
-        const r = extractBalanced(s, en);
-        for (const inner of r.blocks) parseItems(inner, 0, slide);
-        s = r.rest;
-    }
-    for (const dn of ['figure', 'center', 'quote', 'verbatim', 'columns', 'column']) s = dropEnv(s, dn);
-    for (const p of s.split(/\n\s*\n/)) { const txt = inlineTex(p); if (txt) slide.blocks.push({ type: 'para', text: txt }); }
+}
+
+function addTexProse(s, slide) {
+    for (const p of String(s).split(/\n\s*\n/)) { const txt = inlineTex(p); if (txt) slide.blocks.push({ type: 'para', text: txt }); }
 }
 
 function parseItems(inner, lvl, slide) {
@@ -304,12 +430,14 @@ const TEXT_DOLLAR = '\u0003'; // \$ trong văn bản là dấu $ thường, khô
 const PCT_MARK = '\u0004';    // chỗ giữ "\%" khi cắt comment, xem analyzeTex
 
 // Thứ tự từ phạm vi rộng nhất: $$..$$ và \[..\] có thể chứa $..$ bên trong, đảo ngược
-// hai bước đầu là cắt đôi công thức.
+// hai bước đầu là cắt đôi công thức. Cặp \[..\] và \(..\) phải không đứng sau một dấu chéo
+// khác: "\\\\[6mm]" (xuống dòng rồi nới khoảng) cũng mở đầu bằng "\[" và sẽ ghép nhầm với
+// dấu "\]" của công thức gần nhất.
 const MATH_PAIRS = [
-    /\$\$[\s\S]+?\$\$/g,
-    /\\\[[\s\S]+?\\\]/g,
-    /\\\([\s\S]+?\\\)/g,
-    /\$[^$\n]+\$/g
+    { re: /\$\$[\s\S]+?\$\$/g },
+    { re: /(^|[^\\])\\\[[\s\S]+?\\\]/g, lead: true },
+    { re: /(^|[^\\])\\\([\s\S]+?\\\)/g, lead: true },
+    { re: /\$[^$\n]+\$/g }
 ];
 
 // Môi trường toán tự đứng một dòng, không có dấu ngăn cách bao ngoài. KaTeX chỉ nhận
@@ -317,10 +445,26 @@ const MATH_PAIRS = [
 // lệnh thành chữ thường và công thức mất hút.
 const MATH_ENV = /\\begin\{(equation|eqnarray|align|gather|multline|alignat|flalign)(\*?)\}[\s\S]*?\\end\{\1\2\}/g;
 
+// KaTeX không có môi trường eqnarray/flalign/multline — gặp là nó hủy cả công thức — nên đổi
+// sang môi trường tương đương mà nó hiểu.
+const MATH_ENV_FIX = { eqnarray: 'align', flalign: 'align', multline: 'gathered' };
+
 function stashMath(str) {
     let s = String(str).replace(/\\\$/g, TEXT_DOLLAR);
-    for (const re of MATH_PAIRS) s = s.replace(re, tex => { MATH.push(tex); return `\u0002${MATH.length - 1}\u0002`; });
-    s = s.replace(MATH_ENV, env => { MATH.push(`\\[ ${env} \\]`); return `\u0002${MATH.length - 1}\u0002`; });
+    for (const { re, lead } of MATH_PAIRS) {
+        s = s.replace(re, (all, p1) => {
+            const tex = lead ? all.slice(p1.length) : all;
+            MATH.push(tex);
+            return (lead ? p1 : '') + `\u0002${MATH.length - 1}\u0002`;
+        });
+    }
+    s = s.replace(MATH_ENV, env => {
+        const m = /^\\begin\{([a-zA-Z]+)(\*?)\}/.exec(env);
+        const fixed = MATH_ENV_FIX[m[1]];
+        const body = fixed ? env.split(m[1] + m[2]).join(fixed) : env;
+        MATH.push(`\\[ ${body} \\]`);
+        return `\u0002${MATH.length - 1}\u0002`;
+    });
     return s;
 }
 function restoreMath(str) {
@@ -335,9 +479,18 @@ function inlineTex(str) {
         prev = s;
         for (const c in TEX_FMT) s = s.replace(new RegExp('\\\\' + c + '\\s*\\{([^{}]*)\\}', 'g'), (_, inner) => `<${TEX_FMT[c]}>${inner}</${TEX_FMT[c]}>`);
     } while (s !== prev);
+    s = s.replace(/\\\\\s*\[[^\]]*\]/g, '<br>');
     s = s.replace(/\\\\/g, '<br>');
     s = s.replace(/\\%/g, '%').replace(/\\#/g, '#').replace(/\\_/g, '_').replace(/\\&amp;/g, '&amp;').replace(/\\[,;:]/g, ' ').replace(/~/g, ' ');
-    s = s.replace(/\\LaTeX/g, 'LaTeX').replace(/\\TeX/g, 'TeX');
+    s = s.replace(/\\LaTeX/g, 'LaTeX').replace(/\\TeX/g, 'TeX').replace(/\\(?:ldots|dots)\b/g, '…');
+    // "Newton--Leibniz" là cách viết dấu gạch nối dài trong LaTeX, để nguyên thì slide hiện hai
+    // dấu trừ. Chạy sau khi công thức đã được tách nên "$v$--$t$" trong toán không bị đụng.
+    s = s.replace(/---/g, '—').replace(/--/g, '–');
+    s = s.replace(/\\today\b/g, new Date().toLocaleDateString('vi-VN'));
+    // Lệnh trình bày của beamer: tham số của chúng ({-2mm}, {0.5\textwidth}) là code dựng hình,
+    // để sót ra slide thì người dùng chỉ thấy những con số vô nghĩa.
+    s = s.replace(/\\(?:vspace|hspace|column)\s*\*?\s*(?:\[[^\]]*\]|\{[^{}]*\})/g, '');
+    s = s.replace(/\\(?:centering|raggedright|raggedleft|noindent|normalsize|small|medium|large|Large|LARGE|huge|Huge|tiny|footnotesize|scriptsize|pause|newline|newpage|clearpage)\b/g, ' ');
     s = s.replace(/\\[a-zA-Z]+\*?\s*(\[[^\]]*\])?\s*\{([^{}]*)\}/g, '$2');
     s = s.replace(/\\[a-zA-Z]+\*?/g, '');
     s = s.replace(/[{}]/g, '');
@@ -391,6 +544,7 @@ function textMedia(slide) {
             + `<iframe width="720" height="405" src="" title="Video" frameborder="0" allowfullscreen></iframe>\n`;
     }
     if (slide.tables) out += `<!-- ⚠ Slide này có ${slide.tables} BẢNG — không import được. Gõ lại bằng <table> HTML hoặc dùng ✨ AI trong Design. -->\n`;
+    if (slide.charts) out += `<!-- ⚠ Slide này có ${slide.charts} HÌNH VẼ TikZ/pgfplots (\`\\begin{tikzpicture}\`) — đó là code vẽ nên không import được. Mở file PDF gốc, chụp lại phần hình rồi dán link ảnh Google Drive vào slide. -->\n`;
     return out;
 }
 
@@ -403,6 +557,7 @@ function buildDraftHtml(analysis, origName) {
         + `     - ẢNH: tải lên Google Drive → Chia sẻ "Bất kỳ ai có đường dẫn" → src="https://lh3.googleusercontent.com/d/<FILE_ID>"\n`
         + `     - VIDEO: tải lên YouTube hoặc Gan Jing World → dán link nhúng (embed) vào src của iframe\n`
         + `     - Bảng: gõ lại bằng <table> HTML hoặc nhờ ✨ AI trong Design\n`
+        + `     - HÌNH VẼ TikZ/pgfplots: code vẽ hình không import được, chụp từ PDF rồi dán link ảnh\n`
         + `     Mở /design để hoàn thiện — preview hiện ngay khi sửa. -->\n`;
 
     const sections = analysis.slides.map((s, i) => {

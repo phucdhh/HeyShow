@@ -529,7 +529,7 @@ function renderImportReport(report) {
     if (t.images) summary.appendChild(chip('bad', `🖼 ${t.images} ảnh → cần link Google Drive`));
     if (t.videos) summary.appendChild(chip('bad', `🎬 ${t.videos} video → cần link YouTube / Gan Jing World`));
     if (t.tables) summary.appendChild(chip('bad', `▦ ${t.tables} bảng không import được`));
-    if (t.charts) summary.appendChild(chip('bad', `📊 ${t.charts} biểu đồ không import được`));
+    if (t.charts) summary.appendChild(chip('bad', `📊 ${t.charts} hình/biểu đồ không import được`));
     if (t.smartArts) summary.appendChild(chip('bad', `🧠 ${t.smartArts} SmartArt không import được`));
     importReport.appendChild(summary);
 
@@ -549,7 +549,7 @@ function renderImportReport(report) {
         for (const i of s.images) issues.push(`🖼 ${i}`);
         for (const v of s.videos) issues.push(`🎬 ${v}`);
         if (s.tables) issues.push(`▦ ${s.tables} bảng`);
-        if (s.charts) issues.push(`📊 ${s.charts} biểu đồ`);
+        if (s.charts) issues.push(`📊 ${s.charts} hình/biểu đồ`);
         if (s.smartArts) issues.push(`🧠 ${s.smartArts} SmartArt`);
         if (s.hasNotes) issues.push('📝 ghi chú (import vào comment)');
         tr.appendChild(el('td', null, issues.length ? issues.join(' · ') : 'OK'));
