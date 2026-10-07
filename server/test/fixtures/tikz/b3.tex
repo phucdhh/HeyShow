@@ -1,0 +1,9 @@
+\begin{tikzpicture}
+      \begin{axis}[width=\textwidth,height=4.6cm,axis lines=middle,
+        xlabel={$x$},xmin=-0.3,xmax=6.8,ymin=-1.4,ymax=1.4,
+        xtick={3.14159,6.28318},xticklabels={$\pi$,$2\pi$},ytick={-1,1}]
+        \addplot[blue!25,draw=none,domain=0:3.14159,samples=40]{sin(deg(x))}\closedcycle;
+        \addplot[red!25,draw=none,domain=3.14159:6.28318,samples=40]{sin(deg(x))}\closedcycle;
+        \addplot[thick,domain=0:6.28318,samples=80]{sin(deg(x))};
+      \end{axis}
+    \end{tikzpicture}

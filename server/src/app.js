@@ -15,6 +15,7 @@ const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
 const { cleanSvg } = require('./svgclean');
+const { renderTikz } = require('./tikzrender');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1897,7 +1898,12 @@ ${AI_POSITIONS[position]}`;
 });
 
 // Vẽ lại một hình TikZ/pgfplots thành SVG nội tuyến. Import .tex không render được TikZ
-// nhưng có giữ mã gốc trong <div class="hs-tikz">, nên client gửi từng hình lên đây nhờ AI.
+// nhưng có giữ mã gốc trong <div class="hs-tikz">, nên client gửi từng hình lên đây.
+//
+// Ưu tiên bộ vẽ tất định (server/src/tikzrender.js): nó tính toạ độ ra con số nên đúng
+// tuyệt đối, chạy offline ngay khi chưa có API Key, và không tốn hạn mức AI. Chỉ khi mã
+// nằm ngoài tập cú pháp mà bộ vẽ chắc chắn làm đúng được mới nhờ tới model — lúc đó vẫn
+// đếm hạn mức như mọi lời gọi AI khác.
 const AI_MAX_TIKZ_LEN = 8000;
 const AI_TIKZ_SYSTEM = `Bạn là trợ lý chuyển mã vẽ TikZ/pgfplots thành SVG cho HeyShow — bài trình chiếu dựng trên Reveal.js.
 - CHỈ trả về đúng một thẻ <svg ...>...</svg> hoàn chỉnh, dạng văn bản thuần: KHÔNG bọc markdown backticks, KHÔNG giải thích, KHÔNG kèm mã TikZ.
@@ -1907,16 +1913,29 @@ const AI_TIKZ_SYSTEM = `Bạn là trợ lý chuyển mã vẽ TikZ/pgfplots thà
 - Giữ nguyên nhãn tiếng Việt; công thức thì viết phẳng (x², ∫, Δ, π) vì SVG không chạy LaTeX.
 - Cân bằng mọi thẻ mở/đóng.`;
 
-app.post('/api/ai/tikz', authenticateToken, limitAi, async (req, res) => {
-    const provider = Object.hasOwn(AI_PROVIDERS, req.body.provider) ? req.body.provider : DEFAULT_AI_PROVIDER;
-    const apiKey = getAiKeys(getDB())[provider];
-    if (!apiKey) {
-        return res.status(400).json({ success: false, error: `Chưa cấu hình API Key cho ${AI_PROVIDERS[provider].label}. Hãy vào trang Admin để cài đặt.` });
-    }
+app.post('/api/ai/tikz', authenticateToken, async (req, res) => {
     const code = typeof req.body.code === 'string' ? req.body.code.trim() : '';
     if (!code) return res.status(400).json({ success: false, error: 'Không có mã TikZ nào để vẽ' });
     if (code.length > AI_MAX_TIKZ_LEN) {
         return res.status(400).json({ success: false, error: `Mỗi hình tối đa ${AI_MAX_TIKZ_LEN} ký tự mã vẽ` });
+    }
+
+    const drawn = renderTikz(code);
+    if (drawn.svg) {
+        // SVG do chính module dựng (chữ đã escape, màu đã phân giải) nhưng vẫn lọc một lần
+        // cho chắc — hình này sẽ nằm cùng trang với token đăng nhập.
+        const svg = cleanSvg(drawn.svg);
+        if (svg) return res.json({ success: true, svg, engine: 'tikzrender', notes: drawn.notes });
+    }
+
+    return limitAi(req, res, () => drawTikzWithAi(req, res, code, drawn.unsupported));
+});
+
+async function drawTikzWithAi(req, res, code, reasons) {
+    const provider = Object.hasOwn(AI_PROVIDERS, req.body.provider) ? req.body.provider : DEFAULT_AI_PROVIDER;
+    const apiKey = getAiKeys(getDB())[provider];
+    if (!apiKey) {
+        return res.status(400).json({ success: false, error: `Chưa cấu hình API Key cho ${AI_PROVIDERS[provider].label}. Hãy vào trang Admin để cài đặt.` });
     }
 
     try {
@@ -1926,11 +1945,11 @@ app.post('/api/ai/tikz', authenticateToken, limitAi, async (req, res) => {
         if (!svg) {
             return res.status(502).json({ success: false, error: `${AI_PROVIDERS[provider].label} không trả về SVG hợp lệ. Hãy thử lại hoặc đổi nhà cung cấp.` });
         }
-        res.json({ success: true, svg });
+        res.json({ success: true, svg, engine: provider, reason: reasons });
     } catch (error) {
         sendAiError(res, provider, error);
     }
-});
+}
 
 // Hai chỗ gọi AI đều cần cùng một cách báo lỗi: phân biệt treo mạng với key sai để
 // người dùng biết đường mà sửa.

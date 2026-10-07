@@ -1,0 +1,10 @@
+\begin{tikzpicture}
+      \begin{axis}[width=\textwidth,height=4.6cm,axis lines=left,
+        xlabel={$q$},ylabel={$P$},xmin=0,xmax=55,ymin=0,ymax=110,
+        xtick={30},ytick={40,100}]
+        \addplot[blue!25,draw=none]coordinates{(0,100)(30,40)(0,40)}\closedcycle;
+        \addplot[thick,blue]coordinates{(0,100)(50,0)};
+        \addplot[thick,dashed,red]coordinates{(0,40)(30,40)(30,0)};
+        \node at (axis cs:8,57) {$CS$};
+      \end{axis}
+    \end{tikzpicture}

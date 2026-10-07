@@ -550,3 +550,36 @@ test('admin không tự hạ quyền và không tự xóa chính mình', async (
     const selfDel = await srv.api('DELETE', '/api/admin/users/admin');
     assert.equal(selfDel.status, 400);
 });
+
+// ---------- vẽ TikZ → SVG ----------
+
+const TIKZ_OK = '\\begin{tikzpicture}\\begin{axis}[xmin=0,xmax=4,ymin=0,ymax=8,width=10cm,height=5cm]'
+    + '\\addplot[blue!25,draw=none,domain=0:2,samples=9]{x^2}\\closedcycle;\\end{axis}\\end{tikzpicture}';
+const TIKZ_ODD = '\\begin{tikzpicture}\\draw (0,0) to[out=90,in=180] (1,1);\\end{tikzpicture}';
+
+test('/api/ai/tikz: bộ vẽ tất định dựng hình ngay khi chưa có API Key', async () => {
+    const res = await srv.api('POST', '/api/ai/tikz', { body: { code: TIKZ_OK } });
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+    assert.equal(res.json.engine, 'tikzrender');
+    assert.match(res.json.svg, /^<svg xmlns/);
+    assert.match(res.json.svg, /<polygon points=/);
+    assert.ok(!/<script|\son[a-z]/i.test(res.json.svg), 'SVG trả về phải sạch');
+});
+
+// Bộ vẽ chạy trong server nên không được ăn hạn mức AI — giáo án vài chục hình là dính 429.
+test('hình do bộ tất định vẽ không tốn hạn mức AI mỗi phút', async () => {
+    for (let i = 0; i < 10; i++) {
+        const res = await srv.api('POST', '/api/ai/tikz', { body: { code: TIKZ_OK } });
+        assert.equal(res.status, 200, `lần ${i + 1}: ${JSON.stringify(res.json)}`);
+    }
+});
+
+test('mã ngoài tập cú pháp thì đòi API Key chứ không vẽ bừa', async () => {
+    const res = await srv.api('POST', '/api/ai/tikz', { body: { code: TIKZ_ODD } });
+    assert.equal(res.status, 400);
+    assert.match(res.json.error, /API Key/);
+
+    const empty = await srv.api('POST', '/api/ai/tikz', { body: { code: '   ' } });
+    assert.equal(empty.status, 400);
+    assert.match(empty.json.error, /Không có mã TikZ/);
+});

@@ -625,10 +625,10 @@ function clearBuffersAfterImport() {
     importFileName.textContent = '';
 }
 
-// ---------- Vẽ lại mã TikZ thành SVG bằng AI, ngay sau khi import .tex ----------
+// ---------- Vẽ lại mã TikZ thành SVG, ngay sau khi import .tex ----------
 
 // textimport nhét nguyên văn mỗi môi trường vẽ vào khối ẩn <div class="hs-tikz">.
-// Khối còn nguyên khi AI trả về lỗi nên người dùng bấm lại nút này là làm tiếp được.
+// Khối còn nguyên khi hình vẽ lỗi nên người dùng bấm lại nút này là làm tiếp được.
 const TIKZ_BLOCK = /<div class="hs-tikz" hidden>\s*<pre><code>([\s\S]*?)<\/code><\/pre>\s*<\/div>\n?/g;
 const TIKZ_NOTE = /[ \t]*<!-- ⚠ Slide này có \d+ HÌNH VẼ TikZ[\s\S]*?-->\n/g;
 
@@ -648,6 +648,8 @@ async function offerTikzConversion(fileName) {
     const count = (content.match(TIKZ_BLOCK) || []).length;
     if (!count) return;
 
+    // Bộ vẽ tất định trong server lo được phần lớn hình toán mà không cần API Key.
+    // AI chỉ còn là dự phòng cho cú pháp ngoài tập đó, nên danh sách nhà cung cấp là tuỳ chọn.
     let ai = null;
     try {
         ai = await get('/api/ai/providers');
@@ -655,23 +657,20 @@ async function offerTikzConversion(fileName) {
     const usable = Object.entries(ai && ai.providers ? ai.providers : {}).filter(([, p]) => p.configured);
 
     const panel = el('div', 'media-guide');
-    if (!usable.length) {
-        panel.appendChild(el('p', null,
-            `🪄 Bản nháp còn ${count} hình vẽ TikZ/pgfplots dưới dạng mã, nhưng chưa có nhà cung cấp AI nào được cài API Key. Hãy vào trang Admin để thêm key Groq hoặc DeepSeek.`));
-        importReport.appendChild(panel);
-        return;
-    }
-
-    panel.appendChild(el('p', null,
-        `🪄 Bản nháp còn ${count} hình vẽ TikZ/pgfplots dưới dạng mã. AI có thể đọc mã vẽ và dựng lại thành SVG.`));
+    panel.appendChild(el('p', null, usable.length
+        ? `🪄 Bản nháp còn ${count} hình vẽ TikZ/pgfplots dưới dạng mã. HeyShow dựng lại thành SVG bằng bộ vẽ có sẵn — toạ độ tính ra con số nên đúng từng điểm; hình nào ngoài tập cú pháp mới nhờ AI.`
+        : `🪄 Bản nháp còn ${count} hình vẽ TikZ/pgfplots dưới dạng mã. HeyShow dựng lại thành SVG bằng bộ vẽ có sẵn. Chưa có nhà cung cấp AI nào nên hình ngoài tập cú pháp sẽ giữ nguyên mã vẽ.`));
     const actions = el('div', 'import-actions');
-    const select = el('select');
-    select.style.cssText = 'font:inherit;font-size:0.92rem;padding:8px 10px;border-radius:8px;border:1px solid #fcd34d;background:#fff';
-    for (const [id, provider] of usable) {
-        const opt = el('option', null, provider.label);
-        opt.value = id;
-        opt.selected = id === ai.default;
-        select.appendChild(opt);
+    let select = null;
+    if (usable.length) {
+        select = el('select');
+        select.style.cssText = 'font:inherit;font-size:0.92rem;padding:8px 10px;border-radius:8px;border:1px solid #fcd34d;background:#fff';
+        for (const [id, provider] of usable) {
+            const opt = el('option', null, `AI dự phòng: ${provider.label}`);
+            opt.value = id;
+            opt.selected = id === ai.default;
+            select.appendChild(opt);
+        }
     }
     const run = el('button', 'primary', `🪄 Vẽ lại ${count} hình`);
     run.type = 'button';
@@ -679,14 +678,13 @@ async function offerTikzConversion(fileName) {
     skip.type = 'button';
     skip.addEventListener('click', () => panel.remove());
     run.addEventListener('click', () => runTikzConversion(fileName, panel, run, select));
-    actions.append(select, run, skip);
+    actions.append(...(select ? [select] : []), run, skip);
     panel.appendChild(actions);
     importReport.appendChild(panel);
 }
 
 async function runTikzConversion(fileName, panel, btn, select) {
     btn.disabled = true;
-    const provider = select.value;
     let out;
     try {
         out = (await get(`/api/files/${encodeURIComponent(fileName)}`)).content;
@@ -701,14 +699,18 @@ async function runTikzConversion(fileName, panel, btn, select) {
         return;
     }
     let done = 0;
+    let byAi = 0;
     let why = '';
     for (let i = 0; i < blocks.length; i++) {
-        showProgress(`Đang vẽ hình ${i + 1}/${blocks.length} bằng ${select.options[select.selectedIndex].text}`,
-            Math.round((done / blocks.length) * 100));
+        showProgress(`Đang vẽ hình ${i + 1}/${blocks.length}`, Math.round((done / blocks.length) * 100));
         try {
-            const { svg } = await post('/api/ai/tikz', { code: decodeEntities(/<pre><code>([\s\S]*?)<\/code>/.exec(blocks[i])[1]), provider });
+            const res = await post('/api/ai/tikz', {
+                code: decodeEntities(/<pre><code>([\s\S]*?)<\/code>/.exec(blocks[i])[1]),
+                provider: select ? select.value : undefined
+            });
             // hàm thay thế chứ không chuỗi: SVG có thể chứa "$&" sẽ bị nhân bản nếu truyền thẳng
-            out = out.replace(blocks[i], () => svg + '\n');
+            out = out.replace(blocks[i], () => res.svg + '\n');
+            if (res.engine && res.engine !== 'tikzrender') byAi++;
             done++;
         } catch (e) {
             // giữ khối ẩn cho hình lỗi để lần bấm sau còn thấy mà vẽ tiếp
@@ -726,13 +728,14 @@ async function runTikzConversion(fileName, panel, btn, select) {
     }
     const left = blocks.length - done;
     panel.replaceChildren(el('p', null, left
-        ? `⚠ Vẽ được ${done}/${blocks.length} hình, còn ${left} hình chưa vẽ được${why ? ` (${why})` : ''}. Mã vẽ gốc vẫn nằm nguyên trong bản nháp — bấm "Vẽ lại" để thử tiếp hoặc đổi nhà cung cấp.`
-        : `✅ Đã vẽ lại ${done} hình thành SVG. Mở Design để kiểm tra hình có đúng ý không.`));
+        ? `⚠ Vẽ được ${done}/${blocks.length} hình, còn ${left} hình chưa vẽ được${why ? ` (${why})` : ''}. Mã vẽ gốc vẫn nằm nguyên trong bản nháp — bấm "Vẽ lại" để thử tiếp hoặc đổi nhà cung cấp AI.`
+        : `✅ Đã vẽ lại ${done} hình thành SVG${byAi ? `, trong đó ${byAi} hình phải nhờ AI vì mã nằm ngoài tập cú pháp bộ vẽ dựng chắc chắn được` : ''}. Mở Design để kiểm tra hình có đúng ý không.`));
     if (!left) return;
     const retry = el('div', 'import-actions');
     btn.disabled = false;
     btn.textContent = `🪄 Vẽ lại ${left} hình còn lại`;
-    retry.append(select, btn);
+    if (select) retry.append(select);
+    retry.append(btn);
     panel.appendChild(retry);
 }
 

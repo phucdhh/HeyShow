@@ -599,4 +599,4 @@ function analyzeBeamerTheme(source) {
     };
 }
 
-module.exports = { analyzeBeamerTheme, NAMED, splitMix, fromModel };
+module.exports = { analyzeBeamerTheme, NAMED, splitMix, fromModel, mix, hex };
