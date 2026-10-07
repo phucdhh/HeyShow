@@ -14,6 +14,7 @@ const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, SLIDE_HEAD_GUA
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
+const { cleanSvg } = require('./svgclean');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -708,18 +709,21 @@ function getAiKeys(db) {
     return keys;
 }
 
-// Gọi API chat completions; riêng Groq tự chuyển model dự phòng khi model chính bị gỡ
-async function callAiProvider(provider, apiKey, systemPrompt, userPrompt) {
+// Gọi API chat completions; riêng Groq tự chuyển model dự phòng khi model chính bị gỡ.
+// maxTokens để trống thì lấy mặc định theo nhà cung cấp; vẽ SVG cần trần cao hơn vì một
+// hình vài chục đường cong là vài nghìn token.
+async function callAiProvider(provider, apiKey, systemPrompt, userPrompt, maxTokens) {
     const info = AI_PROVIDERS[provider];
     const models = [info.model, ...(info.fallbackModels || [])];
+    const cap = maxTokens || (provider === 'groq' ? 4000 : 1500);
     let lastError = null;
     for (const model of models) {
         try {
             // Model Groq hiện tại (gpt-oss) là model suy luận: token dành cho phần reasoning,
             // nên cần trần token cao hơn, giảm effort và không ép temperature
             const body = provider === 'groq'
-                ? { model, reasoning_effort: 'low', max_tokens: 4000 }
-                : { model, temperature: 0.7, max_tokens: 1500 };
+                ? { model, reasoning_effort: 'low', max_tokens: cap }
+                : { model, temperature: 0.7, max_tokens: cap };
             body.messages = [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
@@ -1888,19 +1892,61 @@ ${AI_POSITIONS[position]}`;
         res.json({ success: true, result: generatedHtml });
 
     } catch (error) {
-        console.error("AI API Error:", provider, error.response ? error.response.data : error.message);
-        const remote = error.response && error.response.data && error.response.data.error;
-        const detail = remote && remote.message ? ` Chi tiết: ${remote.message}` : '';
-        const timedOut = error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '');
-        const status = error.response ? 502 : 500;
-        res.status(status).json({
-            success: false,
-            error: timedOut
-                ? `Nhà cung cấp ${AI_PROVIDERS[provider].label} phản hồi quá chậm nên đã bị hủy. Hãy thu ngắn yêu cầu rồi thử lại.`
-                : `Lỗi khi gọi AI (${AI_PROVIDERS[provider].label}). Vui lòng kiểm tra lại API Key.${detail}`
-        });
+        sendAiError(res, provider, error);
     }
 });
+
+// Vẽ lại một hình TikZ/pgfplots thành SVG nội tuyến. Import .tex không render được TikZ
+// nhưng có giữ mã gốc trong <div class="hs-tikz">, nên client gửi từng hình lên đây nhờ AI.
+const AI_MAX_TIKZ_LEN = 8000;
+const AI_TIKZ_SYSTEM = `Bạn là trợ lý chuyển mã vẽ TikZ/pgfplots thành SVG cho HeyShow — bài trình chiếu dựng trên Reveal.js.
+- CHỈ trả về đúng một thẻ <svg ...>...</svg> hoàn chỉnh, dạng văn bản thuần: KHÔNG bọc markdown backticks, KHÔNG giải thích, KHÔNG kèm mã TikZ.
+- TUYỆT ĐỐI không dùng <script>, thuộc tính bắt đầu bằng "on", <image>, <foreignObject>, <style>, hay href/xlink:href trỏ ra ngoài (chỉ cho phép href="#id" tham chiếu <defs> nội bộ).
+- Hình phải tự chứa: đường vẽ bằng <path>/<line>/<circle>/<rect>, chữ bằng <text>, tô đậm/gradient bằng <defs> + id nội bộ. Đặt viewBox cùng width/height vừa khung slide (gợi ý 600x400), nét màu đen hoặc theo đúng màu trong mã gốc, nền trong suốt.
+- Đọc kỹ mã gốc để vẽ ĐÚNG hình được mô tả: hệ trục, đường cong, vùng tô (fill between/between stacks), điểm đánh dấu, mũi tên tên đường, nhãn trục.
+- Giữ nguyên nhãn tiếng Việt; công thức thì viết phẳng (x², ∫, Δ, π) vì SVG không chạy LaTeX.
+- Cân bằng mọi thẻ mở/đóng.`;
+
+app.post('/api/ai/tikz', authenticateToken, limitAi, async (req, res) => {
+    const provider = Object.hasOwn(AI_PROVIDERS, req.body.provider) ? req.body.provider : DEFAULT_AI_PROVIDER;
+    const apiKey = getAiKeys(getDB())[provider];
+    if (!apiKey) {
+        return res.status(400).json({ success: false, error: `Chưa cấu hình API Key cho ${AI_PROVIDERS[provider].label}. Hãy vào trang Admin để cài đặt.` });
+    }
+    const code = typeof req.body.code === 'string' ? req.body.code.trim() : '';
+    if (!code) return res.status(400).json({ success: false, error: 'Không có mã TikZ nào để vẽ' });
+    if (code.length > AI_MAX_TIKZ_LEN) {
+        return res.status(400).json({ success: false, error: `Mỗi hình tối đa ${AI_MAX_TIKZ_LEN} ký tự mã vẽ` });
+    }
+
+    try {
+        const response = await callAiProvider(provider, apiKey, AI_TIKZ_SYSTEM, `Chuyển môi trường TikZ sau thành SVG:\n\n${code}`, 6000);
+        const content = response.data?.choices?.[0]?.message?.content;
+        const svg = cleanSvg(content);
+        if (!svg) {
+            return res.status(502).json({ success: false, error: `${AI_PROVIDERS[provider].label} không trả về SVG hợp lệ. Hãy thử lại hoặc đổi nhà cung cấp.` });
+        }
+        res.json({ success: true, svg });
+    } catch (error) {
+        sendAiError(res, provider, error);
+    }
+});
+
+// Hai chỗ gọi AI đều cần cùng một cách báo lỗi: phân biệt treo mạng với key sai để
+// người dùng biết đường mà sửa.
+function sendAiError(res, provider, error) {
+    console.error("AI API Error:", provider, error.response ? error.response.data : error.message);
+    const remote = error.response && error.response.data && error.response.data.error;
+    const detail = remote && remote.message ? ` Chi tiết: ${remote.message}` : '';
+    const timedOut = error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '');
+    const status = error.response ? 502 : 500;
+    res.status(status).json({
+        success: false,
+        error: timedOut
+            ? `Nhà cung cấp ${AI_PROVIDERS[provider].label} phản hồi quá chậm nên đã bị hủy. Hãy thu ngắn yêu cầu rồi thử lại.`
+            : `Lỗi khi gọi AI (${AI_PROVIDERS[provider].label}). Vui lòng kiểm tra lại API Key.${detail}`
+    });
+}
 
 // --- API GALLERY ---
 

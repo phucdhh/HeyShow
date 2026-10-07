@@ -34,3 +34,6 @@ server/*.log
 # --- Script deploy chứa địa chỉ máy chủ nội mạng ---
 # Chỉ commit bản mẫu; người dùng copy thành sync2fold4.sh và điền DEPLOY_USER/HOST.
 /sync2fold4.sh
+
+# --- File .tex anh em dùng để thử Import, không phải code của dự án ---
+/tich_phan_dien_tich.tex

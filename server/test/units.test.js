@@ -11,6 +11,7 @@ const os = require('os');
 const path = require('path');
 
 const access = require('../src/access');
+const { cleanSvg } = require('../src/svgclean');
 const history = require('../src/history');
 const { createJsonStore, atomicWrite } = require('../src/storage');
 const { patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER } = require('../src/slide-parts');
@@ -402,4 +403,28 @@ test('slide-parts: file lạ thì bỏ qua, không ghi bản vá nửa vời', (
     const noScript = patchSlideHtml('<html><head><title>x</title></head><body>bài viết thường</body></html>');
     assert.match(noScript.error, /<script>/);
     assert.ok(!noScript.html.includes(SHIM_MARKER));
+});
+
+test('svgclean: SVG từ AI phải vào được bài mà không mang theo script', () => {
+    const ok = cleanSvg('Đây là kết quả:\n```svg\n<svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">'
+        + '<defs><linearGradient id="g"><stop offset="0" stop-color="#3333B3"/></linearGradient></defs>'
+        + '<path d="M0 400 L600 0" stroke="url(#g)"/><text x="10" y="20">Đường thẳng</text></svg>\n```');
+    assert.ok(ok && ok.startsWith('<svg') && ok.endsWith('</svg>'), 'phải cắt còn đúng thẻ svg');
+    assert.ok(ok.includes('url(#g)') && ok.includes('Đường thẳng'), 'nội bộ hợp lệ phải giữ nguyên');
+
+    const evil = cleanSvg('<svg viewBox="0 0 10 10">'
+        + '<script>fetch("/api/me",{headers:{Authorization:localStorage.token}})</script>'
+        + '<rect width="9" height="9" onload="alert(1)" onClick="alert(2)"/>'
+        + '<a href="https://tron-hinh.io/x"><use href="#shape"/></a>'
+        + '<image href="https://tron-hinh.io/spy.png"/>'
+        + '<foreignObject><div>html nhúng</div></foreignObject>'
+        + '<style>@import url("https://tron-hinh.io/s.css");</style></svg>');
+    assert.ok(evil, 'hình có thành phần xấu vẫn phải trả về SVG đã lọc');
+    for (const bad of ['<script', 'onload', 'onClick', 'foreignObject', '<style', '<image', 'tron-hinh.io']) {
+        assert.ok(!evil.toLowerCase().includes(bad.toLowerCase()), `con ${bad} lọt qua bộ lọc`);
+    }
+    assert.ok(evil.includes('<use href="#shape"'), 'href nội bộ #id là thứ SVG cần, đừng xoá oan');
+
+    assert.equal(cleanSvg('tôi không biết vẽ SVG'), null, 'model nói leo thì phải báo lỗi chứ đừng chèn chữ vào bài');
+    assert.equal(cleanSvg('<svg viewBox="0 0 1 1"><rect/>'), null, 'SVG chưa đóng thẻ là hình cắt nửa, bỏ');
 });

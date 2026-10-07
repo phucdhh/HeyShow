@@ -24,7 +24,7 @@ function detectKind(origName) {
 }
 
 function newSlide(index) {
-    return { index, title: '', subtitle: '', blocks: [], images: [], videos: [], tables: 0, charts: 0, smartArts: 0, notes: '' };
+    return { index, title: '', subtitle: '', blocks: [], images: [], videos: [], tables: 0, charts: 0, smartArts: 0, tikz: [], notes: '' };
 }
 function finalize(slide) {
     slide.bullets = slide.blocks.filter(b => b.type === 'bullet');
@@ -314,7 +314,14 @@ function parseTexFrame(title, body, index) {
     // tham số vẽ phá luôn nhịp tách đoạn. Vứt cả khối, báo lại bằng ⚠ ở textMedia.
     for (const tn of ['tikzpicture', 'circuitikz', 'axis', 'scope']) {
         const r = extractBalanced(body, tn);
-        if (r.blocks.length) { slide.charts += r.blocks.length; body = r.rest; }
+        if (r.blocks.length) {
+            slide.charts += r.blocks.length;
+            // Giữ lại mã vẽ: TikZ không render được bằng LaTeX trên server, nhưng còn mã thì
+            // còn nhờ AI vẽ lại thành SVG được (xem /api/ai/tikz). axis/scope lồng trong
+            // tikzpicture đã bị lấy đi cùng khối cha nên không bị tính trùng ở đây.
+            for (const b of r.blocks) slide.tikz.push(`\\begin{${tn}}${b}\\end{${tn}}`);
+            body = r.rest;
+        }
     }
     // Giữ công thức TRƯỚC khi cắt môi trường và tách đoạn: \[ ... \] thường dài vài dòng
     // và có thể bị dòng trống cắt đôi, còn \begin{array} trong "\[ \]" sẽ bị dropEnv vứt
@@ -548,7 +555,16 @@ function textMedia(slide) {
             + `<iframe width="720" height="405" src="" title="Video" frameborder="0" allowfullscreen></iframe>\n`;
     }
     if (slide.tables) out += `<!-- ⚠ Slide này có ${slide.tables} BẢNG — không import được. Gõ lại bằng <table> HTML hoặc dùng ✨ AI trong Design. -->\n`;
-    if (slide.charts) out += `<!-- ⚠ Slide này có ${slide.charts} HÌNH VẼ TikZ/pgfplots (\`\\begin{tikzpicture}\`) — đó là code vẽ nên không import được. Mở file PDF gốc, chụp lại phần hình rồi dán link ảnh Google Drive vào slide. -->\n`;
+    if (slide.charts) {
+        out += `<!-- ⚠ Slide này có ${slide.charts} HÌNH VẼ TikZ/pgfplots (\`\\begin{tikzpicture}\`) — đó là code vẽ nên không import được.\n`
+            + `     Mã vẽ gốc vẫn được giữ nguyên trong khối <div class="hs-tikz"> bên dưới (ẩn khi trình chiếu)\n`
+            + `     để nhờ AI vẽ lại thành SVG, hoặc bạn chụp từ PDF rồi dán link ảnh Google Drive vào slide. -->\n`;
+        // Để mã trong <pre> thay vì comment: TikZ dùng "--" nối toạ độ nên ghi vào comment sẽ
+        // bị đóng dấu sớm, còn escapeHtml thì giữ được nguyên văn.
+        for (const code of slide.tikz || []) {
+            out += `<div class="hs-tikz" hidden>\n<pre><code>${escapeHtml(code)}</code></pre>\n</div>\n`;
+        }
+    }
     return out;
 }
 

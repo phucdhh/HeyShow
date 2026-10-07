@@ -328,7 +328,10 @@ test('textimport: beamer thật — lệnh tự định nghĩa, hình TikZ, tran
 
     const analysis = textimport.analyze(tex, 'tex');
     const draft = textimport.buildDraftHtml(analysis, 'tich_phan_dien_tich.tex');
-    const flat = draft.replace(/\s+/g, ' ');
+    // Khối <div class="hs-tikz" hidden> giữ mã vẽ gốc để nhờ AI vẽ lại — nó ẩn khi trình chiếu
+    // nên mọi kiểm tra "code vẽ lọt ra slide" xét trên phần còn lại.
+    const visible = draft.replace(/<div class="hs-tikz" hidden>[\s\S]*?<\/div>\n/g, '');
+    const flat = visible.replace(/\s+/g, ' ');
     const tho = flat.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 
     // 1) \dd phải được thay bằng nghĩa của nó TRƯỚC khi công thức bị tách ra
@@ -344,9 +347,11 @@ test('textimport: beamer thật — lệnh tự định nghĩa, hình TikZ, tran
     assert.ok(draft.includes('Giải tích 1') && draft.includes('Họ và tên'), 'subtitle/author phải vào slide đầu');
     assert.ok(!draft.includes('\\today') && /\d{1,2}\/\d{1,2}\/\d{4}/.test(draft), '\\today phải thành ngày');
 
-    // 3) TikZ/pgfplots: vứt cả khối, đếm để báo ⚠, không để "$x$" giả lẫn vào bài
+    // 3) TikZ/pgfplots: vứt khỏi nội dung nhìn thấy, đếm để báo ⚠, nhưng giữ mã gốc chỗ khác
     assert.equal(analysis.slides[1].charts, 1, 'tikzpicture phải tính là hình không import được');
-    assert.ok(!draft.includes('addplot') && !draft.includes('xlabel='), 'code vẽ hình lọt ra slide');
+    assert.equal(analysis.slides[1].tikz.length, 1, 'mã vẽ phải được giữ lại để còn vẽ lại bằng AI');
+    assert.ok(!visible.includes('addplot') && !visible.includes('xlabel='), 'code vẽ hình lọt ra slide');
+    assert.ok(/<div class="hs-tikz" hidden>\n<pre><code>\\begin\{tikzpicture\}/.test(draft), 'mã TikZ gốc phải nằm trong khối ẩn');
     assert.ok(!flat.includes('$x$'), 'cặp $..$ trong \\node là công thức giả');
     assert.ok(draft.includes('HÌNH VẼ TikZ'), 'phải có ⚠ nói về hình vẽ');
 

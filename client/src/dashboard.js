@@ -607,8 +607,10 @@ async function doImport(btn) {
         ok.appendChild(link);
         importReport.appendChild(ok);
         showToast('Đã import xong');
+        const texFile = importKind === 'text' && /\.tex$/i.test(importOrigName);
         clearBuffersAfterImport();
         await load();
+        if (texFile) await offerTikzConversion(data.fileName);
     } catch (e) {
         hideProgress();
         setImportStatus('Lỗi kết nối khi import', true);
@@ -621,6 +623,117 @@ function clearBuffersAfterImport() {
     importOrigName = '';
     importFile.value = '';
     importFileName.textContent = '';
+}
+
+// ---------- Vẽ lại mã TikZ thành SVG bằng AI, ngay sau khi import .tex ----------
+
+// textimport nhét nguyên văn mỗi môi trường vẽ vào khối ẩn <div class="hs-tikz">.
+// Khối còn nguyên khi AI trả về lỗi nên người dùng bấm lại nút này là làm tiếp được.
+const TIKZ_BLOCK = /<div class="hs-tikz" hidden>\s*<pre><code>([\s\S]*?)<\/code><\/pre>\s*<\/div>\n?/g;
+const TIKZ_NOTE = /[ \t]*<!-- ⚠ Slide này có \d+ HÌNH VẼ TikZ[\s\S]*?-->\n/g;
+
+function decodeEntities(escaped) {
+    const ta = document.createElement('textarea');
+    ta.innerHTML = escaped;
+    return ta.value;
+}
+
+async function offerTikzConversion(fileName) {
+    let content;
+    try {
+        content = (await get(`/api/files/${encodeURIComponent(fileName)}`)).content;
+    } catch (e) {
+        return; // không đọc được bản nháp thì bỏ qua, các phần khác của import vẫn nguyên
+    }
+    const count = (content.match(TIKZ_BLOCK) || []).length;
+    if (!count) return;
+
+    let ai = null;
+    try {
+        ai = await get('/api/ai/providers');
+    } catch (e) { /* coi như chưa có provider nào */ }
+    const usable = Object.entries(ai && ai.providers ? ai.providers : {}).filter(([, p]) => p.configured);
+
+    const panel = el('div', 'media-guide');
+    if (!usable.length) {
+        panel.appendChild(el('p', null,
+            `🪄 Bản nháp còn ${count} hình vẽ TikZ/pgfplots dưới dạng mã, nhưng chưa có nhà cung cấp AI nào được cài API Key. Hãy vào trang Admin để thêm key Groq hoặc DeepSeek.`));
+        importReport.appendChild(panel);
+        return;
+    }
+
+    panel.appendChild(el('p', null,
+        `🪄 Bản nháp còn ${count} hình vẽ TikZ/pgfplots dưới dạng mã. AI có thể đọc mã vẽ và dựng lại thành SVG.`));
+    const actions = el('div', 'import-actions');
+    const select = el('select');
+    select.style.cssText = 'font:inherit;font-size:0.92rem;padding:8px 10px;border-radius:8px;border:1px solid #fcd34d;background:#fff';
+    for (const [id, provider] of usable) {
+        const opt = el('option', null, provider.label);
+        opt.value = id;
+        opt.selected = id === ai.default;
+        select.appendChild(opt);
+    }
+    const run = el('button', 'primary', `🪄 Vẽ lại ${count} hình`);
+    run.type = 'button';
+    const skip = el('button', 'cancel', 'Bỏ qua');
+    skip.type = 'button';
+    skip.addEventListener('click', () => panel.remove());
+    run.addEventListener('click', () => runTikzConversion(fileName, panel, run, select));
+    actions.append(select, run, skip);
+    panel.appendChild(actions);
+    importReport.appendChild(panel);
+}
+
+async function runTikzConversion(fileName, panel, btn, select) {
+    btn.disabled = true;
+    const provider = select.value;
+    let out;
+    try {
+        out = (await get(`/api/files/${encodeURIComponent(fileName)}`)).content;
+    } catch (e) {
+        fail(e);
+        btn.disabled = false;
+        return;
+    }
+    const blocks = out.match(TIKZ_BLOCK) || [];
+    if (!blocks.length) {
+        panel.replaceChildren(el('p', null, '✅ Bản nháp không còn mã TikZ nào — hình đã được vẽ lại đủ rồi.'));
+        return;
+    }
+    let done = 0;
+    let why = '';
+    for (let i = 0; i < blocks.length; i++) {
+        showProgress(`Đang vẽ hình ${i + 1}/${blocks.length} bằng ${select.options[select.selectedIndex].text}`,
+            Math.round((done / blocks.length) * 100));
+        try {
+            const { svg } = await post('/api/ai/tikz', { code: decodeEntities(/<pre><code>([\s\S]*?)<\/code>/.exec(blocks[i])[1]), provider });
+            // hàm thay thế chứ không chuỗi: SVG có thể chứa "$&" sẽ bị nhân bản nếu truyền thẳng
+            out = out.replace(blocks[i], () => svg + '\n');
+            done++;
+        } catch (e) {
+            // giữ khối ẩn cho hình lỗi để lần bấm sau còn thấy mà vẽ tiếp
+            why = e.message || '';
+        }
+    }
+    hideProgress();
+    if (done === blocks.length) out = out.replace(TIKZ_NOTE, '');
+    try {
+        await post(`/api/files/${encodeURIComponent(fileName)}`, { content: out });
+    } catch (e) {
+        fail(e);
+        btn.disabled = false;
+        return;
+    }
+    const left = blocks.length - done;
+    panel.replaceChildren(el('p', null, left
+        ? `⚠ Vẽ được ${done}/${blocks.length} hình, còn ${left} hình chưa vẽ được${why ? ` (${why})` : ''}. Mã vẽ gốc vẫn nằm nguyên trong bản nháp — bấm "Vẽ lại" để thử tiếp hoặc đổi nhà cung cấp.`
+        : `✅ Đã vẽ lại ${done} hình thành SVG. Mở Design để kiểm tra hình có đúng ý không.`));
+    if (!left) return;
+    const retry = el('div', 'import-actions');
+    btn.disabled = false;
+    btn.textContent = `🪄 Vẽ lại ${left} hình còn lại`;
+    retry.append(select, btn);
+    panel.appendChild(retry);
 }
 
 importDrop.addEventListener('click', () => importFile.click());
