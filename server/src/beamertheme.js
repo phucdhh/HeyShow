@@ -553,12 +553,31 @@ function buildCss(env) {
     // Gán vào đúng chỗ kho mẫu HeyShow vẫn tô nền: .reveal, !important để thắng theme black.
     // Chữ để transparent trên section cho khỏi chặn nền đó, còn màu chữ theo normal text
     // kẻo nền tối thì chữ cũng tối.
-    return [
-        `/* beamer: ${env.names.length ? env.names.join('+') : env.outer + '/' + env.inner} — HeyShow Import */`,
+    const rules = [
         `.reveal { background: ${hex(pageBg)} !important; }`,
         `.reveal .slides section { background: transparent; color: ${hex(pageFg)}; }`
+    ];
+    // Beamer gom màu của theme vào mấy dải: tiêu đề slide (frametitle), tên khối (block title),
+    // đầu gạch đầu dòng. Chỉ tô màu, không nắn lại layout; theme không đặt nền cho dải nào
+    // (Singapore, Pittsburgh) thì bỏ, đừng vẽ dải trắng lên nền trắng.
+    const band = (sel, name) => {
+        const bg = c(name, 'bg');
+        if (!bg || close(bg, pageBg)) return;
+        rules.push(`${sel} { background: ${hex(bg)}; color: ${hex(c(name, 'fg') || pageFg)}; }`);
+    };
+    band('.reveal .slides section h2', 'frametitle');
+    band('.reveal .slides section h5', 'block title');
+    const bullet = c('item', 'fg') || c('local structure', 'fg') || c('structure', 'fg');
+    if (bullet && !close(bullet, pageFg)) rules.push(`.reveal .slides section ul li::marker { color: ${hex(bullet)}; }`);
+    return [
+        `/* beamer: ${env.names.length ? env.names.join('+') : env.outer + '/' + env.inner} — HeyShow Import */`,
+        ...rules
     ].join('\n');
 }
+
+// Hai màu coi là một khi lệch mỗi kênh không quá 2/255 — beamer trộn số thập phân,
+// làm tròn lên/xuống có thể lệch một chút so với nền đã tô sẵn.
+function close(a, b) { return Math.abs(a[0] - b[0]) <= 2 && Math.abs(a[1] - b[1]) <= 2 && Math.abs(a[2] - b[2]) <= 2; }
 
 // ============================ API ============================
 

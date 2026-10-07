@@ -386,8 +386,14 @@ test('textimport: màu nền của slide lấy đúng từ theme beamer trong fi
     const bg = (preamble) => /\.reveal \{ background: (#\w+) !important/.exec(cssOf(preamble))[1];
 
     // Madrid + seahorse không đổi nền: beamer mặc định là trắng chữ đen
-    assert.deepEqual(both('\\documentclass{beamer}\\usetheme{Madrid}\\usecolortheme{seahorse}'),
+    const madrid = cssOf('\\documentclass{beamer}\\usetheme{Madrid}\\usecolortheme{seahorse}');
+    assert.deepEqual([/\.reveal \{ background: (#[0-9A-F]+) !important/.exec(madrid)[1], /\.slides section \{ background: transparent; color: (#[0-9A-F]+)/.exec(madrid)[1]],
         ['#FFFFFF', '#000000'], 'nền của theme phải vào bản nháp đúng chỗ kho mẫu vẫn tô nền');
+
+    // Các dải màu còn lại của theme: đo từ chính PDF của pdflatex (Madrid + seahorse)
+    assert.ok(madrid.includes('.reveal .slides section h2 { background: #D6D6F0; color: #000000; }'), 'dải tiêu đề slide');
+    assert.ok(madrid.includes('.reveal .slides section h5 { background: #262686; color: #FFFFFF; }'), 'dải tên khối');
+    assert.ok(madrid.includes('.reveal .slides section ul li::marker { color: #3333B3; }'), 'đầu gạch đầu dòng');
 
     // Bốn color theme duy nhất trong beamer đổi nền trang
     assert.deepEqual(both('\\documentclass{beamer}\\usecolortheme{albatross}'), ['#000080', '#FFFF80']);
@@ -408,4 +414,9 @@ test('textimport: màu nền của slide lấy đúng từ theme beamer trong fi
 
     // Không có \usetheme vẫn phải ra beamer mặc định, không phải trang trắng không màu
     assert.deepEqual(both('\\documentclass{beamer}'), ['#FFFFFF', '#000000'], 'beamer mặc định cũng phải có nền');
+
+    // Theme không vẽ dải màu (beamer mặc định) thì đừng tô những dải trắng lên nền trắng
+    const plain = cssOf('\\documentclass{beamer}\\usetheme{Singapore}');
+    assert.ok(!plain.includes('section h2 {'), 'Singapore không đặt nền cho frametitle');
+    assert.ok(!plain.includes('section h5 {'), 'Singapore không đặt nền cho block title');
 });
