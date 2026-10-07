@@ -2,6 +2,8 @@
 // Trả về cùng cấu trúc analysis như pptx.js để tái dùng buildReport + luồng client.
 // Chỉ dùng JS thuần để chạy được trên Termux.
 
+const { analyzeBeamerTheme } = require('./beamertheme');
+
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'svg'];
 const VIDEO_EXT = ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'mkv', 'avi'];
 
@@ -172,7 +174,9 @@ function analyzeTex(text) {
         slides.push(finalize(parseTexFrame(m[1] || '', m[2], slides.length + 1)));
     }
     if (!slides.length) throw new Error('Không tìm thấy \\begin{frame} nào — đây có phải slide beamer không?');
-    return { slides, kind: 'tex' };
+    // Màu nền beamer tính thẳng từ preamble (theme + \definecolor + \setbeamercolor),
+    // không cần chạy pdflatex.
+    return { slides, kind: 'tex', theme: analyzeBeamerTheme(text) };
 }
 
 function stripTexComments(text) { return text.replace(/(^|[^\\])%[^\n]*/g, '$1'); }
@@ -572,7 +576,15 @@ function buildDraftHtml(analysis, origName) {
         lines.push('</section>\n');
         return lines.join('');
     });
-    return header + sections.join('\n');
+    return header + masterHtml(analysis) + sections.join('\n');
+}
+
+// Nền của theme beamer gán vào đúng chỗ kho mẫu HeyShow vẫn tô nền — .reveal — để bản nháp
+// có màu của beamer gốc thay vì nền tối của theme Reveal, không đụng tới phần còn lại của bài.
+function masterHtml(analysis) {
+    const t = analysis.theme;
+    if (!t) return '';
+    return `<section-master>\n<style>\n${t.css}\n</style>\n</section-master>\n\n`;
 }
 
 function analyze(text, kind) {

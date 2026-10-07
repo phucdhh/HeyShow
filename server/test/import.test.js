@@ -372,3 +372,40 @@ test('textimport: file trống hoặc không có frame thì báo lỗi rõ ràng
     assert.throws(() => textimport.analyze('\n\n   \n', 'md'), /Không tìm thấy slide nào/);
     assert.throws(() => textimport.analyze('\\begin{document}\\end{document}', 'tex'), /begin\{frame\}/);
 });
+
+test('textimport: màu nền của slide lấy đúng từ theme beamer trong file .tex', () => {
+    const cssOfText = (tex) => {
+        const draft = textimport.buildDraftHtml(textimport.analyze(tex, 'tex'));
+        const m = /<section-master>\s*<style>([\s\S]*?)<\/style>\s*<\/section-master>/.exec(draft);
+        assert.ok(m, 'phải có section-master mang style của beamer');
+        return m[1];
+    };
+    const cssOf = (preamble) => cssOfText(`${preamble}\\begin{document}\\begin{frame}{x}\\end{frame}\\end{document}`);
+    const RE = /\.reveal \{ background: (#[0-9A-F]+) !important; \}\n\.reveal \.slides section \{ background: transparent; color: (#[0-9A-F]+); \}/;
+    const both = (preamble) => { const m = RE.exec(cssOf(preamble)); assert.ok(m, 'CSS nền phải đúng khuôn của kho mẫu'); return [m[1], m[2]]; };
+    const bg = (preamble) => /\.reveal \{ background: (#\w+) !important/.exec(cssOf(preamble))[1];
+
+    // Madrid + seahorse không đổi nền: beamer mặc định là trắng chữ đen
+    assert.deepEqual(both('\\documentclass{beamer}\\usetheme{Madrid}\\usecolortheme{seahorse}'),
+        ['#FFFFFF', '#000000'], 'nền của theme phải vào bản nháp đúng chỗ kho mẫu vẫn tô nền');
+
+    // Bốn color theme duy nhất trong beamer đổi nền trang
+    assert.deepEqual(both('\\documentclass{beamer}\\usecolortheme{albatross}'), ['#000080', '#FFFF80']);
+    assert.deepEqual(both('\\documentclass{beamer}\\usecolortheme{beetle}'), ['#999999', '#000000']);
+    assert.deepEqual(both('\\documentclass{beamer}\\usecolortheme{fly}'), ['#999999', '#000000']);
+    assert.deepEqual(both('\\documentclass{beamer}\\usecolortheme{monarca}'), ['#FCBB06', '#000000']);
+
+    // Người dùng tự đổi nền bằng \setbeamercolor{background canvas} mà không đổi màu chữ
+    // orange của xcolor là RGB(255,128,0), không phải cam của CSS (#FFA500)
+    assert.equal(bg('\\documentclass{beamer}\\setbeamercolor{background canvas}{bg=orange}'), '#FF8000');
+
+    // \definecolor + mã HTML cũng phải tính được từ .tex, không cần chạy pdflatex
+    assert.equal(bg('\\documentclass{beamer}\\definecolor{mybg}{HTML}{1F2A44}\\setbeamercolor{background canvas}{bg=mybg}'), '#1F2A44');
+
+    // Lệnh đặt nền nằm trong frame thì chưa hỗ trợ, đừng âm thầm tô sai cho cả bài
+    assert.ok(!cssOf('\\documentclass{beamer}\\begin{document}\\begin{frame}{x}\\setbeamercolor{background canvas}{bg=orange}\\end{frame}\\end{document}')
+        .includes('#FF8000'), 'background canvas giữa bài chưa hỗ trợ');
+
+    // Không có \usetheme vẫn phải ra beamer mặc định, không phải trang trắng không màu
+    assert.deepEqual(both('\\documentclass{beamer}'), ['#FFFFFF', '#000000'], 'beamer mặc định cũng phải có nền');
+});
