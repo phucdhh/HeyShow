@@ -30,10 +30,17 @@ const toastEl = document.getElementById('toast');
 let currentFileName = '';
 let editorView;
 
-// Template mặc định cho slide mới
+// Template mặc định cho slide mới. Reveal gắn theme đen (chữ trắng, nền #000) nên bài tạo
+// mới phải tự tô lại nền sáng trong <section-master> — viết tay mà vẫn phải xoá theme đen
+// thì quá dễ nhầm, và kho mẫu /templates cũng đã theo nền sáng từ trước.
 const DEFAULT_SLIDE_TEMPLATE = `<section-master>
   <!-- Các thiết lập chung cho tất cả slide ở đây (như header, footer, background) -->
-  <header style="position: absolute; top: 10px; left: 20px; font-size: 0.5em; color: #888;">
+  <style>
+    .reveal { background: #ffffff linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { box-sizing: border-box; color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309 !important; }
+  </style>
+  <header style="position: absolute; top: 10px; left: 20px; font-size: 0.5em; color: #64748b;">
     HeyShow Presentation
   </header>
 </section-master>

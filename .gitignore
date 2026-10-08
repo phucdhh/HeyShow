@@ -37,3 +37,4 @@ server/*.log
 
 # --- File .tex anh em dùng để thử Import, không phải code của dự án ---
 /tich_phan_dien_tich.tex
+/tich_phan_dien_tich.pdf
