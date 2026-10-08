@@ -57,6 +57,12 @@
         align-items: start;
       }
       @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { position: static !important; max-height: none; } }
+      /* Dải link rộng ~320px; ở 390px nó cộng với logo và đẩy bề ngang trang lên ~513px,
+         điện thoại phải zoom-out cả /help. Cho xuống dòng thì trang ôm đúng màn hình. */
+      @media (max-width: 620px) {
+        header { flex-wrap: wrap; gap: 6px 14px; padding: 8px 14px; }
+        .nav-links { flex-wrap: wrap; gap: 12px; }
+      }
 
       .toc {
         position: sticky; top: 70px;
@@ -97,6 +103,9 @@
       section.block p code, section.block li code, section.block td code {
         background: var(--bg-deep); border: 1px solid var(--border-color);
         border-radius: 5px; padding: 1px 6px; font-size: 0.86em; color: var(--accent-deep);
+        /* data-background-gradient và các tên thẻ dài hơn bề ngang màn hình điện thoại:
+           không cho ngắt thì chúng đẩy cả trang /help tràn ngang. */
+        overflow-wrap: anywhere;
       }
 
       table.doc { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 0.9rem; }
