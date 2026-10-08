@@ -52,6 +52,11 @@ export function previewHtml(code) {
             Reveal.initialize({
                 hash: false,
                 slideNumber: true,
+                // Khác biệt CÓ CHỦ ĐÍCH so với bản publish, đừng "đồng bộ" lại: dưới 435px
+                // bề ngang, Reveal 6 tự bật chế độ cuộn (body nhận .reveal-scroll) và bỏ luôn
+                // phép co slide về vừa khung. Khung preview chỉ vài trăm px nên slide hiện ra
+                // cắt góc trên nền đen. Trang /templates và /help cần bản thu nhỏ trọn vẹn.
+                scrollActivationWidth: null,
                 ${REVEAL_KATEX_OPTS},
                 plugins: [ RevealMath.KaTeX ]
             });

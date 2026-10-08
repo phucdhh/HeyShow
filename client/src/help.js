@@ -7,10 +7,15 @@ const EXAMPLES = {
             title: 'Master với header & footer chung',
             note: 'Toàn bộ nội dung trong <section-master> được chèn vào đầu mỗi slide lá — viết một lần, dùng cả bài.',
             code: String.raw`<section-master>
-  <header style="position:absolute; top:12px; left:24px; font-size:0.45em; color:#999;">
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+  <header style="position:absolute; top:12px; left:24px; font-size:0.45em; color:#6b7280;">
     Bài giảng Vật lý 10 · GV Nguyễn Văn A
   </header>
-  <footer style="position:absolute; bottom:12px; right:24px; font-size:0.4em; color:#777;">
+  <footer style="position:absolute; bottom:12px; right:24px; font-size:0.4em; color:#4b5563;">
     heyshow.pedu.vn
   </footer>
 </section-master>
@@ -30,12 +35,14 @@ const EXAMPLES = {
             note: 'CSS đặt trong master nằm trong mỗi slide nên áp dụng cho toàn bài.',
             code: String.raw`<section-master>
   <style>
+    .reveal { background: #fdfcff linear-gradient(135deg, #ede9fe, #fdfcff) !important; }
     .reveal .slides section {
-      background: linear-gradient(135deg, #1e3a5f, #0f2027);
+      background: linear-gradient(135deg, #ddd6fe, #faf5ff);
+      color: #1f2937;
       border-radius: 14px;
       padding: 30px;
     }
-    .reveal h2 { color: #ffd479; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #6d28d9; }
   </style>
 </section-master>
 
@@ -55,7 +62,15 @@ const EXAMPLES = {
         {
             title: 'Slide ngang + nhóm slide dọc',
             note: 'Section con nằm trong section mẹ tạo thành cột trượt dọc.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Mở đầu</h2>
   <p>Slide ngang đầu tiên.</p>
 </section>
@@ -79,7 +94,15 @@ const EXAMPLES = {
         {
             title: 'Hiện dần từng phần (fragment)',
             note: 'Thêm class="fragment" — mỗi lần bấm mũi tên hiện thêm một phần tử.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Các bước giải</h2>
   <ul>
     <li class="fragment">Bước 1: đọc kỹ đề</li>
@@ -92,7 +115,7 @@ const EXAMPLES = {
         {
             title: 'Nền riêng cho từng slide',
             note: 'data-background-color / data-background-gradient / data-background-image đặt trên thẻ section.',
-            code: String.raw`<section data-background-color="#0d3b2e">
+            code: String.raw`<section data-background-color="#0e7490">
   <h2>Nền màu đặc</h2>
 </section>
 
@@ -111,7 +134,15 @@ const EXAMPLES = {
         {
             title: 'Tiêu đề + danh sách hai cột',
             note: 'Flexbox hai cột; text-align:left vì mặc định slide căn giữa.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Mục tiêu bài học</h2>
   <div style="display:flex; gap:1.5em; text-align:left; font-size:0.8em;">
     <div style="flex:1;">
@@ -134,9 +165,17 @@ const EXAMPLES = {
         {
             title: 'Slide tiêu chương chữ lớn',
             note: 'Dòng thứ hai đổi màu nhấn bằng span.',
-            code: String.raw`<section>
-  <h2 style="font-size:2.2em;">CHƯƠNG 3<br><span style="color:#f59e0b;">TÍCH PHÂN</span></h2>
-  <p style="font-size:0.8em; color:#bbbbbb;">Toán 12 · Tiết 24–28</p>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2 style="font-size:2.2em;">CHƯƠNG 3<br><span style="color:#0f766e;">TÍCH PHÂN</span></h2>
+  <p style="font-size:0.8em; color:#4b5563;">Toán 12 · Tiết 24–28</p>
 </section>`
         }
     ],
@@ -145,7 +184,15 @@ const EXAMPLES = {
         {
             title: 'Bảng so sánh hiện dần từng dòng',
             note: 'Bảng HTML thường; thêm class="fragment" vào từng <tr> để hiện dần.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Bảng so sánh</h2>
   <table style="font-size:0.6em; margin:auto; border-collapse:collapse;">
     <tr style="background:#f59e0b; color:#111111;">
@@ -172,12 +219,20 @@ const EXAMPLES = {
         {
             title: 'Ảnh kèm chú thích',
             note: 'Thay link trong src bằng ảnh của bạn; giới hạn chiều cao bằng max-height.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Cấu tạo tế bào</h2>
   <figure style="margin:0;">
     <img src="https://picsum.photos/seed/heyshow/640/360" alt="Ảnh minh hoạ"
          style="max-height:340px; border-radius:10px;">
-    <figcaption style="font-size:0.5em; color:#999999; margin-top:8px;">
+    <figcaption style="font-size:0.5em; color:#6b7280; margin-top:8px;">
       Hình 1. Ảnh minh hoạ — thay bằng link ảnh của bạn
     </figcaption>
   </figure>
@@ -186,9 +241,17 @@ const EXAMPLES = {
         {
             title: 'Ảnh tràn nền slide',
             note: 'data-background-image + data-background-opacity làm mờ ảnh để chữ dễ đọc.',
-            code: String.raw`<section data-background-image="https://picsum.photos/seed/heyshowbg/1280/720"
-         data-background-opacity="0.35">
-  <h2 style="text-shadow:0 2px 8px #000000;">Nền là hình ảnh</h2>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section data-background-image="https://picsum.photos/seed/heyshowbg/1280/720"
+         data-background-opacity="0.25">
+  <h2 style="text-shadow:0 1px 0 #ffffff;">Nền là hình ảnh</h2>
   <p>Chữ vẫn đọc tốt nhờ giảm độ mờ của ảnh nền.</p>
 </section>`
         }
@@ -198,7 +261,15 @@ const EXAMPLES = {
         {
             title: 'Hình tròn, chữ nhật bo góc, hình thoi',
             note: 'Mọi shape đều là <div> với width/height/background/border-radius/transform.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Hình khối bằng CSS</h2>
   <div style="display:flex; gap:28px; justify-content:center; align-items:center;">
     <div style="width:120px; height:120px; border-radius:50%; background:#f59e0b;
@@ -217,7 +288,15 @@ const EXAMPLES = {
         {
             title: 'Mũi tên quy trình',
             note: 'Ký tự mũi tên &#8594; (→) đặt giữa các khối.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <div style="display:flex; align-items:center; justify-content:center; gap:12px; font-size:0.7em;">
     <div style="background:#f59e0b; color:#111111; padding:14px 24px; border-radius:8px; font-weight:bold;">Input</div>
     <div style="font-size:2em; color:#f59e0b;">&#8594;</div>
@@ -233,7 +312,15 @@ const EXAMPLES = {
         {
             title: 'Biểu đồ cột bằng CSS',
             note: 'Chiều cao mỗi cột tỉ lệ với số liệu; align-items:flex-end để cột đứng trên cùng một đáy.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Kết quả khảo sát</h2>
   <div style="display:flex; align-items:flex-end; justify-content:center;
               gap:26px; height:280px; font-size:0.55em;">
@@ -255,7 +342,15 @@ const EXAMPLES = {
         {
             title: 'Biểu đồ tròn bằng conic-gradient',
             note: 'Đổi các mốc phần trăm trong conic-gradient là đổi tỉ lệ.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Tỷ lệ thời lượng</h2>
   <div style="display:flex; gap:34px; align-items:center; justify-content:center; font-size:0.6em;">
     <div style="width:220px; height:220px; border-radius:50%;
@@ -274,36 +369,44 @@ const EXAMPLES = {
         {
             title: 'Sơ đồ quy trình 4 bước',
             note: 'Mỗi bước là một card flex; số thứ tự trong vòng tròn amber.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Quy trình nghiên cứu</h2>
   <div style="display:flex; gap:14px; justify-content:center; font-size:0.55em;">
-    <div style="flex:1; max-width:190px; background:#1f2937; border:2px solid #f59e0b; border-radius:12px; padding:16px;">
+    <div style="flex:1; max-width:190px; background:#ffffff; border:2px solid #f59e0b; border-radius:12px; padding:16px;">
       <div style="background:#f59e0b; color:#111111; width:34px; height:34px; border-radius:50%;
                   display:flex; align-items:center; justify-content:center;
                   font-weight:bold; margin:0 auto 10px;">1</div>
       <b>Đặt vấn đề</b>
-      <p style="font-size:0.85em; color:#bbbbbb;">Xác định câu hỏi nghiên cứu</p>
+      <p style="font-size:0.85em; color:#4b5563;">Xác định câu hỏi nghiên cứu</p>
     </div>
-    <div style="flex:1; max-width:190px; background:#1f2937; border:2px solid #38bdf8; border-radius:12px; padding:16px;">
+    <div style="flex:1; max-width:190px; background:#ffffff; border:2px solid #38bdf8; border-radius:12px; padding:16px;">
       <div style="background:#38bdf8; color:#06283d; width:34px; height:34px; border-radius:50%;
                   display:flex; align-items:center; justify-content:center;
                   font-weight:bold; margin:0 auto 10px;">2</div>
       <b>Thu thập dữ liệu</b>
-      <p style="font-size:0.85em; color:#bbbbbb;">Khảo sát, đo đạc, ghi chép</p>
+      <p style="font-size:0.85em; color:#4b5563;">Khảo sát, đo đạc, ghi chép</p>
     </div>
-    <div style="flex:1; max-width:190px; background:#1f2937; border:2px solid #a78bfa; border-radius:12px; padding:16px;">
+    <div style="flex:1; max-width:190px; background:#ffffff; border:2px solid #a78bfa; border-radius:12px; padding:16px;">
       <div style="background:#a78bfa; color:#241640; width:34px; height:34px; border-radius:50%;
                   display:flex; align-items:center; justify-content:center;
                   font-weight:bold; margin:0 auto 10px;">3</div>
       <b>Phân tích</b>
-      <p style="font-size:0.85em; color:#bbbbbb;">Xử lý số liệu, vẽ biểu đồ</p>
+      <p style="font-size:0.85em; color:#4b5563;">Xử lý số liệu, vẽ biểu đồ</p>
     </div>
-    <div style="flex:1; max-width:190px; background:#1f2937; border:2px solid #a6e3a1; border-radius:12px; padding:16px;">
+    <div style="flex:1; max-width:190px; background:#ffffff; border:2px solid #a6e3a1; border-radius:12px; padding:16px;">
       <div style="background:#a6e3a1; color:#123018; width:34px; height:34px; border-radius:50%;
                   display:flex; align-items:center; justify-content:center;
                   font-weight:bold; margin:0 auto 10px;">4</div>
       <b>Kết luận</b>
-      <p style="font-size:0.85em; color:#bbbbbb;">Trả lời câu hỏi ban đầu</p>
+      <p style="font-size:0.85em; color:#4b5563;">Trả lời câu hỏi ban đầu</p>
     </div>
   </div>
 </section>`
@@ -311,7 +414,15 @@ const EXAMPLES = {
         {
             title: 'Sơ đồ phân cấp (cây tổ chức)',
             note: 'Các đường nối là <div> cao 2px / rộng 2px màu xám.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Sơ đồ tổ chức</h2>
   <div style="font-size:0.55em; text-align:center;">
     <div style="display:inline-block; background:#f59e0b; color:#111111;
@@ -340,9 +451,17 @@ const EXAMPLES = {
         {
             title: 'Khối code có viền',
             note: 'Thẻ <pre><code data-trim> giữ nguyên xuống dòng và thụt lề.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Ví dụ code</h2>
-  <pre style="background:#111111; border:1px solid #444444; border-radius:10px;
+  <pre style="background:#f6f8fa; border:1px solid #d0d7de; color:#1f2937; border-radius:10px;
               padding:16px; font-size:0.55em; text-align:left;
               width:80%; margin:auto;"><code data-trim>
 def tinh_tong(n):
@@ -353,12 +472,20 @@ def tinh_tong(n):
         {
             title: 'Trích dẫn nổi bật + nút bấm',
             note: 'blockquote bo góc với viền trái amber; nút là thẻ <a> bo tròn.',
-            code: String.raw`<section>
-  <blockquote style="background:#1f2937; border-left:6px solid #f59e0b;
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <blockquote style="background:#fffbeb; border-left:6px solid #f59e0b; color:#1f2937;
                      padding:18px 22px; border-radius:8px;
                      font-size:0.7em; width:80%; margin:0 auto 18px;">
     “Học thầy không tày học bạn.”
-    <div style="color:#999999; font-size:0.8em; margin-top:8px;">— Tục ngữ Việt Nam</div>
+    <div style="color:#6b7280; font-size:0.8em; margin-top:8px;">— Tục ngữ Việt Nam</div>
   </blockquote>
   <a href="https://heyshow.pedu.vn/gallery" target="_blank"
      style="display:inline-block; background:#f59e0b; color:#111111;
@@ -372,7 +499,15 @@ def tinh_tong(n):
         {
             title: 'Công thức trong dòng và công thức khối',
             note: "Cặp $...$ nằm lẫn trong câu; cặp $$...$$ đứng riêng thành khối căn giữa.",
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Định lý Pythagore</h2>
   <p>Với tam giác vuông: $a^2 + b^2 = c^2$.</p>
   <p>Nghiệm phương trình bậc hai:</p>
@@ -382,7 +517,15 @@ def tinh_tong(n):
         {
             title: 'Tổng, tích phân, ma trận, hệ phương trình',
             note: 'Cú pháp LaTeX chuẩn của KaTeX.',
-            code: String.raw`<section>
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
   <h2>Một số công thức thường gặp</h2>
   <p>$$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$$</p>
   <p>$$\int_{0}^{\infty} e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}$$</p>

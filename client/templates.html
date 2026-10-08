@@ -63,7 +63,9 @@
       }
 
       /* Sidebar: danh mục + ô tìm, dính theo cuộn để chuyển mục nhanh */
-      .side { position: sticky; top: 66px; max-height: calc(100vh - 80px); overflow: auto; padding: 4px 0 12px; }
+      /* min-width:0: dải chip danh mục cuộn ngang có bề rộng nội dung rất lớn,
+         nếu để auto thì nó đẩy ô grid giân ra và cả trang tràn ngang trên điện thoại. */
+      .side { position: sticky; top: 66px; max-height: calc(100vh - 80px); overflow: auto; padding: 4px 0 12px; min-width: 0; }
       .side-search {
         width: 100%; padding: 8px 11px; font: inherit; font-size: 0.86rem;
         color: var(--text-color); background: var(--bg-panel);
@@ -168,7 +170,7 @@
 
       /* Màn hẹp: sidebar thành dải chip cuộn ngang, nội dung chiếm hết bề ngang */
       @media (max-width: 900px) {
-        .layout { grid-template-columns: 1fr; gap: 0; padding: 8px 16px 60px; }
+        .layout { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 8px 16px 60px; }
         .side { position: static; max-height: none; overflow: visible; margin-bottom: 10px; }
         #tpl-nav { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px; }
         .side .side-kind { display: none; }
@@ -176,7 +178,9 @@
         .nav-item.active { border-color: var(--accent-strong); }
         .nav-item .nav-cnt { display: none; }
         .side-cta { display: none; }
-        .tpl .preview iframe { height: 300px; }
+        /* Khung preview ôm đúng tỉ lệ khung vẽ 960×700 của Reveal: cao hơn bề ngang
+           là hai khoảng trống thừa, thấp hơn thì chữ trên slide nhỏ thêm vô ích. */
+        .tpl .preview iframe { height: auto; aspect-ratio: 960 / 700; }
       }
 
       /* Điện thoại: thanh header không đủ chỗ cho cả menu, giữ lại logo + nút chính */
