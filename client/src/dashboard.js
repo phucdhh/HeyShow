@@ -1,5 +1,5 @@
 // Dashboard 3 tab: Presentations (dropdown ⋮ cho từng bài), Activities và Profile.
-import { get, post, del, request, getToken, clearToken, onUnauthorized } from './api.js';
+import { get, post, del, request, getToken, setToken, clearToken, tokenPayload, getStashedToken, clearStashedToken, onUnauthorized } from './api.js';
 
 const TAB_KEY = 'heyshow_dashboard_tab';
 const TAB_NAMES = ['presentations', 'activities', 'profile', 'import'];
@@ -9,8 +9,9 @@ const itemsEmpty = document.getElementById('items-empty');
 const activityEl = document.getElementById('activity');
 const activityEmpty = document.getElementById('activity-empty');
 const meAvatar = document.getElementById('me-avatar');
-const meName = document.getElementById('me-name');
 const meRole = document.getElementById('me-role');
+const supportBar = document.getElementById('support-bar');
+const supportWho = document.getElementById('support-who');
 const toastEl = document.getElementById('toast');
 
 const deleteOverlay = document.getElementById('delete-overlay');
@@ -38,7 +39,6 @@ let items = [];
 let pendingDelete = null;
 let pendingRename = null;
 let tempAvatarBase64 = null;
-let myFullName = '';
 let myUsername = '';
 
 function requireLogin() {
@@ -49,6 +49,28 @@ if (!getToken()) requireLogin();
 
 // api.js đã xoá token; ở đây chỉ cần đưa người dùng về màn hình đăng nhập
 onUnauthorized(() => requireLogin());
+
+// ---------- Phiên hỗ trợ: admin mở Dashboard này từ ảnh đại diện ở bảng Users ----------
+const supportPayload = tokenPayload();
+const supportingUser = supportPayload && supportPayload.imp ? supportPayload.username : null;
+
+if (supportingUser) {
+    document.body.classList.add('supporting');
+    supportWho.textContent = `Đang hỗ trợ ${supportingUser} (admin: ${supportPayload.imp})`;
+    supportBar.classList.remove('hidden');
+} else {
+    // Token cất tạm chỉ để phục vụ nút "Về bảng quản trị"; không còn phiên hỗ trợ
+    // nào thì xóa ngay, kẻo token admin vẫn nằm lại trong localStorage.
+    clearStashedToken();
+}
+
+document.getElementById('btn-exit-support').addEventListener('click', () => {
+    const adminToken = getStashedToken();
+    clearStashedToken();
+    if (adminToken) setToken(adminToken);
+    else clearToken();
+    location.href = '/admin_panel';
+});
 
 function showToast(message, isError = false) {
     toastEl.textContent = message;
@@ -371,8 +393,6 @@ async function loadProfile() {
         profileEmail.value = p.email || '';
         profilePhone.value = p.phone || '';
         profileSlug.value = p.urlSlug || '';
-        myFullName = p.fullName || '';
-        meName.textContent = myFullName || p.urlSlug || p.username;
         renderQuota(p.quota);
     } catch (e) {
         if (e && e.status) setProfileMsg(e.message, true);
@@ -825,7 +845,6 @@ async function load() {
         items = data.items;
         myUsername = data.me?.username || '';
         meAvatar.src = data.me?.avatar || '';
-        if (!myFullName) meName.textContent = data.me?.urlSlug || data.me?.username || '';
         meRole.textContent = data.me?.role || '';
         meRole.classList.toggle('hidden', !data.me?.role);
         renderQuota(data.quota);

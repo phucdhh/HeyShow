@@ -1,4 +1,4 @@
-import { get, post, del, setToken, clearToken, getToken, tokenPayload, onUnauthorized, ApiError } from './api.js';
+import { get, post, del, setToken, clearToken, getToken, stashToken, tokenPayload, onUnauthorized, ApiError } from './api.js';
 
 const loginPanel = document.getElementById('login-panel');
 const dashboardPanel = document.getElementById('dashboard-panel');
@@ -64,10 +64,15 @@ document.querySelectorAll('button.tab').forEach(b => b.addEventListener('click',
 // Kiểm tra trạng thái đăng nhập. Token giờ dùng chung với editor, nên người dùng
 // bình thường vẫn có token — phải nhìn role để không hiện bảng điều hành lỗi.
 function checkAuth() {
-    if (tokenPayload()?.role !== 'admin') {
+    const payload = tokenPayload();
+    if (payload?.role !== 'admin') {
         loginPanel.classList.remove('hidden');
         dashboardPanel.classList.add('hidden');
-        if (getToken()) showMsg(loginMsg, 'Tài khoản đang đăng nhập không có quyền quản trị', true);
+        if (payload?.imp) {
+            showMsg(loginMsg, `Đây là phiên hỗ trợ tài khoản ${payload.username}. Mở /dashboard rồi bấm "Về bảng quản trị" để lấy lại quyền admin.`, true);
+        } else if (getToken()) {
+            showMsg(loginMsg, 'Tài khoản đang đăng nhập không có quyền quản trị', true);
+        }
         return false;
     }
     loginPanel.classList.add('hidden');
@@ -182,6 +187,13 @@ function renderUsers(users) {
         ava.className = 'u-ava';
         ava.src = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.username)}&background=random&size=64`;
         ava.alt = '';
+        if (u.username === me) {
+            ava.title = 'Tài khoản của bạn';
+        } else {
+            ava.classList.add('support');
+            ava.title = `Mở Dashboard của ${u.username} để hỗ trợ`;
+            ava.addEventListener('click', () => supportUser(u.username));
+        }
         const name = document.createElement('span');
         name.className = 'u-name';
         name.textContent = u.username;
@@ -198,14 +210,7 @@ function renderUsers(users) {
         badge.className = 'badge ' + u.role;
         badge.textContent = u.role;
         tdRole.appendChild(badge);
-        const quota = document.createElement('div');
-        quota.className = 'u-sub u-quota' + (u.quotaReached ? ' full' : '');
-        quota.textContent = u.maxPresentations === null
-            ? `${u.presentations} bài`
-            : `${u.presentations}/${u.maxPresentations} bài${u.quotaReached ? ' — đã đầy' : ''}`;
-        tdRole.appendChild(quota);
 
-        makeCell(tr, null, u.urlSlug);
         makeCell(tr, 'num', u.drafts);
         makeCell(tr, 'num', u.published);
         makeCell(tr, 'num', `${u.views} / ${u.likes}`);
@@ -245,6 +250,19 @@ function renderUsers(users) {
     }
 }
 
+// Bấm Avatar ở bảng Users: xin một phiên hỗ trợ rồi sang Dashboard của tài khoản đó.
+// Token của admin được cất tạm, Dashboard sẽ hiện nút "Thoát phiên hỗ trợ" để quay lại.
+async function supportUser(username) {
+    try {
+        const data = await post(`/api/admin/users/${encodeURIComponent(username)}/support`, {});
+        stashToken();
+        setToken(data.token);
+        location.href = '/dashboard';
+    } catch (e) {
+        showMsg(usersMsg, msgOf(e, 'Lỗi kết nối'), true);
+    }
+}
+
 function changeRole(u, newRole) {
     if (!confirm(`Đổi ${u.username} từ ${u.role} → ${newRole}?\n\nCác phiên đang đăng nhập của người này sẽ bị buộc đăng nhập lại.`)) return;
     adminPost(`/admin/users/${encodeURIComponent(u.username)}/role`, { role: newRole }, usersMsg, loadUsers);
@@ -273,7 +291,7 @@ function toggleResetRow(refTr, username) {
     tr.className = 'reset-row';
     tr.dataset.for = username;
     const td = document.createElement('td');
-    td.colSpan = 8;
+    td.colSpan = 7;
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = `Mật khẩu mới cho ${username} (tối thiểu 3 ký tự)`;

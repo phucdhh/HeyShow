@@ -611,17 +611,53 @@ function issueToken(loginId, record) {
     );
 }
 
-// Đăng nhập
+// Phiên hỗ trợ kỹ thuật: admin mở Dashboard của một tài khoản để cùng sửa bài.
+// Quyền hạn trong phiên là của tài khoản được hỗ trợ (verifyToken vẫn đọc role từ db),
+// claim `imp` ghi rõ admin nào đã mở, và token hết hạn sau 1h thay vì 24h.
+function issueSupportToken(loginId, record, adminName) {
+    return jwt.sign(
+        {
+            username: loginId,
+            role: record.role,
+            tv: Number.isFinite(record.tokenVersion) ? record.tokenVersion : 0,
+            imp: adminName
+        },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+    );
+}
+
+// Email chỉ là một field trong hồ sơ, không phải khoá của db.users, nên phải dò hết.
+// So không phân biệt hoa/thường vì cả lúc đăng ký lẫn lúc sửa hồ sơ đều cất nguyên văn
+// người dùng gõ. Hai tài khoản cùng một email (email chưa từng bị chặn trùng, nên dữ liệu
+// cũ vẫn có thể dính) thì bỏ qua: không thể biết họ muốn vào tài khoản nào.
+function loginIdByEmail(db, email) {
+    const needle = String(email).trim().toLowerCase();
+    if (!needle.includes('@')) return null;
+
+    let found = null;
+    for (const [loginId, user] of Object.entries(db.users)) {
+        if (typeof user.email !== 'string' || user.email.trim().toLowerCase() !== needle) continue;
+        if (found) return null;
+        found = loginId;
+    }
+    return found;
+}
+
+// Đăng nhập bằng tên đăng nhập hoặc email
 app.post('/api/auth/login', rateLimitAuth, async (req, res) => {
     const { username, password } = req.body;
     const currentDB = getDB();
-    const deny = () => res.status(401).json({ success: false, error: 'Sai tên đăng nhập hoặc mật khẩu' });
+    const deny = () => res.status(401).json({ success: false, error: 'Sai tên đăng nhập / email hoặc mật khẩu' });
 
-    if (typeof username !== 'string' || !Object.hasOwn(currentDB.users, username)) {
-        return deny();
-    }
+    if (typeof username !== 'string') return deny();
+    const identifier = username.trim();
+    const loginId = Object.hasOwn(currentDB.users, identifier)
+        ? identifier
+        : loginIdByEmail(currentDB, identifier);
+    if (!loginId) return deny();
 
-    const user = currentDB.users[username];
+    const user = currentDB.users[loginId];
     const { ok, legacy } = await verifyPassword(password, user.passwordHash);
     if (!ok) return deny();
 
@@ -629,18 +665,18 @@ app.post('/api/auth/login', rateLimitAuth, async (req, res) => {
     if (legacy) {
         const freshHash = await hashPassword(password);
         mutateDB(db => {
-            if (db.users[username]) db.users[username].passwordHash = freshHash;
+            if (db.users[loginId]) db.users[loginId].passwordHash = freshHash;
         });
     }
 
-    const fresh = getDB().users[username];
+    const fresh = getDB().users[loginId];
     res.json({
         success: true,
-        token: issueToken(username, fresh),
+        token: issueToken(loginId, fresh),
         me: {
-            username,
+            username: loginId,
             role: fresh.role,
-            ...authorInfo(username, fresh)
+            ...authorInfo(loginId, fresh)
         }
     });
 });
@@ -996,6 +1032,20 @@ app.post('/api/admin/users/:username/role', authenticateToken, requireAdmin, (re
     res.json({ success: true, message: `Đã đổi ${username} thành ${access.ROLE_CAPS[role].label}`, role });
 });
 
+// Phiên hỗ trợ: cấp cho admin token đăng nhập dưới tài khoản của user, để admin
+// mở Dashboard/editor của user mà không cần biết mật khẩu của họ.
+app.post('/api/admin/users/:username/support', authenticateToken, requireAdmin, (req, res) => {
+    const { username } = req.params;
+    const record = getDB().users[username];
+    if (!record) return res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản' });
+    if (username === req.user.username) {
+        return res.status(400).json({ success: false, error: 'Không cần phiên hỗ trợ cho chính tài khoản của mình' });
+    }
+
+    console.log(`[HỖ TRỢ] ${req.user.username} mở Dashboard của ${username}`);
+    res.json({ success: true, token: issueSupportToken(username, record, req.user.username) });
+});
+
 // Xóa tài khoản: không tự xóa; dọn luôn bản nháp, bài publish và số liệu gallery của user.
 app.delete('/api/admin/users/:username', authenticateToken, requireAdmin, (req, res) => {
     const { username } = req.params;
@@ -1023,6 +1073,11 @@ app.delete('/api/admin/users/:username', authenticateToken, requireAdmin, (req, 
     res.json({ success: true, message: `Đã xóa tài khoản ${username}` });
 });
 
+// Chuẩn kiểm hồ sơ: dùng chung cho lúc đăng ký và lúc sửa hồ sơ
+const PHONE_RE = /^[0-9+\-.()\s]{0,20}$/;
+const FULL_NAME_MAX_LEN = 80;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 // --- Đăng ký ---
 // Đang bật (giữ hành vi cũ). Đặt REGISTER_ENABLED=false trong server/.env khi muốn
 // chỉ admin cấp tài khoản — nên làm trước khi mở rộng ra ngoài trường.
@@ -1036,7 +1091,7 @@ app.post('/api/auth/register', rateLimitAuth, async (req, res) => {
         });
     }
 
-    const { username, password } = req.body;
+    const { username, password, fullName, email, phone, urlSlug } = req.body;
 
     if (typeof username !== 'string' || !USERNAME_RE.test(username)) {
         return res.status(400).json({
@@ -1055,18 +1110,48 @@ app.post('/api/auth/register', rateLimitAuth, async (req, res) => {
         return res.status(400).json({ success: false, error: `Mật khẩu phải có ít nhất ${SELF_PASSWORD_MIN} ký tự` });
     }
 
+    // Các trường hồ sơ đều tự chọn: chỉ kiểm tra phần người đăng ký nhập vào,
+    // để API vẫn nhận được payload cũ { username, password }.
+    const name = typeof fullName === 'string' ? fullName.trim() : '';
+    if (name.length > FULL_NAME_MAX_LEN) {
+        return res.status(400).json({ success: false, error: `Họ tên tối đa ${FULL_NAME_MAX_LEN} ký tự` });
+    }
+    const mail = typeof email === 'string' ? email.trim() : '';
+    if (mail && (!EMAIL_RE.test(mail) || mail.length > 254)) {
+        return res.status(400).json({ success: false, error: 'Email không hợp lệ' });
+    }
+    const mobile = typeof phone === 'string' ? phone.trim() : '';
+    if (mobile && !PHONE_RE.test(mobile)) {
+        return res.status(400).json({ success: false, error: 'Số điện thoại chỉ gồm số, dấu +, -, khoảng trắng (tối đa 20 ký tự)' });
+    }
+    const slug = typeof urlSlug === 'string' ? urlSlug.trim() : '';
+    if (slug && !isValidSlug(slug)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Username URL phải dài 3-40 ký tự, chỉ gồm chữ cái, số, gạch ngang và gạch dưới.'
+        });
+    }
+
     const freshHash = await hashPassword(password);
 
     if (nameTaken(getDB(), username)) {
         return res.status(400).json({ success: false, error: 'Tên đăng nhập đã tồn tại' });
     }
+    // Slug là địa chỉ công khai /<slug>/... nên cũng phải so với cả tên đăng nhập
+    if (slug && nameTaken(getDB(), slug)) {
+        return res.status(400).json({ success: false, error: 'Username URL này đã được sử dụng.' });
+    }
     mutateDB(db => {
-        db.users[username] = {
+        const rec = db.users[username] = {
             passwordHash: freshHash,
             role: 'user',
             tokenVersion: 0,
             createdAt: Date.now()
         };
+        if (name) rec.fullName = name;
+        if (mail) rec.email = mail;
+        if (mobile) rec.phone = mobile;
+        if (slug) rec.urlSlug = slug;
     });
 
     // Tạo thư mục cho user mới
@@ -1081,10 +1166,6 @@ app.post('/api/auth/register', rateLimitAuth, async (req, res) => {
 // --- API ROUTES (CẦN JWT) ---
 
 // --- API USER PROFILE ---
-
-const PHONE_RE = /^[0-9+\-.()\s]{0,20}$/;
-const FULL_NAME_MAX_LEN = 80;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 // 1. Hồ sơ: quyền, hạn mức và số dư bài viết của chính người dùng
 app.get('/api/user/profile', authenticateToken, (req, res) => {

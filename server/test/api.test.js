@@ -137,6 +137,16 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
         assert.ok(src.includes(GUARD), `${file} phải giữ đúng rule của bản publish`);
     }
 
+    // Khác biệt có chủ đích, đừng "đồng bộ" cho giống nhau: dưới 435px bề ngang Reveal 6 tự
+    // chuyển sang chế độ cuộn và bỏ phép co slide về vừa khung. Khung preview mẫu ở /templates
+    // chỉ rộng ~356px nên nếu để mặc định, thẻ mẫu hiện ra cắt góc trên nền đen. Bản publish
+    // thì giữ mặc định — điện thoại đọc cả bài theo kiểu cuộn là hành vi đúng của Reveal.
+    const previewSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'src/reveal-preview.js'), 'utf8');
+    assert.ok(previewSrc.includes('scrollActivationWidth: null'),
+        'preview phải tắt chế độ cuộn tự động để luôn ra một slide trọn vẹn');
+    assert.ok(!slideHtml.includes('scrollActivationWidth'),
+        'bản publish không được tắt chế độ cuộn, chỉ preview mới tắt');
+
     // CSP sandbox biến sessionStorage thành bẫy ném SecurityError, còn Reveal 5/6 thì gọi
     // nó mỗi lần chuyển slide -> vuốt trên điện thoại chết hẳn. Bản publish phải tự đỡ
     // chỗ đó TRƯỚC khi nạp reveal.js.
@@ -282,6 +292,52 @@ test('không cho đăng ký tên trùng thư mục hoặc trùng slug của tài
     } finally {
         await legacy.stop();
     }
+});
+
+test('đăng ký kèm hồ sơ: họ tên, email, số điện thoại, username URL', async () => {
+    const res = await apiRequest(srv.url, 'POST', '/api/auth/register', {
+        body: {
+            username: 'newteacher',
+            password: 'matkhau123',
+            fullName: '  Nguyễn Đăng Minh Phúc  ',
+            email: 'ndmphuc@example.edu.vn',
+            phone: '0905 123 456',
+            urlSlug: 'ndmphuc'
+        }
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+    const prof = await apiRequest(srv.url, 'GET', '/api/user/profile', { token: res.json.token });
+    assert.equal(prof.json.profile.fullName, 'Nguyễn Đăng Minh Phúc', 'họ tên phải được cắt khoảng trắng hai đầu');
+    assert.equal(prof.json.profile.email, 'ndmphuc@example.edu.vn');
+    assert.equal(prof.json.profile.phone, '0905 123 456');
+    assert.equal(prof.json.profile.urlSlug, 'ndmphuc');
+
+    // Payload cũ { username, password } vẫn dùng được (admin tạo tài khoản, script...)
+    const bare = await apiRequest(srv.url, 'POST', '/api/auth/register', {
+        body: { username: 'oldstyle', password: 'matkhau123' }
+    });
+    assert.equal(bare.status, 200, JSON.stringify(bare.json));
+});
+
+test('đăng ký chặn email sai, số điện thoại sai và username URL trùng', async () => {
+    const bad = [
+        [{ email: 'khong phai email' }, /Email không hợp lệ/],
+        [{ phone: '0905!123' }, /Số điện thoại/],
+        [{ fullName: 'A'.repeat(81) }, /Họ tên tối đa/],
+        [{ urlSlug: 'ab' }, /Username URL/],
+        [{ urlSlug: 'gallery' }, /Username URL/],
+        [{ urlSlug: 'tuser' }, /Username URL này đã được sử dụng/]
+    ];
+    for (const [extra, pattern] of bad) {
+        const res = await apiRequest(srv.url, 'POST', '/api/auth/register', {
+            body: { username: 'regcheck', password: 'matkhau123', ...extra }
+        });
+        assert.equal(res.status, 400, JSON.stringify(extra) + ' phải bị chặn');
+        assert.match(res.json.error, pattern, `${JSON.stringify(extra)} phải báo đúng lý do`);
+    }
+    // Phải chặn TRƯỚC khi ghi tài khoản, nếu không mỗi lần sai là một user rác
+    const users = await srv.api('GET', '/api/admin/users');
+    assert.ok(!users.json.users.some(u => u.username === 'regcheck'), 'đăng ký lỗi không được để lại tài khoản');
 });
 
 test('đổi slug cũng bị chặn nếu trùng route hoặc trùng tên người khác', async () => {
@@ -445,6 +501,39 @@ test('sai mật khẩu khi đăng nhập không bị hiểu nhầm là hết phi
     assert.notEqual(res.json.code, 'auth');
 });
 
+// Đăng nhập bằng email: email không phải khoá của db.users nên server phải tự dò.
+// me.username bắt buộc vẫn là loginId, vì client và token đều tham chiếu theo tên đó.
+test('đăng nhập được bằng email, kể cả viết hoa khác đi', async () => {
+    await srv.api('POST', '/api/user/profile', {
+        token: srv.users.user.login, body: { email: 'tuser@example.edu.vn' }
+    });
+
+    for (const ident of ['tuser@example.edu.vn', 'TUser@Example.Edu.VN', '  tuser@example.edu.vn  ']) {
+        const res = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: ident, password: 'matkhau123' } });
+        assert.equal(res.status, 200, `"${ident}" phải đăng nhập được bằng email`);
+        assert.equal(res.json.me.username, 'tuser', 'phải trả về loginId chứ không phải email');
+    }
+
+    // Sai mật khẩu qua email cũng phải bị chặn y như qua tên đăng nhập
+    const bad = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tuser@example.edu.vn', password: 'sai' } });
+    assert.equal(bad.status, 401);
+    assert.notEqual(bad.json.code, 'auth', 'sai mật khẩu không được báo là hết phiên');
+});
+
+// Email chưa từng bị chặn trùng, nên dữ liệu thật có thể có hai tài khoản cùng email.
+// Khi đó không thể đoán người dùng muốn vào tài khoản nào -> buộc dùng tên đăng nhập.
+test('hai tài khoản cùng email thì không đăng nhập bằng email được', async () => {
+    await srv.api('POST', '/api/admin/users', { body: { username: 'tdupe', password: 'matkhau123' } });
+    const login = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tdupe', password: 'matkhau123' } });
+    await srv.api('POST', '/api/user/profile', { token: login.json.token, body: { email: 'tuser@example.edu.vn' } });
+
+    const ambiguous = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tuser@example.edu.vn', password: 'matkhau123' } });
+    assert.equal(ambiguous.status, 401, 'email trùng hai tài khoản phải bị từ chối');
+
+    const byName = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tdupe', password: 'matkhau123' } });
+    assert.equal(byName.status, 200, 'đăng nhập bằng tên đăng nhập vẫn bình thường');
+});
+
 test('mật khẩu mới phải đủ mạnh', async () => {
     const res = await apiRequest(srv.url, 'POST', '/api/me/password', {
         token: srv.users.master.login, body: { currentPassword: 'matkhau123', newPassword: 'short' }
@@ -549,6 +638,60 @@ test('admin không tự hạ quyền và không tự xóa chính mình', async (
     assert.equal(selfRole.status, 400);
     const selfDel = await srv.api('DELETE', '/api/admin/users/admin');
     assert.equal(selfDel.status, 400);
+});
+
+// ---------- phiên hỗ trợ: admin mở Dashboard của user ----------
+
+test('admin cấp phiên hỗ trợ, token đó nhân danh đúng user và sửa được bản nháp', async () => {
+    await srv.api('POST', '/api/admin/users', { body: { username: 'tsupport', password: 'matkhau123', role: 'designer' } });
+    const login = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username: 'tsupport', password: 'matkhau123' } });
+    assert.equal(login.status, 200);
+    await apiRequest(srv.url, 'POST', '/api/files/support-demo.html', {
+        token: login.json.token, body: { content: '<section><h1>của user</h1></section>' }
+    });
+
+    const res = await srv.api('POST', '/api/admin/users/tsupport/support', { body: {} });
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+    const token = res.json.token;
+
+    const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    assert.equal(claims.imp, 'admin', 'token phải ghi rõ admin nào đã mở phiên');
+    assert.equal(claims.exp - claims.iat, 3600, 'phiên hỗ trợ chỉ sống 1 giờ');
+
+    const dash = await apiRequest(srv.url, 'GET', '/api/dashboard', { token });
+    assert.equal(dash.status, 200);
+    assert.equal(dash.json.me.username, 'tsupport');
+    assert.ok(dash.json.items.some(i => i.fileName === 'support-demo.html'), 'Dashboard phải liệt kê bài của user');
+
+    const saved = await apiRequest(srv.url, 'POST', '/api/files/support-demo.html', {
+        token, body: { content: '<section><h1>admin sửa giúp</h1></section>' }
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.json));
+
+    const own = await apiRequest(srv.url, 'GET', '/api/files/support-demo.html', { token: login.json.token });
+    assert.match(own.json.content, /admin sửa giúp/, 'user thấy đúng bản mà admin đã sửa');
+});
+
+test('phiên hỗ trợ bị chặn với người thường, với chính mình và tài khoản không có thật', async () => {
+    const asUser = await apiRequest(srv.url, 'POST', '/api/admin/users/tmaster/support', {
+        token: srv.users.master.login, body: {}
+    });
+    assert.equal(asUser.status, 403);
+
+    const self = await srv.api('POST', '/api/admin/users/admin/support', { body: {} });
+    assert.equal(self.status, 400);
+
+    const ghost = await srv.api('POST', '/api/admin/users/khongtontai/support', { body: {} });
+    assert.equal(ghost.status, 404);
+});
+
+test('đặt lại mật khẩu thu hồi ngay phiên hỗ trợ đang mở', async () => {
+    const token = (await srv.api('POST', '/api/admin/users/tsupport/support', { body: {} })).json.token;
+    const reset = await srv.api('POST', '/api/admin/users/tsupport/password', { body: { newPassword: 'matkhau-moi' } });
+    assert.equal(reset.status, 200);
+
+    const after = await apiRequest(srv.url, 'GET', '/api/dashboard', { token });
+    assert.equal(after.status, 401);
 });
 
 // ---------- vẽ TikZ → SVG ----------

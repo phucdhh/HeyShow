@@ -35,6 +35,25 @@ export function setToken(token) {
 export function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
     for (const key of LEGACY_TOKEN_KEYS) localStorage.removeItem(key);
+    clearStashedToken();
+}
+
+// Phiên hỗ trợ: admin tạm đổi sang token của user đang cần giúp đỡ, nên token của
+// chính admin phải cất riêng ở khoá này để bấm "Thoát phiên hỗ trợ" là quay lại ngay.
+// Khoá nằm ngoài LEGACY_TOKEN_KEYS để getToken() không vô tình "di cư" nó về TOKEN_KEY.
+const STASHED_TOKEN_KEY = 'heyshow_stashed_token';
+
+export function stashToken() {
+    const token = getToken();
+    if (token) localStorage.setItem(STASHED_TOKEN_KEY, token);
+}
+
+export function getStashedToken() {
+    return localStorage.getItem(STASHED_TOKEN_KEY);
+}
+
+export function clearStashedToken() {
+    localStorage.removeItem(STASHED_TOKEN_KEY);
 }
 
 export function isAuthed() {

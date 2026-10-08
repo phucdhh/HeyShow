@@ -40,7 +40,6 @@
       .nav-links a:hover { color: var(--text-color); }
       .me { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
       .me img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); border: 2px solid var(--border-color); }
-      .me .name { font-size: 0.9rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .me .role {
         font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
         background: var(--bg-deep); color: var(--muted);
@@ -50,6 +49,20 @@
       #btn-logout:hover { border-color: var(--danger); }
 
       main { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+
+      /* Phiên hỗ trợ: admin đang làm việc trên tài khoản của người khác */
+      body.supporting header { background: #fffbeb; }
+      .support-bar {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        background: #fef3c7; border: 1px solid #fcd34d; color: #92400e;
+        border-radius: 12px; padding: 10px 14px; margin-bottom: 18px; font-size: 0.86rem;
+      }
+      .support-bar .hint { color: #92400e; }
+      .support-bar button {
+        margin-left: auto; background: #ffffff; border: 1px solid #fcd34d; color: #92400e;
+        border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: 0.82rem; cursor: pointer; font-family: inherit;
+      }
+      .support-bar button:hover { background: #fde68a; }
 
       /* Tabs */
       .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; }
@@ -256,7 +269,6 @@
         <a href="/help">❓ Help</a>
         <div class="me">
           <img id="me-avatar" src="" alt="Avatar" />
-          <span class="name" id="me-name"></span>
           <span class="role hidden" id="me-role"></span>
           <button id="btn-logout" type="button">Đăng xuất</button>
         </div>
@@ -264,6 +276,11 @@
     </header>
 
     <main>
+      <div id="support-bar" class="support-bar hidden">
+        <strong id="support-who"></strong>
+        <span class="hint">Mọi chỉnh sửa trong phiên này lưu vào tài khoản đó. Phiên tự hết hạn sau 1 giờ.</span>
+        <button id="btn-exit-support" type="button">← Về bảng quản trị</button>
+      </div>
       <h1>Dashboard</h1>
       <p class="tab-lead">Quản lý bài trình chiếu, theo dõi hoạt động và cập nhật hồ sơ của bạn.</p>
       <p id="quota-line" class="hidden"></p>

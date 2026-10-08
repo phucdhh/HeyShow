@@ -77,13 +77,14 @@
       table.users td.num { text-align: right; font-variant-numeric: tabular-nums; }
       .u-ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 8px; background: var(--border-color); }
       .u-name { font-weight: 700; }
+      .u-ava.support { cursor: pointer; }
+      .u-ava.support:hover { outline: 2px solid var(--accent-color); outline-offset: 2px; }
       .u-sub { color: var(--muted); font-size: 0.75rem; }
       .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
       .badge.admin { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
       .badge.master { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
       .badge.designer { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
       .badge.user { background: #f3f4f6; color: #4b5563; border: 1px solid var(--border-color); }
-      .u-quota.full { color: var(--danger); font-weight: 700; }
       button.mini {
         padding: 4px 8px; font-size: 0.75rem; margin: 1px 2px 1px 0; border-radius: 4px;
         border: 1px solid var(--border-color); background: var(--bg-panel); color: var(--text-color);
@@ -155,7 +156,7 @@
 
         <!-- TAB: QUẢN LÝ NGƯỜI DÙNG -->
         <div id="tab-users">
-            <p style="font-size:0.85rem; color:#6b7280; margin-top:0;">Danh sách tài khoản, xếp theo ngày tạo (mới nhất trước). Bấm nút ⋮ để đổi mật khẩu, đổi quyền hoặc xóa.</p>
+            <p style="font-size:0.85rem; color:#6b7280; margin-top:0;">Danh sách tài khoản, xếp theo ngày tạo (mới nhất trước). Bấm ảnh đại diện để mở Dashboard của người đó và cùng sửa bài; bấm ⋮ để đổi mật khẩu, đổi quyền hoặc xóa.</p>
             <button id="btn-refresh-users" class="mini" style="margin-top:0;">↻ Làm mới</button>
             <span id="users-msg"></span>
             <div style="overflow-x:auto;">
@@ -164,7 +165,6 @@
                         <tr>
                             <th>Avatar</th>
                             <th>Quyền</th>
-                            <th>URL Slug</th>
                             <th style="text-align:right;">Draft</th>
                             <th style="text-align:right;">Public</th>
                             <th style="text-align:right;">Xem / Thích</th>

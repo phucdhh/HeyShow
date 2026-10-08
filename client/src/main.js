@@ -287,9 +287,20 @@ const authOverlay = document.getElementById('auth-overlay');
 const tabLogin = document.getElementById('tab-login');
 const tabRegister = document.getElementById('tab-register');
 const authUser = document.getElementById('auth-user');
+const authUserLabel = document.getElementById('auth-user-label');
 const authPass = document.getElementById('auth-pass');
 const btnAuthSubmit = document.getElementById('btn-auth-submit');
 const authMsg = document.getElementById('auth-msg');
+
+// Các trường riêng cho tab Đăng ký
+const regFields = Array.from(authOverlay.querySelectorAll('.reg-only'));
+const regFullName = document.getElementById('reg-full-name');
+const regEmail = document.getElementById('reg-email');
+const regPhone = document.getElementById('reg-phone');
+const regSlug = document.getElementById('reg-slug');
+const regSlugHint = document.getElementById('reg-slug-hint');
+const regPassConfirm = document.getElementById('reg-pass-confirm');
+
 // const userDisplay = document.getElementById('user-display');
 const btnLogout = document.getElementById('btn-logout');
 
@@ -309,10 +320,60 @@ const btnSaveProfile = document.getElementById('btn-save-profile');
 const profileMsg = document.getElementById('profile-msg');
 
 let isLoginMode = true;
+const authBox = authOverlay.querySelector('.auth-box');
+// Người đăng ký tự gõ "Username URL" thì thôi tự điền theo họ tên
+let slugTouched = false;
+
+// Bỏ dấu tiếng Việt để ra slug đọc được trên URL
+function slugify(text) {
+    const s = String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40);
+    return s.replace(/-+$/g, '');
+}
+
+function showSlugHint() {
+    regSlugHint.textContent = `Link trang của bạn: /${regSlug.value || 'username-url'}`;
+}
+
+function syncSlug() {
+    if (slugTouched) return showSlugHint();
+    regSlug.value = slugify(regFullName.value) || slugify(authUser.value);
+    showSlugHint();
+}
 
 // Chuyển đổi tab
-tabLogin.addEventListener('click', () => { isLoginMode = true; tabLogin.classList.add('active'); tabRegister.classList.remove('active'); btnAuthSubmit.textContent = 'Đăng nhập'; });
-tabRegister.addEventListener('click', () => { isLoginMode = false; tabRegister.classList.add('active'); tabLogin.classList.remove('active'); btnAuthSubmit.textContent = 'Đăng ký'; });
+function setAuthMode(login) {
+    isLoginMode = login;
+    tabLogin.classList.toggle('active', login);
+    tabRegister.classList.toggle('active', !login);
+    authBox.classList.toggle('is-register', !login);
+    btnAuthSubmit.textContent = login ? 'Đăng nhập' : 'Đăng ký';
+    // Đăng nhập được bằng cả email, còn Đăng ký luôn lấy tên đăng nhập làm loginId
+    authUserLabel.textContent = login ? 'Tên đăng nhập hoặc Email' : 'Tên đăng nhập (Username)';
+    authUser.placeholder = login ? 'VD: user123 hoặc user@truong.edu.vn' : 'VD: user123';
+    authPass.placeholder = login ? '••••••••' : 'Tối thiểu 8 ký tự';
+    regFields.forEach(el => el.classList.toggle('hidden', login));
+    if (!login) syncSlug();
+}
+
+tabLogin.addEventListener('click', () => setAuthMode(true));
+tabRegister.addEventListener('click', () => setAuthMode(false));
+
+authUser.addEventListener('input', syncSlug);
+regFullName.addEventListener('input', syncSlug);
+regSlug.addEventListener('input', () => {
+    // Xoá trắng ô này là dấu hiệu "hãy tự điền lại giúp tôi"
+    slugTouched = regSlug.value.trim() !== '';
+    // Giống ô slug trong hồ sơ: chỉ giữ ký tự dùng được trên URL
+    regSlug.value = regSlug.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+    syncSlug();
+});
+showSlugHint();
 
 // Mở file chỉ định qua query param (Dashboard bấm "Sửa" → /design?file=ten.html)
 async function openFileFromQuery() {
@@ -488,21 +549,66 @@ btnLogout.addEventListener('click', () => {
     checkAuth();
 });
 
+// Kiểm ngay trên trình duyệt để báo lỗi tức thì; server vẫn kiểm lại toàn bộ
+const REG_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const REG_PHONE_RE = /^[0-9+\-.()\s]{0,20}$/;
+const REG_SLUG_RE = /^[a-zA-Z0-9_-]{3,40}$/;
+const REG_PASSWORD_MIN = 8;
+const REG_FULL_NAME_MAX = 80;
+
+function registerError() {
+    const fullName = regFullName.value.trim();
+    const email = regEmail.value.trim();
+    const phone = regPhone.value.trim();
+    const slug = regSlug.value.trim();
+    const password = authPass.value;
+
+    if (!fullName) return 'Nhập họ và tên';
+    if (fullName.length > REG_FULL_NAME_MAX) return `Họ tên tối đa ${REG_FULL_NAME_MAX} ký tự`;
+    if (!email) return 'Nhập email';
+    if (!REG_EMAIL_RE.test(email)) return 'Email không hợp lệ';
+    if (phone && !REG_PHONE_RE.test(phone)) return 'Số điện thoại chỉ gồm số, dấu +, -, khoảng trắng (tối đa 20 ký tự)';
+    if (!REG_SLUG_RE.test(slug)) return 'Username URL phải dài 3-40 ký tự, chỉ gồm chữ cái, số, gạch ngang và gạch dưới.';
+    if (password.length < REG_PASSWORD_MIN) return `Mật khẩu phải có ít nhất ${REG_PASSWORD_MIN} ký tự`;
+    if (password !== regPassConfirm.value) return 'Xác nhận mật khẩu không khớp';
+    return '';
+}
+
 btnAuthSubmit.addEventListener('click', async () => {
     const username = authUser.value.trim();
     const password = authPass.value;
     if (!username || !password) return authMsg.textContent = 'Vui lòng nhập đủ thông tin';
+
+    let profile = null;
+    if (!isLoginMode) {
+        const err = registerError();
+        if (err) {
+            authMsg.style.color = '#dc2626';
+            authMsg.textContent = err;
+            return;
+        }
+        profile = {
+            fullName: regFullName.value.trim(),
+            email: regEmail.value.trim(),
+            phone: regPhone.value.trim(),
+            urlSlug: regSlug.value.trim()
+        };
+    }
 
     btnAuthSubmit.disabled = true;
     authMsg.textContent = 'Đang xử lý...';
     authMsg.style.color = '#6b7280';
 
     try {
-        const data = await post(isLoginMode ? '/api/auth/login' : '/api/auth/register', { username, password });
+        const data = await post(isLoginMode ? '/api/auth/login' : '/api/auth/register', { username, password, ...profile });
         if (!isLoginMode) {
             authMsg.style.color = '#16a34a';
             authMsg.textContent = 'Đăng ký thành công! Hãy đăng nhập.';
-            tabLogin.click();
+            // Giữ lại đúng tên vừa đăng ký để khỏi phải gõ lại
+            authPass.value = '';
+            regPassConfirm.value = '';
+            setAuthMode(true);
+            authPass.focus();
             return;
         }
         setToken(data.token);
