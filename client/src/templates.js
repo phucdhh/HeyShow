@@ -62,7 +62,7 @@ const DECKS = [
         code: String.raw`<section-master>
   <style>
     .reveal { background:#fffbeb linear-gradient(135deg,#fef3c7,#fffbeb) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:28px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:28px; }
     .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#b45309 !important; }
     .giai-doan { display:inline-block; background:#f59e0b; color:#111111;
                  padding:4px 16px; border-radius:999px; font-size:0.45em;
@@ -147,7 +147,7 @@ const DECKS = [
         code: String.raw`<section-master>
   <style>
     .reveal { background:#f5f3ff linear-gradient(135deg,#ede9fe,#faf5ff) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:28px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:28px; }
     .reveal h1, .reveal h2, .reveal h3 { color:#6d28d9 !important; }
     .chu-de { display:inline-block; border:2px solid #7c3aed; border-radius:8px;
               padding:2px 14px; font-size:0.42em; color:#6d28d9; margin-bottom:12px; }
@@ -228,7 +228,7 @@ const DECKS = [
         code: String.raw`<section-master>
   <style>
     .reveal { background:#fdf6e3 linear-gradient(135deg,#fef3c7,#fdf6e3) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:28px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:28px; }
     .reveal h1, .reveal h2, .reveal h3 { color:#b45309 !important; }
     .reveal a { color:#d97706; }
     .nuoc { display:inline-block; background:#f59e0b; color:#111111; width:38px; height:38px;
@@ -308,7 +308,7 @@ const DECKS = [
         code: String.raw`<section-master>
   <style>
     .reveal { background:#fff7ed linear-gradient(135deg,#ffedd5,#fef3c7) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:28px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:28px; }
     .reveal h1, .reveal h2 { color:#c2410c !important; }
     .dapan { color:#15803d; font-weight:bold; }
     .diem { position:absolute; top:12px; right:22px; font-size:0.4em; color:#c2410c; }
@@ -370,7 +370,7 @@ const DECKS = [
         code: String.raw`<section-master>
   <style>
     .reveal { background:#f6f8fa linear-gradient(135deg,#e9eef2,#f6f8fa) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:26px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:26px; }
     .reveal h1, .reveal h2, .reveal h4 { color:#0969da !important; }
     .tag { display:inline-block; background:#ddf4ff; border:1px solid #54aeff; color:#0969da;
            border-radius:999px; padding:2px 14px; font-size:0.42em; margin-bottom:12px; }
@@ -464,7 +464,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#f8fafc linear-gradient(135deg,#e8eef5,#f8fafc) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:28px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:28px; }
     .reveal h1, .reveal h2 { color:#0f3d6e !important; }
     .phan { display:inline-block; background:#0f3d6e; color:#ffffff; padding:3px 14px;
             border-radius:6px; font-size:0.4em; font-weight:bold; margin-bottom:12px; }
@@ -548,7 +548,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#f4f7f2 linear-gradient(135deg,#e6efe4,#faf6ec) !important; }
-    .reveal .slides section { background:transparent; color:#26302a; border-radius:14px; padding:28px; }
+    .reveal .slides section { box-sizing:border-box; color:#26302a; border-radius:14px; padding:28px; }
     .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#1f5130 !important; }
     .reveal .chu-de { color:#3f6b46; }
     .giai-doan { display:inline-block; background:#1f5130; color:#f4f7f2;
@@ -672,7 +672,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#eff6ff linear-gradient(135deg,#dbeafe,#f8fafc) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:28px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:28px; }
     .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#1d4ed8 !important; }
     .giai-doan { display:inline-block; background:#1d4ed8; color:#eff6ff;
                  padding:4px 16px; border-radius:999px; font-size:0.45em;
@@ -795,7 +795,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#ecfeff linear-gradient(135deg,#cffafe,#f0fdfa) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:26px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:26px; }
     .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#0f766e !important; }
     .giai-doan { display:inline-block; background:#0f766e; color:#ecfeff; padding:4px 16px;
                  border-radius:999px; font-size:0.45em; font-weight:bold; margin-bottom:14px; }
@@ -917,7 +917,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#f2f7f0 linear-gradient(135deg,#e6f0e6,#f7fbf5) !important; }
-    .reveal .slides section { background:transparent; color:#1e2a22; border-radius:14px; padding:26px; }
+    .reveal .slides section { box-sizing:border-box; color:#1e2a22; border-radius:14px; padding:26px; }
     .reveal h1, .reveal h2, .reveal h3 { color:#2f6d3a !important; }
     .giai-doan { display:inline-block; background:#2f6d3a; color:#ffffff; padding:4px 16px;
                  border-radius:999px; font-size:0.45em; font-weight:bold; margin-bottom:14px; }
@@ -1036,7 +1036,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#fdf6e9 linear-gradient(135deg,#f5e6cc,#fdf9f0) !important; }
-    .reveal .slides section { background:transparent; color:#3b2a17; border-radius:14px; padding:26px; }
+    .reveal .slides section { box-sizing:border-box; color:#3b2a17; border-radius:14px; padding:26px; }
     .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#92400e !important; }
     .giai-doan { display:inline-block; background:#92400e; color:#fdf6e9; padding:4px 16px;
                  border-radius:999px; font-size:0.45em; font-weight:bold; margin-bottom:14px; }
@@ -1167,7 +1167,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#eff8fb linear-gradient(135deg,#d5eef5,#f4fbfd) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:26px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:26px; }
     .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#0e7490 !important; }
     .giai-doan { display:inline-block; background:#0e7490; color:#ecfeff; padding:4px 16px;
                  border-radius:999px; font-size:0.45em; font-weight:bold; margin-bottom:14px; }
@@ -1311,7 +1311,7 @@ npm run dev   # mở http://localhost:3000</code></pre>
         code: String.raw`<section-master>
   <style>
     .reveal { background:#eef2ff linear-gradient(135deg,#e0e7ff,#f8fafc) !important; }
-    .reveal .slides section { background:transparent; color:#1f2937; border-radius:14px; padding:26px; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:26px; }
     .reveal h1, .reveal h2, .reveal h3 { color:#3730a3 !important; }
     .cap { display:inline-block; padding:3px 14px; border-radius:6px; font-size:0.42em;
            font-weight:bold; margin-bottom:12px; background:#3730a3; color:#eef2ff; }

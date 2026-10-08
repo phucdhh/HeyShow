@@ -237,6 +237,15 @@ test('thư viện mẫu: danh mục khép kín, mọi bài trình chiếu có t�
     const deckCount = used.filter(g => groups.some(x => x.id === g && x.kind === 'deck')).length;
     assert.equal(fileNames.length, deckCount,
         'mẫu cả bài cần fileName để nút "Dùng mẫu này" tạo file nháp');
+
+    // Reveal đặt width:960px cho section với box-sizing: content-box, nên padding tự nó
+    // đẩy thẻ slide rộng hơn khung vẽ: ~28px cạnh phải bị cắt trong preview và cả khi chiếu.
+    for (const m of src.matchAll(/\.reveal \.slides section \{([^}]*)\}/g)) {
+        if (m[1].includes('padding:')) {
+            assert.ok(m[1].includes('box-sizing:border-box'),
+                `rule section có padding phải kèm box-sizing:border-box, nếu không slide tràn khỏi khung 960×700: ${m[1].trim()}`);
+        }
+    }
 });
 
 // Route cấp một được khớp không phân biệt hoa/thường, nên "Gallery" cũng che mất
