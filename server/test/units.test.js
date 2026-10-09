@@ -9,12 +9,13 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('node:child_process');
 
 const access = require('../src/access');
 const { cleanSvg } = require('../src/svgclean');
 const history = require('../src/history');
 const { createJsonStore, atomicWrite } = require('../src/storage');
-const { patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER } = require('../src/slide-parts');
+const { patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER, FULLSCREEN_MARKER } = require('../src/slide-parts');
 
 function tmpDir(prefix) {
     return fs.mkdtempSync(path.join(os.tmpdir(), `heyshow-${prefix}-`));
@@ -316,15 +317,43 @@ ${extra}</head>
 </html>`;
 }
 
-test('slide-parts: vá bài cũ thêm đủ guard + shim, shim đứng trước script Reveal', () => {
+test('slide-parts: vá bài cũ thêm đủ guard + shim + nút toàn màn hình, shim đứng trước script Reveal', () => {
     const { html, added } = patchSlideHtml(oldDeck());
-    assert.deepEqual(added, ['guard', 'shim']);
+    assert.deepEqual(added, ['guard', 'shim', 'fullscreen']);
     assert.ok(html.includes(SHIM_MARKER), 'phải có shim sessionStorage');
     assert.ok(html.includes(GUARD_MARKER), 'phải có rule ẩn slide không hiện tại');
     assert.ok(html.indexOf(SHIM_MARKER) < html.indexOf('<script src="https://cdnjs'),
         'shim phải chạy trước Reveal thì mới đỡ được lỗi');
     assert.ok(html.indexOf('<style>') < html.indexOf('</head>'), 'guard phải vào trước </head>');
     assert.ok(html.includes('<h1>HAI</h1>'), 'nội dung bài giữ nguyên');
+});
+
+// Nút phải đứng trước </body> để lúc script chạy thì button đã có trong DOM; CSS thì
+// phải vào <head>, chèn nhầm chỗ là browser sẽ hiển thị cả đống code.
+test('slide-parts: nút toàn màn hình vào đúng chỗ, CSS trong head JS trong body', () => {
+    const { html } = patchSlideHtml(oldDeck());
+    assert.ok(html.includes(FULLSCREEN_MARKER));
+    assert.ok(html.indexOf('.heyshow-fullscreen {') < html.indexOf('</head>'), 'CSS phải vào trước </head>');
+    assert.ok(html.indexOf('class="heyshow-fullscreen"') < html.indexOf('</body>'), 'nút phải vào trước </body>');
+    assert.ok(html.indexOf('class="heyshow-fullscreen"') < html.indexOf('heyshow-fullscreen\')'),
+        'script phải lấy được nút đã chèn');
+    assert.ok(html.includes('?fs'), 'phải hỗ trợ ?fs=1 để gallery mở là vào luôn toàn màn hình');
+});
+
+// TT.html trên đĩa thật là một bài mà người dùng dán nguyên một trang Reveal khác vào
+// slide: có tới hai </body>. Nút mà chèn trước </body> đầu tiên thì nó nằm giữa chừng
+// nội dung, và phép so "bài viết không đổi" của script vá sẽ báo nhầm là bài bị sửa.
+test('slide-parts: bài nhúng nguyên một trang HTML khác thì nút vẫn vào </body> cuối cùng', () => {
+    const nested = oldDeck().replace('<h1>HAI</h1>',
+        '<h1>HAI</h1></div></div></body></html><html><body>x</body></html><div class="reveal"><div class="slides">');
+    const { html, added } = patchSlideHtml(nested);
+    assert.deepEqual(added, ['guard', 'shim', 'fullscreen']);
+
+    const bodies = [...html.matchAll(/<\/body>/gi)].map(m => m.index);
+    assert.equal(bodies.length, 3, 'fixture: trang của người dùng hai </body>, trang slide một </body>');
+    const btn = html.indexOf('class="heyshow-fullscreen"');
+    assert.ok(btn > bodies[bodies.length - 2], 'không được chèn vào giữa trang HTML người dùng dán vào');
+    assert.ok(btn < bodies[bodies.length - 1], 'nút phải đứng trước </body> cuối của trang slide');
 });
 
 test('slide-parts: bài đã có mảnh nào thì không chèn lại lần nữa', () => {
@@ -334,7 +363,7 @@ test('slide-parts: bài đã có mảnh nào thì không chèn lại lần nữa
     assert.equal(twice.html, once);
 
     const onlyShim = patchSlideHtml(oldDeck(`    <style>${SLIDE_HEAD_GUARD}</style>\n`));
-    assert.deepEqual(onlyShim.added, ['shim'], 'đã có guard thì chỉ thiếu shim');
+    assert.deepEqual(onlyShim.added, ['shim', 'fullscreen'], 'đã có guard thì chỉ thiếu shim và nút');
 });
 
 // Bài do buildFullHtml của bản 5.1.0 sinh ra, viết đúng khuôn năm thẻ asset — khuôn này
@@ -403,6 +432,43 @@ test('slide-parts: file lạ thì bỏ qua, không ghi bản vá nửa vời', (
     const noScript = patchSlideHtml('<html><head><title>x</title></head><body>bài viết thường</body></html>');
     assert.match(noScript.error, /<script>/);
     assert.ok(!noScript.html.includes(SHIM_MARKER));
+});
+
+// Script vá chạy thật trên đĩa, không chỉ test hàm. Bẫy đã gặp: mốc "hết phần bài viết"
+// lấy từ SHIM_MARKER, mà chuỗi đó nằm sâu TRONG thân shim -> bài vừa vá có "nội dung"
+// dài thêm một đoạn shim, script tự kết luận bài bị đổi và BỎ,_production là 93 bài
+// không bao giờ được vá mà chẳng ai báo lỗi.
+test('repair script: vá bài cũ trên đĩa rồi, nội dung giữ nguyên, chạy lần hai không ghi thêm', () => {
+    const dir = tmpDir('repair');
+    const pub = path.join(dir, 'tuser', 'published');
+    fs.mkdirSync(pub, { recursive: true });
+    const file = path.join(pub, 'baicu.html');
+    fs.writeFileSync(file, deck510(), 'utf-8');
+
+    const script = path.join(__dirname, '..', '..', 'scripts', 'repair-published-slides.cjs');
+    const run = (...extra) => execFileSync('node',
+        [script, `--data-dir=${dir}`, ...extra], { encoding: 'utf-8' });
+
+    assert.match(run('--apply'), /VÁ\s+tuser\/published\/baicu\.html — guard \+ shim \+ fullscreen/);
+    const patched = fs.readFileSync(file, 'utf-8');
+    assert.match(patched, /<section><h1>MOT<\/h1><\/section>\s*<section><h1>HAI<\/h1><\/section>/,
+        'hai slide phải còn y nguyên');
+    for (const mark of [GUARD_MARKER, SHIM_MARKER, FULLSCREEN_MARKER]) {
+        assert.ok(patched.includes(mark), `thiếu mảnh ${mark}`);
+    }
+
+    assert.match(run('--apply'), /Đã vá: 0 bài, đã đủ: 1 bài/, 'vá lần hai phải không ghi gì');
+    assert.equal(fs.readFileSync(file, 'utf-8'), patched);
+
+    // --bump-reveal cũng đi qua cùng phép so nội dung, thử luôn để mốc không vỡ khi đổi bản
+    assert.match(run('--bump-reveal', '--from=5.1.0', '--apply'),
+        /VÁ\s+tuser\/published\/baicu\.html — reveal 5\.1\.0->6\.0\.2/);
+    const bumped = fs.readFileSync(file, 'utf-8');
+    assert.ok(bumped.includes('reveal.js/6.0.2/reveal.js') && !bumped.includes('reveal.js/5.1.0/'),
+        'năm thẻ asset phải lên bản mới cùng lúc');
+    assert.match(bumped, /<section><h1>HAI<\/h1><\/section>/, 'bump không được chạm bài viết');
+
+    fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test('svgclean: SVG từ AI phải vào được bài mà không mang theo script', () => {

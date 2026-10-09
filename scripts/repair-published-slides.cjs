@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 //
-// Vá những bài slide đã publish TRƯỚC khi server chèn guard CSS + shim sessionStorage.
+// Vá những bài slide đã publish TRƯỚC khi server chèn guard CSS + shim sessionStorage
+// + nút toàn màn hình.
 //
 // Bài cũ là file tĩnh nằm trên đĩa nên không được hưởng gì từ template mới: chúng vẫn
 // bị lỗi vuốt trên điện thoại (Reveal chạm sessionStorage dưới CSP sandbox là chết) và
@@ -27,7 +28,7 @@ const path = require('path');
 const { atomicWrite } = require('../server/src/storage');
 const {
     REVEAL_VERSION, patchSlideHtml, bumpRevealVersion, revealAssetTags,
-    GUARD_MARKER, SHIM_MARKER
+    GUARD_MARKER, SHIM_MARKER, FULLSCREEN_MARKER
 } = require('../server/src/slide-parts');
 
 const argv = process.argv.slice(2);
@@ -61,17 +62,22 @@ function htmlFiles(dir) {
 }
 
 // Nội dung bài phải y hệt sau khi sửa, nên khoanh đúng phần giữa template mà so:
-// từ <div class="slides"> đến mảnh do buildFullHtml sinh ra tiếp theo (shim hoặc thẻ
-// <script> Reveal). Hai bên mốc đó là phần template, còn trong mốc là bài của người dùng.
+// từ <div class="slides"> đến mảnh do buildFullHtml sinh ra tiếp theo (shim, thẻ
+// <script> Reveal, hoặc nút toàn màn hình với những bài không có hai thứ đầu).
+// Hai bên mốc đó là phần template, còn trong mốc là bài của người dùng.
 const SLIDES_OPEN = '<div class="slides">';
 
+// shim phải tìm theo MỞ ĐẦU của nó chứ không phải SHIM_MARKER: chuỗi marker nằm sâu
+// trong thân shim, mốc vào đó biến thân shim thành "bài của người dùng" khiến bản sau
+// khi vá không còn bằng bản cũ, và script bỏ qua mọi bài.
 function contentOf(html) {
     const open = html.indexOf(SLIDES_OPEN);
     if (open < 0) return null;
     const tail = html.slice(open);
     const anchors = [
-        tail.indexOf(SHIM_MARKER),
-        tail.search(/<script[^>]+src=["'][^"']*reveal\.js\//i)
+        tail.search(/<script>\s*try\s*\{\s*window\.sessionStorage/),
+        tail.search(/<script[^>]+src=["'][^"']*reveal\.js\//i),
+        tail.indexOf('<button class="heyshow-fullscreen"')
     ].filter(i => i > 0);
     if (anchors.length === 0) return null;
     return tail.slice(SLIDES_OPEN.length, Math.min(...anchors));
@@ -97,7 +103,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 console.log(`Thư mục: ${dataDir}  [${APPLY ? 'GHI THẬT' : 'dry-run'}]`
-    + (BUMP ? `  Reveal ${FROM} -> ${TO}` : '  chỉ guard + shim'));
+    + (BUMP ? `  Reveal ${FROM} -> ${TO}` : '  chỉ guard + shim + nút toàn màn hình'));
 
 for (const file of htmlFiles(dataDir).sort()) {
     const rel = path.relative(dataDir, file);
@@ -165,8 +171,8 @@ if (APPLY && patched > 0) {
     for (const f of htmlFiles(dataDir)) {
         const rel = path.relative(dataDir, f);
         const text = fs.readFileSync(f, 'utf-8');
-        if (!text.includes(SHIM_MARKER) || !text.includes(GUARD_MARKER)) {
-            bad.push(`${rel} — thiếu guard/shim`);
+        if (!text.includes(SHIM_MARKER) || !text.includes(GUARD_MARKER) || !text.includes(FULLSCREEN_MARKER)) {
+            bad.push(`${rel} — thiếu guard/shim/nút toàn màn hình`);
             continue;
         }
         const v = (templateOf(text).match(/reveal\.js\/([\d.]+)\//) || [])[1] || 'không rõ';

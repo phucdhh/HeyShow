@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
 const { createJsonStore, atomicWrite } = require('./storage');
-const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM } = require('./slide-parts');
+const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS } = require('./slide-parts');
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
@@ -244,6 +244,9 @@ function normalizePresentationRec(rec) {
     rec.comments = Array.isArray(rec.comments) ? rec.comments : [];
     rec.views = Number.isFinite(rec.views) ? rec.views : 0;
     if (!rec.replyCounts || typeof rec.replyCounts !== 'object') rec.replyCounts = {};
+    if (!rec.shares || typeof rec.shares !== 'object') rec.shares = {};
+    rec.shares.count = Number.isFinite(rec.shares.count) ? rec.shares.count : 0;
+    if (!rec.shares.byChannel || typeof rec.shares.byChannel !== 'object') rec.shares.byChannel = {};
     return true;
 }
 
@@ -283,7 +286,8 @@ function getPres(social, key, createdAtFallback) {
             createdAt: createdAtFallback || Date.now(),
             views: 0,
             likes: [],
-            comments: []
+            comments: [],
+            shares: { count: 0, byChannel: {} }
         };
     }
     normalizePresentationRec(rec);
@@ -1491,6 +1495,8 @@ function buildFullHtml(fileName, rawHtml) {
         .heyshow-embed .slide-number { display: none !important; }
 ${SLIDE_HEAD_GUARD}
     </style>
+    <style>${SLIDE_FULLSCREEN_CSS}
+    </style>
 </head>
 <body>
     <div class="reveal">
@@ -1532,6 +1538,8 @@ ${SLIDE_HEAD_GUARD}
             });
         });
     </script>
+    ${SLIDE_FULLSCREEN_BUTTON}
+${SLIDE_FULLSCREEN_JS}
 </body>
 </html>`;
 }
@@ -2109,7 +2117,8 @@ app.get('/api/gallery', optionalAuth, (req, res) => {
                     views: rec.views,
                     likes: rec.likes.length,
                     likedByMe: me ? rec.likes.includes(me) : false,
-                    commentCount: visibleComments(rec).length
+                    commentCount: visibleComments(rec).length,
+                    shares: rec.shares.count
                 });
             }
         }
@@ -2171,7 +2180,8 @@ app.get('/api/profile/:user', optionalAuth, (req, res) => {
                 views: rec.views,
                 likes: rec.likes.length,
                 likedByMe: me ? rec.likes.includes(me) : false,
-                commentCount: visibleComments(rec).length
+                commentCount: visibleComments(rec).length,
+                shares: rec.shares.count
             });
         }
 
@@ -2233,6 +2243,8 @@ app.get('/api/p/:user/:file', optionalAuth, (req, res) => {
             views: pendingViewDelta(key) + rec.views,
             likes: rec.likes.length,
             likedByMe: me ? rec.likes.includes(me) : false,
+            shares: rec.shares.count,
+            sharesByChannel: rec.shares.byChannel,
             // Chủ bài và quản trị được gỡ bình luận rác trên bài của mình
             canModerate,
             threads: buildCommentTree(rec, currentDB),
@@ -2260,6 +2272,29 @@ app.post('/api/p/:user/:file/like', authenticateToken, limitWrite, (req, res) =>
             rec.likeTimes[me] = Date.now();
         }
         return { likes: rec.likes.length, likedByMe: index < 0 };
+    });
+
+    res.json({ success: true, ...result });
+});
+
+// Ghi một lượt chia sẻ từ hộp thoại "Share to" của gallery. Khách cũng bấm được
+// (giống lượt xem), riêng kênh mới thì trả 400 để client hiện lỗi thay vì âm thầm bỏ số liệu.
+const SHARE_CHANNELS = ['ganjing', 'facebook', 'x', 'copy'];
+
+app.post('/api/p/:user/:file/share', limitWrite, (req, res) => {
+    const target = resolvePresentation(req, res);
+    if (!target) return;
+
+    const channel = typeof req.body?.channel === 'string' ? req.body.channel : '';
+    if (!SHARE_CHANNELS.includes(channel)) {
+        return res.status(400).json({ success: false, error: 'Kênh chia sẻ không hợp lệ' });
+    }
+
+    const result = mutateSocial(social => {
+        const rec = getPres(social, presKey(target.loginId, target.fileName), fileMtime(target.pubPath));
+        rec.shares.count += 1;
+        rec.shares.byChannel[channel] = (rec.shares.byChannel[channel] || 0) + 1;
+        return { shares: rec.shares.count, byChannel: rec.shares.byChannel };
     });
 
     res.json({ success: true, ...result });

@@ -62,10 +62,70 @@ const SLIDE_STORAGE_SHIM = `
         }
     </script>`;
 
+// Hai mảnh CSS + HTML + JS của nút toàn màn hình. Bài cũ trên đĩa không có nên script
+// repair cũng phải chèn đúng ba mảnh này.
+const SLIDE_FULLSCREEN_CSS = `
+        /* Nút toàn màn hình: bài mở ở tab vẫn còn thanh địa chỉ, người xem tưởng như
+           chưa được "Full Screen". Trình duyệt không cho bỏ thanh đó bằng HTML, chỉ có
+           Fullscreen API — mà API này buộc phải do người dùng bấm, nên cần một nút. */
+        .heyshow-fullscreen {
+            position: fixed !important;
+            top: 10px !important; right: 12px !important;
+            z-index: 9999 !important;
+            display: inline-flex !important; align-items: center; gap: 6px;
+            margin: 0; padding: 6px 12px;
+            background: rgba(17, 24, 39, .55); color: #fff;
+            border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px;
+            font: 12px/1.4 system-ui, -apple-system, sans-serif;
+            cursor: pointer; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+        }
+        .heyshow-fullscreen:hover { background: rgba(17, 24, 39, .8); }
+        /* thumbnail của gallery là iframe ?embed=1 — nút này chỉ tổ che mất góc ảnh */
+        .heyshow-embed .heyshow-fullscreen { display: none !important; }
+        @media print { .heyshow-fullscreen { display: none !important; } }`;
+
+const SLIDE_FULLSCREEN_BUTTON = `<button class="heyshow-fullscreen" type="button" title="Toàn màn hình (phím F)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path></svg><span>Toàn màn hình</span></button>`;
+
+// Reveal đã có sẵn phím "f" nhưng người xem trên điện thoại thì không có phím nào để bấm.
+// webkit* là cho Android WebView/iOS cũ; requestFullscreen trả về Promise bị từ chối khi
+// trang không có thao tác của người dùng, nên phải bắt lỗi ở đây.
+const SLIDE_FULLSCREEN_JS = `
+    <script>
+        (() => {
+            const btn = document.querySelector('.heyshow-fullscreen');
+            if (!btn) return;
+            const label = btn.querySelector('span');
+
+            const enter = () => (document.documentElement.requestFullscreen
+                || document.documentElement.webkitRequestFullscreen || (() => Promise.reject())).call(document.documentElement);
+            const leave = () => (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document);
+            const isFull = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+
+            btn.addEventListener('click', () => {
+                if (isFull()) leave();
+                else { try { const r = enter(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* trình duyệt không cho */ } }
+            });
+
+            const sync = () => {
+                // Điện thoại không có phím Esc để thoát, nên nút vẫn ở đó và đổi nhãn.
+                if (label) label.textContent = isFull() ? 'Thoát' : 'Toàn màn hình';
+            };
+            document.addEventListener('fullscreenchange', sync);
+            document.addEventListener('webkitfullscreenchange', sync);
+
+            // Gallery mở bài ở tab mới kèm ?fs=1: thử vào toàn màn hình ngay, trình duyệt
+            // từ chối (không có thao tác người dùng) thì nút vẫn còn đó để bấm.
+            if (new URLSearchParams(location.search).has('fs')) {
+                try { const r = enter(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* bỏ */ }
+            }
+        })();
+    </script>`;
+
 // Dấu nhận diện: thấy hai chuỗi này trong file là coi như mảnh đã có mặt, nhờ vậy
 // vá nhiều lần vẫn ra cùng một kết quả.
 const GUARD_MARKER = '.reveal:not(.overview) .slides>section:not(.present)';
 const SHIM_MARKER = "Object.defineProperty(window, 'sessionStorage'";
+const FULLSCREEN_MARKER = 'heyshow-fullscreen';
 
 function firstMatch(haystack, patterns) {
     for (const re of patterns) {
@@ -96,6 +156,20 @@ function patchSlideHtml(html) {
         if (at < 0) return { html, error: 'không có <script> nào để chèn shim trước' };
         out = out.slice(0, at) + SLIDE_STORAGE_SHIM.trimStart() + '\n    ' + out.slice(at);
         added.push('shim');
+    }
+
+    if (!out.includes(FULLSCREEN_MARKER)) {
+        const cssAt = out.search(/<\/head>/i);
+        // lastIndexOf chứ không search: bài của AI có thể dán nguyên một trang HTML khác
+        // vào slide, và khi đó </body> đầu tiên nằm giữa chừng nội dung bài.
+        const bodyAt = out.toLowerCase().lastIndexOf('</body>');
+        if (cssAt < 0 || bodyAt < 0) return { html, error: 'không tìm thấy </head> hoặc </body> để chèn nút toàn màn hình' };
+        out = out.slice(0, cssAt) + `    <style>${SLIDE_FULLSCREEN_CSS}\n    </style>\n` + out.slice(cssAt);
+        // Nút và script đi cặp với nhau: chèn sát trước </body> cuối cùng để button chắc chắn
+        // đã có trong DOM lúc script chạy, bất kể bài của người dùng đóng thẻ div kiểu gì.
+        const at = out.toLowerCase().lastIndexOf('</body>');
+        out = out.slice(0, at) + `    ${SLIDE_FULLSCREEN_BUTTON}\n${SLIDE_FULLSCREEN_JS}\n    ` + out.slice(at);
+        added.push('fullscreen');
     }
 
     return { html: out, added };
@@ -136,5 +210,6 @@ function bumpRevealVersion(html, { from, to }) {
 module.exports = {
     REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS,
     SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER,
+    SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS, FULLSCREEN_MARKER,
     patchSlideHtml, revealAssetTags, bumpRevealVersion
 };

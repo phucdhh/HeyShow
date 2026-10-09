@@ -27,6 +27,13 @@ const statLikes = document.getElementById('stat-likes');
 const statComments = document.getElementById('stat-comments');
 const btnLike = document.getElementById('btn-like');
 const viewerOpenLink = document.getElementById('viewer-open-link');
+const statShares = document.getElementById('stat-shares');
+const btnShare = document.getElementById('btn-share');
+const shareOverlay = document.getElementById('share-dialog-overlay');
+const btnCloseShare = document.getElementById('btn-close-share');
+const shareChannels = document.getElementById('share-channels');
+const shareLinkInput = document.getElementById('share-link-input');
+const btnCopyLink = document.getElementById('btn-copy-link');
 const commentList = document.getElementById('comment-list');
 const commentEmpty = document.createElement('div');
 const composer = document.getElementById('comment-composer');
@@ -185,10 +192,16 @@ function buildCard(item) {
     const comments = document.createElement('span');
     comments.textContent = `💬 ${item.commentCount}`;
     comments.title = 'Bình luận';
+    const shares = document.createElement('span');
+    shares.title = 'Lượt chia sẻ';
+    // Cùng một biểu tượng với nút Share trong viewer — ký tự "↗" trông như mũi tên đi ra
+    // chứ không phải chia sẻ, và hai chỗ cạnh nhau mà hai hình khác nhau rất chướng.
+    shares.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line></svg>`;
+    shares.append(` ${item.shares || 0}`);
     const date = document.createElement('span');
     date.className = 'card-date';
     date.textContent = fmtDate(item.createdAt);
-    stats.append(views, likes, comments, date);
+    stats.append(views, likes, comments, shares, date);
 
     body.append(title, meta, stats);
     card.append(thumb, body);
@@ -506,9 +519,11 @@ function applyPresentationMeta(p) {
     statViews.textContent = p.views;
     statLikes.textContent = p.likes;
     statComments.textContent = p.comments.length;
+    statShares.textContent = p.shares || 0;
     btnLike.classList.toggle('liked', p.likedByMe);
     btnLike.firstChild.textContent = p.likedByMe ? '♥ ' : '♡ ';
-    viewerOpenLink.href = p.url;
+    // ?fs=1: trang slide tự thử vào toàn màn hình ngay khi mở (xem slide-parts.js)
+    viewerOpenLink.href = `${p.url}?fs=1`;
     canModerate = Boolean(p.canModerate);
     renderThreads(p.threads || []);
 }
@@ -549,6 +564,7 @@ function closeViewer() {
     current = null;
     overlay.classList.add('hidden');
     viewerFrame.src = 'about:blank';
+    closeShareDialog();
 }
 
 // Khi iframe trình chiếu tải xong thì lượt xem đã được server cộng -> làm mới số liệu
@@ -569,6 +585,99 @@ btnLike.addEventListener('click', async () => {
         showToast(e.message || 'Không gửi được lượt thích', true);
     }
 });
+
+// ---------- Hộp thoại Share to ----------
+
+// URL tuyệt đối để dán vào intent của mạng xã hội (p.url chỉ là đường dẫn /show/...)
+function shareUrl() {
+    if (!current || !current.presentation) return '';
+    return new URL(current.presentation.url, location.origin).href;
+}
+
+// Mỗi mạng một khuôn link: Facebook và X có trang composer công khai nhận tham số
+// URL; Gan Jing World không mở endpoint chia sẻ nào nên đưa người xem tới trang chủ
+// để họ tự dán link vào Post.
+function channelShareUrl(channel) {
+    const url = shareUrl();
+    const text = `${current.presentation.title} — HeyShow`;
+    if (channel === 'facebook') {
+        return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    }
+    if (channel === 'x') {
+        return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    }
+    return 'https://www.ganjingworld.com/';
+}
+
+function openShareDialog() {
+    if (!current || !current.presentation) return;
+    shareLinkInput.value = shareUrl();
+    shareOverlay.classList.remove('hidden');
+}
+
+function closeShareDialog() {
+    shareOverlay.classList.add('hidden');
+}
+
+function setShares(count) {
+    if (current) current.presentation.shares = count;
+    statShares.textContent = count;
+}
+
+async function recordShare(channel) {
+    if (!current) return;
+    try {
+        const { user, fileName } = current;
+        const data = await post(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/share`, { channel });
+        setShares(data.shares);
+    } catch (e) { /* không chặn người xem chỉ vì thống kê lỗi */ }
+}
+
+btnShare.addEventListener('click', openShareDialog);
+btnCloseShare.addEventListener('click', closeShareDialog);
+shareOverlay.addEventListener('click', e => { if (e.target === shareOverlay) closeShareDialog(); });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !shareOverlay.classList.contains('hidden')) closeShareDialog();
+});
+
+shareChannels.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.share-channel');
+    if (!btn || !current || !current.presentation) return;
+
+    const channel = btn.dataset.channel;
+    // Ghi lượt trước khi mở cửa sổ: nếu trình duyệt điều hướng chính trang này
+    // thay vì bật popup thì request đã nằm trên đường dây, không bị mất số liệu.
+    await recordShare(channel);
+    // of_width/height: hai mạng kia mở composer dạng cửa sổ nhỏ. Không kèm noopener vì
+    // window.open trả null khi có cờ đó, và null là dấu hiệu duy nhất để phát hiện popup bị chặn.
+    const popup = window.open(channelShareUrl(channel), `heyshow-share-${channel}`, 'width=640,height=560');
+    // Gan Jing World không có composer URL nên chỉ mở trang web, popup bị chặn vẫn tính lượt chia sẻ
+    if (!popup && channel !== 'ganjing') {
+        showToast('Trình duyệt đã chặn cửa sổ bật lên, hãy cho phép popup rồi thử lại', true);
+        return;
+    }
+    showToast('Đã mở cửa sổ chia sẻ');
+});
+
+// clipboard API cần HTTPS; fallback chọn text rồi copy bằng execCommand
+async function copyShareLink() {
+    const url = shareLinkInput.value;
+    if (!url) return;
+    try {
+        await navigator.clipboard.writeText(url);
+    } catch (e) {
+        shareLinkInput.removeAttribute('readonly');
+        shareLinkInput.select();
+        shareLinkInput.setSelectionRange(0, url.length); // iOS cần chọn rõ-range
+        const ok = document.execCommand('copy');
+        shareLinkInput.setAttribute('readonly', '');
+        window.getSelection().removeAllRanges();
+        if (!ok) return showToast('Không sao chép được, hãy bôi đen link rồi tự copy', true);
+    }
+    await recordShare('copy');
+    showToast('Đã sao chép link');
+}
+btnCopyLink.addEventListener('click', copyShareLink);
 
 btnSendComment.addEventListener('click', sendComment);
 commentInput.addEventListener('keydown', (e) => {

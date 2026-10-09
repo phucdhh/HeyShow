@@ -155,6 +155,16 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
     const revealTag = slideHtml.match(/<script src="[^"]*\/reveal\.js\/[\d.]+\/reveal\.js"/);
     assert.ok(revealTag, 'file publish phải nạp Reveal từ CDN');
     assert.ok(slideHtml.indexOf(SHIM) < revealTag.index, 'shim phải chạy trước script Reveal.js');
+
+    // Bài mở ở tab vẫn còn thanh địa chỉ nên người xem không thấy hết chiều cao slide:
+    // bản publish phải tự kèm nút vào Fullscreen API, và nút phải biến mất khi bài được
+    // nhúng làm thumbnail (gallery) hay khi in ra PDF.
+    const BTN = '<button class="heyshow-fullscreen"';
+    assert.ok(slideHtml.includes(BTN), 'file publish phải có nút toàn màn hình');
+    assert.ok(slideHtml.includes('.heyshow-embed .heyshow-fullscreen'),
+        'thumbnail ở gallery không được lộ nút');
+    assert.ok(slideHtml.indexOf(BTN) < slideHtml.lastIndexOf('</body>'), 'nút phải ở trong body');
+    assert.ok(slideHtml.includes("has('fs')"), '?fs=1 phải được xử lý ngay khi trang mở');
     assert.ok(!/allow-same-origin/.test(slide.headers.get('content-security-policy')),
         'không được gỡ origin mờ để đổi lấy việc sửa lỗi');
 
@@ -576,6 +586,33 @@ test('like toggle hai chiều', async () => {
     assert.equal(on.json.likedByMe, true);
     const off = await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/like', { token: srv.users.user.login });
     assert.equal(off.json.likedByMe, false);
+});
+
+// Ghi lượt chia sẻ từ hộp thoại "Share to": đếm tổng + theo kênh, khách vẫn ghi được
+test('share: ghi đủ mọi kênh, khách cũng tính được', async () => {
+    const channels = ['ganjing', 'facebook', 'x', 'copy'];
+    const before = (await srv.api('GET', '/api/p/tmaster/hist.html')).json.presentation;
+    const base = before.shares || 0;
+    const baseByChannel = before.sharesByChannel || {};
+
+    for (const [i, channel] of channels.entries()) {
+        const res = await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/share', { body: { channel } });
+        assert.equal(res.status, 200, `kênh ${channel} phải nhận`);
+        assert.equal(res.json.shares, base + i + 1, `${channel} phải tăng tổng lên 1`);
+        assert.equal(res.json.byChannel[channel], (baseByChannel[channel] || 0) + 1, `${channel} phải tăng 1 lượt`);
+    }
+
+    const bad = await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/share', { body: { channel: 'zalo' } });
+    assert.equal(bad.status, 400, 'kênh lạ phải bị chặn để client thấy lỗi');
+    const missing = await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/share', { body: {} });
+    assert.equal(missing.status, 400);
+
+    const detail = await srv.api('GET', '/api/p/tmaster/hist.html');
+    assert.equal(detail.json.presentation.shares, base + channels.length);
+
+    const gal = await srv.api('GET', '/api/gallery');
+    const item = gal.json.items.find(p => p.fileName === 'hist.html' && p.user === 'tmaster');
+    assert.equal(item.shares, base + channels.length, 'gallery cũng phải trả số lượt chia sẻ');
 });
 
 test('gallery và profile công khai dùng link /show/', async () => {
