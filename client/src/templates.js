@@ -8,7 +8,7 @@ import { previewHtml } from './reveal-preview.js';
 const GROUPS = [
     {
         id: 'giao-an', kind: 'deck', label: 'Giáo án lên lớp',
-        lead: 'Bộ slide đứng lớp theo đúng cấu trúc dự giờ: hoạt động khởi động → hình thành kiến thức → luyện tập → vận dụng → củng cố, có mục tiêu và tình huống mở đầu. Bảy môn: Toán, Ngữ văn, Vật lí, Hoá học, Sinh học, Lịch sử, Địa lí — mỗi mẫu giữ khung 5 bước và thêm phần đặc thù của môn (thí nghiệm, hoá chất và an toàn, kính hiển vi, nguồn sử liệu, Atlat).'
+        lead: 'Bộ slide hỗ trợ dạy học: hoạt động khởi động → hình thành kiến thức → luyện tập → vận dụng → củng cố, có mục tiêu và tình huống mở đầu. Bảy môn: Toán, Ngữ văn, Vật lí, Hoá học, Sinh học, Lịch sử, Địa lí — mỗi mẫu giữ khung 5 bước và thêm phần đặc thù của môn (thí nghiệm, hoá chất và an toàn, kính hiển vi, nguồn sử liệu, Atlat).'
     },
     {
         id: 'chuyen-de', kind: 'deck', label: 'Chuyên đề & bồi dưỡng',
@@ -16,7 +16,7 @@ const GROUPS = [
     },
     {
         id: 'quy-trinh', kind: 'deck', label: 'Hướng dẫn & quy trình',
-        lead: 'Dạy người khác làm một việc: chuẩn bị → từng bước thực hiện → lỗi thường gặp → mẹo. Đổi tên phần mềm/quy trình là dùng được ngay.'
+        lead: 'Hướng dẫn người khác làm một việc: chuẩn bị → từng bước thực hiện → lỗi thường gặp → mẹo. Đổi tên phần mềm/quy trình là dùng được ngay.'
     },
     {
         id: 'hoat-dong', kind: 'deck', label: 'Hoạt động & game',
