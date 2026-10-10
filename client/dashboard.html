@@ -39,6 +39,14 @@
       .nav-links a { color: var(--muted); font-size: 0.92rem; white-space: nowrap; }
       .nav-links a:hover { color: var(--text-color); }
       .me { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+      /* 390px: logo + 4 link + khối avatar (đo 504px) nằm bắt trên một hàng nên trang
+         tràn ngang 284px. Dải link xuống dòng; link vẫn bấm được, thu chữ thì khó bấm. */
+      @media (max-width: 620px) {
+        header { flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; }
+        .nav-links { flex-wrap: wrap; gap: 10px 14px; justify-content: flex-end; flex: 1; min-width: 0; }
+        .tabs { flex-wrap: wrap; row-gap: 0; }
+      }
       .me img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); border: 2px solid var(--border-color); }
       .me .role {
         font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
