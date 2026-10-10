@@ -85,21 +85,33 @@
         gap: 20px;
       }
 
-      #gallery-pager {
+      /* Dòng trạng thái của cuộn vô hạn: chỗ duy nhất báo "đang tải"/"hết bài".
+         Không được dùng .hidden cho phần tử này — IntersectionObserver không bao giờ
+         cắt một phần tử display:none, nên sentinel phải luôn nằm trong dòng chảy. */
+      #gallery-feed { min-height: 4px; }
+      #gallery-feed:not(:empty) {
         display: flex; justify-content: center; align-items: center;
-        gap: 6px; flex-wrap: wrap;
-        margin: 28px 0 8px;
+        gap: 8px; flex-wrap: wrap;
+        margin: 24px 0 8px;
+        color: var(--muted); font-size: 0.9rem; text-align: center;
       }
-      #gallery-pager button {
-        min-width: 36px; height: 36px; padding: 0 10px;
+      #gallery-feed .feed-spinner {
+        width: 14px; height: 14px; border-radius: 50%;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--accent-color);
+        animation: feed-spin 0.8s linear infinite;
+      }
+      @keyframes feed-spin { to { transform: rotate(360deg); } }
+      #gallery-feed button {
+        min-width: 36px; height: 36px; padding: 0 14px;
         background: var(--bg-panel); color: var(--text-color);
         border: 1px solid var(--border-color); border-radius: 8px;
         font: inherit; font-size: 0.9rem; cursor: pointer;
       }
-      #gallery-pager button:hover:not(:disabled):not(.active) { border-color: var(--accent-color); color: var(--accent-color); }
-      #gallery-pager button.active { background: var(--accent-color); border-color: var(--accent-color); color: var(--ink); font-weight: 600; }
-      #gallery-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
-      #gallery-pager .pager-ellipsis { color: var(--muted); padding: 0 2px; }
+      #gallery-feed button:hover { border-color: var(--accent-color); color: var(--accent-color); }
+      @media (prefers-reduced-motion: reduce) {
+        #gallery-feed .feed-spinner { animation-duration: 2s; }
+      }
 
       .card {
         background: var(--bg-panel);
@@ -213,8 +225,6 @@
       #btn-like:hover,
       #btn-share:hover { background: var(--bg-deep); }
       #btn-like.liked { background: var(--accent-color); color: var(--ink); border-color: var(--accent-color); font-weight: 600; }
-      #viewer-open-link { margin-left: auto; color: var(--accent-strong); font-size: 0.8rem; text-decoration: none; }
-      #viewer-open-link:hover { text-decoration: underline; }
 
       /* ---------- Hộp thoại Share to ---------- */
       #share-dialog-overlay {
@@ -362,6 +372,15 @@
         #viewer-left { flex: none; height: 45vh; }
         #viewer-side { width: 100%; flex: 1; }
       }
+
+      /* 390px: logo + dải link (Design, Templates, Help, Đăng nhập) không còn nằm vừa một
+         hàng 56px, trước đây trang tràn ngang 36px. Cho xuống dòng và bỏ chiều cao cố định
+         của header — --header-height chỉ dùng đúng một chỗ ở trên nên bỏ được. Ẩn link thì
+         mất điều hướng, thu chữ thì khó bấm trên màn hình dọc. */
+      @media (max-width: 620px) {
+        header { height: auto; flex-wrap: wrap; gap: 2px 12px; padding: 8px 14px; }
+        .header-right { flex-wrap: wrap; gap: 6px 14px; }
+      }
     </style>
   </head>
   <body>
@@ -384,13 +403,18 @@
       <div id="gallery-empty" class="hidden">Chưa có bài trình chiếu nào được xuất bản.</div>
       <div id="search-empty" class="hidden"></div>
       <div id="gallery-grid"></div>
-      <nav id="gallery-pager" class="hidden" aria-label="Phân trang"></nav>
+      <!-- Sentinel cho cuộn vô hạn: lưới dài dần thay vì bấm sang trang -->
+      <div id="gallery-feed" role="status" aria-live="polite"></div>
     </main>
 
     <!-- Viewer 2 panel: trái trình chiếu, phải thông tin + bình luận -->
     <div id="viewer-overlay" class="hidden">
       <div id="viewer-left">
-        <iframe id="viewer-frame" title="Bài trình chiếu"></iframe>
+        <!-- allow="fullscreen" là bắt buộc: trang slide chạy trong CSP sandbox nên origin của
+             nó là "null" (tính như khác gốc), mà iframe khác gốc thì phải được cấp quyền này
+             qua thuộc tính allow — không có là requestFullscreen của nút trong bài bị từ chối
+             im lặng, bấm không ăn gì. -->
+        <iframe id="viewer-frame" title="Bài trình chiếu" allow="fullscreen"></iframe>
       </div>
       <aside id="viewer-side">
         <div id="viewer-side-head">
@@ -413,7 +437,6 @@
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line></svg>
             <b id="stat-shares">0</b>
           </button>
-          <a id="viewer-open-link" href="#" target="_blank" rel="noopener">Full Screen</a>
         </div>
 
         <div id="comment-list"></div>

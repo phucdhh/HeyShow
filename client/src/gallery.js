@@ -7,7 +7,7 @@ const emptyEl = document.getElementById('gallery-empty');
 const searchInput = document.getElementById('search-input');
 const searchClear = document.getElementById('search-clear');
 const searchEmpty = document.getElementById('search-empty');
-const pager = document.getElementById('gallery-pager');
+const feedEl = document.getElementById('gallery-feed');
 const toastEl = document.getElementById('toast');
 
 const meLink = document.getElementById('me-link');
@@ -26,7 +26,6 @@ const statViews = document.getElementById('stat-views');
 const statLikes = document.getElementById('stat-likes');
 const statComments = document.getElementById('stat-comments');
 const btnLike = document.getElementById('btn-like');
-const viewerOpenLink = document.getElementById('viewer-open-link');
 const statShares = document.getElementById('stat-shares');
 const btnShare = document.getElementById('btn-share');
 const shareOverlay = document.getElementById('share-dialog-overlay');
@@ -42,9 +41,16 @@ const commentInput = document.getElementById('comment-input');
 const btnSendComment = document.getElementById('btn-send-comment');
 const loginHint = document.getElementById('comment-login-hint');
 
-let page = 1;
+let page = 0; // trang đã nạp xong, 0 là lưới còn trống
 let totalPages = 1;
+let total = 0;
 let query = '';
+let feedLoading = false;
+let feedFailed = false;
+// Mỗi lần tìm kiếm tăng lên: kết quả của request cũ đang chờ phải bị bỏ, nếu không
+// bài của từ khóa cũ sẽ nối vào lưới của từ khóa mới.
+let feedGeneration = 0;
+const seenKeys = new Set(); // bài mới publish chen giữa hai trang có thể lặp lại ở trang sau
 let current = null; // bài đang mở trong viewer
 let canModerate = false; // chủ bài hoặc admin: được gỡ bình luận của người khác
 
@@ -115,14 +121,16 @@ function fmtDateTime(ts) {
 
 // ---------- Lưới cards ----------
 
-function scaleAllThumbs() {
-    for (const card of grid.querySelectorAll('.card')) {
-        const box = card.querySelector('.thumb');
-        const frame = card.querySelector('iframe');
-        if (box && frame && box.clientWidth) {
-            frame.style.transform = `scale(${box.clientWidth / THUMB_W})`;
-        }
+function scaleThumb(card) {
+    const box = card.querySelector('.thumb');
+    const frame = card.querySelector('iframe');
+    if (box && frame && box.clientWidth) {
+        frame.style.transform = `scale(${box.clientWidth / THUMB_W})`;
     }
+}
+
+function scaleAllThumbs() {
+    for (const card of grid.querySelectorAll('.card')) scaleThumb(card);
 }
 
 // Thumbnail là iframe thu nhỏ của chính slide đầu, chỉ tải khi cuộn tới
@@ -213,86 +221,128 @@ function buildCard(item) {
     return card;
 }
 
-async function loadGallery(targetPage = 1, q = '') {
-    const params = new URLSearchParams({ page: String(targetPage) });
-    if (q) params.set('q', q);
-    try {
-        const data = await get(`/api/gallery?${params}`);
-
-        page = data.page;
-        totalPages = data.totalPages;
-        query = q;
-
-        grid.innerHTML = '';
-        for (const item of data.items) grid.appendChild(buildCard(item));
-        scaleAllThumbs();
-        renderPager();
-
-        if (data.total === 0 && q) {
-            searchEmpty.textContent = `Không tìm thấy bài nào khớp với “${q}”.`;
-            searchEmpty.classList.remove('hidden');
-        } else {
-            searchEmpty.classList.add('hidden');
-        }
-        emptyEl.classList.toggle('hidden', !(data.total === 0 && !q));
-    } catch (e) {
-        emptyEl.textContent = 'Không tải được thư viện. Vui lòng thử lại sau.';
-        emptyEl.classList.remove('hidden');
+// Nối một trang cards vào lưới. Bỏ bài đã hiện: giữa hai lần gọi API, bài vừa publish
+// hoặc vừa sửa trôi lên đầu danh sách nên trang sau có thể lặp lại trang trước.
+function appendItems(items) {
+    const added = [];
+    for (const item of items) {
+        if (seenKeys.has(item.key)) continue;
+        seenKeys.add(item.key);
+        const card = buildCard(item);
+        grid.appendChild(card);
+        added.push(card);
     }
+    // Thụt lề card mới vào đúng cỡ cột đang hiển thị
+    for (const card of added) scaleThumb(card);
 }
 
-// Dãy số trang hiển thị: luôn giữ hai đầu và các trang kề trang hiện tại
-function pagerWindow(currentPage, total) {
-    const out = [];
-    for (let p = 1; p <= total; p++) {
-        if (p === 1 || p === total || Math.abs(p - currentPage) <= 1) out.push(p);
-        else if (out[out.length - 1] !== '…') out.push('…');
-    }
-    return out;
-}
-
-function renderPager() {
-    pager.innerHTML = '';
-    if (totalPages <= 1) {
-        pager.classList.add('hidden');
+function renderEmptyState() {
+    if (total === 0 && query) {
+        searchEmpty.textContent = `Không tìm thấy bài nào khớp với “${query}”.`;
+        searchEmpty.classList.remove('hidden');
+        emptyEl.classList.add('hidden');
         return;
     }
-    pager.classList.remove('hidden');
+    searchEmpty.classList.add('hidden');
+    emptyEl.classList.toggle('hidden', total !== 0);
+}
 
-    const mkButton = (label, target, { disabled = false, active = false, title = '' } = {}) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = label;
-        if (title) b.title = title;
-        b.disabled = disabled;
-        if (active) {
-            b.classList.add('active');
-            b.setAttribute('aria-current', 'page');
-        } else if (!disabled) {
-            b.addEventListener('click', () => goToPage(target));
+// Dòng dưới lưới: đang nạp trang kế, hết bài, hay hỏng giữa chừng
+function renderFeed() {
+    feedEl.innerHTML = '';
+    if (total === 0) return; // lưới trống đã có #gallery-empty / #search-empty nói
+    if (feedLoading) {
+        const spinner = document.createElement('span');
+        spinner.className = 'feed-spinner';
+        spinner.setAttribute('aria-hidden', 'true');
+        feedEl.append(spinner, 'Đang tải thêm…');
+        return;
+    }
+    if (feedFailed) {
+        const note = document.createElement('span');
+        note.textContent = 'Không tải được các bài tiếp theo.';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = 'Thử lại';
+        retry.addEventListener('click', loadFeed);
+        feedEl.append(note, retry);
+        return;
+    }
+    if (page >= totalPages && totalPages > 1) {
+        feedEl.append(`Bạn đã xem hết ${total} bài.`);
+    }
+}
+
+// Nạp trang kế tiếp.
+async function loadFeed() {
+    if (feedLoading || page >= totalPages) return;
+    feedFailed = false;
+    feedLoading = true;
+    const gen = feedGeneration;
+    const params = new URLSearchParams({ page: String(page + 1) });
+    if (query) params.set('q', query);
+    try {
+        const data = await get(`/api/gallery?${params}`);
+        if (gen === feedGeneration) {
+            page = data.page;
+            totalPages = data.totalPages;
+            total = data.total;
+            appendItems(data.items);
+            renderEmptyState();
         }
-        return b;
-    };
-
-    pager.append(mkButton('‹', page - 1, { disabled: page <= 1, title: 'Trang trước' }));
-    for (const p of pagerWindow(page, totalPages)) {
-        if (p === '…') {
-            const ell = document.createElement('span');
-            ell.className = 'pager-ellipsis';
-            ell.textContent = '…';
-            pager.append(ell);
-        } else {
-            pager.append(mkButton(String(p), p, { active: p === page }));
+    } catch (e) {
+        if (gen === feedGeneration) {
+            feedFailed = true;
+            // Trang đầu hỏng nên lưới còn trống: nói rõ là lỗi mạng, đừng để hiểu nhầm là kho bài rỗng
+            if (page === 0) {
+                emptyEl.textContent = 'Không tải được thư viện. Vui lòng thử lại sau.';
+                emptyEl.classList.remove('hidden');
+            }
         }
     }
-    pager.append(mkButton('›', page + 1, { disabled: page >= totalPages, title: 'Trang sau' }));
+    // Một lần tìm kiếm mới đã chiếm quyền: bỏ kết quả cũ, đừng đụng cờ của vòng mới
+    if (gen !== feedGeneration) return;
+    feedLoading = false;
+    renderFeed();
+    // Cards mới có thể vẫn chưa lấp kín màn hình, mà observer chỉ báo khi trạng thái cắt
+    // nhau thay đổi — cho nó thấy lại sentinel để vòng nạp kế tiếp tự nổ.
+    feedObserver.unobserve(feedEl);
+    feedObserver.observe(feedEl);
 }
 
-function goToPage(target) {
-    if (target === page || target < 1 || target > totalPages) return;
-    loadGallery(target, query);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+// Xóa lưới và bắt đầu lại từ trang 1 (đầu phiên, hoặc khi đổi từ khóa tìm kiếm)
+function resetFeed(q) {
+    feedGeneration++;
+    query = q;
+    page = 0;
+    totalPages = 1;
+    total = 0;
+    feedLoading = false; // request còn đang chờ sẽ bị bỏ nhờ gen đổi
+    feedFailed = false;
+    seenKeys.clear();
+    grid.innerHTML = '';
+    emptyEl.textContent = 'Chưa có bài trình chiếu nào được xuất bản.';
+    emptyEl.classList.add('hidden');
+    searchEmpty.classList.add('hidden');
+    feedEl.innerHTML = '';
 }
+
+function startFeed(q) {
+    const scrolled = window.scrollY > 0;
+    resetFeed(q);
+    loadFeed();
+    if (scrolled) window.scrollTo({ top: 0 });
+}
+
+// Cuộn tới gần cuối lưới là nạp trang kế; 700px để thumbnail kịp tải, người dùng không
+// thấy khoảng trống. Trang lỗi thì đừng tự thử lại — sentinel vẫn nằm trong tầm nhìn nên
+// observer sẽ gọi dồn dập vào một API đang có sự cố; người dùng phải bấm "Thử lại".
+// Sentinel cũng không được ẩn bằng .hidden: observer không bao giờ cắt phần tử display:none.
+const feedObserver = new IntersectionObserver((entries) => {
+    if (feedFailed) return;
+    if (entries.some(e => e.isIntersecting)) loadFeed();
+}, { rootMargin: '700px 0px' });
+feedObserver.observe(feedEl);
 
 // Debounce để không bắn request liên tục khi gõ
 let searchTimer = null;
@@ -300,13 +350,13 @@ searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim();
     searchClear.classList.toggle('hidden', !q);
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => loadGallery(1, q), 300);
+    searchTimer = setTimeout(() => startFeed(q), 300);
 });
 searchClear.addEventListener('click', () => {
     searchInput.value = '';
     searchClear.classList.add('hidden');
     clearTimeout(searchTimer);
-    loadGallery(1, '');
+    startFeed('');
     searchInput.focus();
 });
 
@@ -522,8 +572,6 @@ function applyPresentationMeta(p) {
     statShares.textContent = p.shares || 0;
     btnLike.classList.toggle('liked', p.likedByMe);
     btnLike.firstChild.textContent = p.likedByMe ? '♥ ' : '♡ ';
-    // ?fs=1: trang slide tự thử vào toàn màn hình ngay khi mở (xem slide-parts.js)
-    viewerOpenLink.href = `${p.url}?fs=1`;
     canModerate = Boolean(p.canModerate);
     renderThreads(p.threads || []);
 }
@@ -561,6 +609,7 @@ async function openViewer(user, fileName) {
 }
 
 function closeViewer() {
+    if (document.fullscreenElement === viewerFrame) document.exitFullscreen().catch(() => {});
     current = null;
     overlay.classList.add('hidden');
     viewerFrame.src = 'about:blank';
@@ -569,6 +618,32 @@ function closeViewer() {
 
 // Khi iframe trình chiếu tải xong thì lượt xem đã được server cộng -> làm mới số liệu
 viewerFrame.addEventListener('load', () => refreshPresentation());
+
+// Nút Full Screen nằm TRONG bài, tức là trong iframe. Trang bài chịu CSP sandbox nên
+// origin của nó là "null", và Chrome từ chối requestFullscreen do chính trang đó gọi —
+// đo rồi, kể cả khi iframe có allow="fullscreen". Phần tử duy nhất fullscreen được lúc
+// này là cái iframe, mà chỉ trang cha mới gọi được: bài gửi 'heyshow-fs' lên đây, gallery
+// tự bấm hộ.
+function tellSlideFrame(message) {
+    try { viewerFrame.contentWindow?.postMessage(message, '*'); } catch (e) { /* iframe đã đóng */ }
+}
+
+window.addEventListener('message', (e) => {
+    if (e.data !== 'heyshow-fs' || e.source !== viewerFrame.contentWindow) return;
+    if (document.fullscreenElement === viewerFrame) {
+        // Bấm lần thứ hai là thoát — trong iframe thì fullscreenchange không nổ nên nút
+        // không tự biết, phải để trang này xử lý.
+        document.exitFullscreen().catch(() => {});
+        return;
+    }
+    viewerFrame.requestFullscreen().catch(() => { tellSlideFrame('heyshow-fs-off'); });
+});
+
+// Tài liệu trong iframe không có fullscreenchange khi chính cái iframe fullscreen, nên
+// nhãn "Exit"/"Full Screen" của nút phải do trang này gửi xuống.
+document.addEventListener('fullscreenchange', () => {
+    tellSlideFrame(document.fullscreenElement === viewerFrame ? 'heyshow-fs-on' : 'heyshow-fs-off');
+});
 
 btnCloseViewer.addEventListener('click', () => { location.hash = ''; });
 
@@ -865,5 +940,5 @@ commentEmpty.id = 'comment-empty';
 commentEmpty.textContent = 'Chưa có bình luận nào. Hãy là người đầu tiên!';
 
 initMe();
-loadGallery();
+startFeed('');
 syncFromHash();

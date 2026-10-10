@@ -2078,8 +2078,12 @@ function resolvePresentation(req, res) {
     return { loginId: found.loginId, user: found.user, fileName, pubPath };
 }
 
-// Danh sách mọi bài đã publish để dựng lưới cards
-const GALLERY_PAGE_SIZE = 12;
+// Danh sách mọi bài đã publish để dựng lưới cards.
+// Gallery nối trang bằng cuộn vô hạn nên cỡ trang là số bài trả về MỖI LẦN gọi API.
+// Mỗi request đều phải đi hết thư mục user để đọc published/, vì vậy trang to vẫn ít tốn
+// hơn trang nhỏ: duyệt hết kho bài ít lần gọi hơn. Thumbnail là iframe chỉ tải khi card lọt
+// vào màn hình nên 24 card không đồng nghĩa với 24 lượt nạp slide.
+const GALLERY_PAGE_SIZE = 24;
 
 // Bỏ dấu + hạ chữ thường để tìm "dao ham" vẫn khớp "ĐẠO HÀM"
 function foldText(s) {
