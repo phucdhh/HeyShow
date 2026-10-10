@@ -58,21 +58,27 @@
       #gallery-empty { text-align: center; color: var(--muted); padding: 60px 0; }
       #search-empty { text-align: center; color: var(--muted); padding: 60px 0; }
 
-      #gallery-search { margin-bottom: 20px; position: relative; }
+      #gallery-search { margin-bottom: 20px; position: relative; max-width: 420px; }
       #search-input {
         width: 100%;
         background: var(--bg-panel);
         color: var(--text-color);
         border: 1px solid var(--border-color);
         border-radius: 10px;
-        padding: 12px 42px 12px 16px;
+        padding: 12px 70px 12px 16px;
         font: inherit; font-size: 0.95rem;
       }
       #search-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(245,158,11,0.2); }
       #search-input::placeholder { color: var(--muted); }
       #search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+      /* Kính lúp chỉ để nhận diện ô tìm kiếm — tìm đã chạy ngay khi gõ nên nó không cần bấm,
+         và pointer-events:none để cú click sát cạnh vẫn rơi vào input. */
+      #search-icon {
+        position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+        color: var(--muted); pointer-events: none; display: flex;
+      }
       #search-clear {
-        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        position: absolute; right: 38px; top: 50%; transform: translateY(-50%);
         background: transparent; border: none; cursor: pointer;
         color: var(--muted); font-size: 1.1rem; line-height: 1;
         width: 30px; height: 30px; border-radius: 50%;
@@ -397,7 +403,8 @@
 
     <main>
       <div id="gallery-search">
-        <input id="search-input" type="search" placeholder="Tìm bài trình chiếu theo tên hoặc tác giả..." autocomplete="off" spellcheck="false" />
+        <input id="search-input" type="search" placeholder="Tìm theo tên, tác giả…" autocomplete="off" spellcheck="false" />
+        <span id="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20.5" y1="20.5" x2="16" y2="16"></line></svg></span>
         <button id="search-clear" class="hidden" title="Xoá tìm kiếm" type="button">✖</button>
       </div>
       <div id="gallery-empty" class="hidden">Chưa có bài trình chiếu nào được xuất bản.</div>
