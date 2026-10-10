@@ -79,6 +79,19 @@ const FS_FULLSCREEN_HIDE_CSS = `
         html.heyshow-fs .heyshow-fullscreen { display: none !important; }`;
 const LEGACY_FS_CSS_TAIL = '        @media print { .heyshow-fullscreen { display: none !important; } }';
 
+// 96 bài trên đĩa đang mang khối CSS này vì sáng nay chúng bị vá bằng một bản template
+// trung gian (chưa kịp hoàn thiện) rồi mới vá tiếp bản_final. Khối cũ chỉ là tập con của
+// FS_FULLSCREEN_HIDE_CSS nên không sai, nhưng nó để lại lời bình sai sự thật ("html:fullscreen
+// khớp cả trường hợp trang cha fullscreen lấy iframe") và một quy tắc trùng lặp. Gõ bỏ nó.
+const LEGACY_FS_HIDE_CSS_V0 = `
+        /* Đang trình chiếu thì bỏ luôn nút: Chrome tự hiện dòng "press Esc to exit full
+           screen" ngay lúc vào, nên cái nút góc phải chỉ còn là vật che mất tiêu đề slide.
+           html:fullscreen khớp cả trường hợp trang cha fullscreen lấy cái iframe (bài mở
+           trong khung xem của gallery) — tài liệu trong iframe khi đó cũng fullscreen theo
+           nghĩa CSS. */
+        html:fullscreen .heyshow-fullscreen,
+        html:-webkit-full-screen .heyshow-fullscreen { display: none !important; }`;
+
 const SLIDE_FULLSCREEN_CSS = `
         /* Nút toàn màn hình: bài mở ở tab vẫn còn thanh địa chỉ, người xem tưởng như
            chưa được "Full Screen". Trình duyệt không cho bỏ thanh đó bằng HTML, chỉ có
@@ -274,6 +287,14 @@ function patchSlideHtml(html) {
         added.push('css');
     }
 
+    // ...rồi xóa khối cũ: bản vá trung gian sáng 2026-10-10 chèn quy tắc ẩn nút chưa có
+    // selector theo class, còn nằm lại dưới khối mới như một bản trùng lặp. Chỉ xóa khi
+    // khối mới đã có mặt, nếu không thì bài bị mất luôn tính năng ẩn nút.
+    if (out.includes(FS_FULLSCREEN_HIDE_CSS) && out.includes(LEGACY_FS_HIDE_CSS_V0)) {
+        out = out.split(LEGACY_FS_HIDE_CSS_V0).join('');
+        if (!added.includes('css')) added.push('css');
+    }
+
     // Handler trên bài đã vá: V0 (chưa nhờ trang cha) -> V1 (có postMessage, message listener
     // chỉ đổi nhãn) -> bản hiện tại (listener còn dán/nhả class ẩn nút). Hai phép thế chạy
     // nối tiếp nên bài còn sót ở V0 cũng về được bản mới nhất sau đúng một lần vá.
@@ -327,6 +348,6 @@ module.exports = {
     SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS, FULLSCREEN_MARKER,
     FS_LABEL, FS_LABEL_EXIT, LEGACY_FULLSCREEN_LABELS,
     LEGACY_FS_CLICK_HANDLER_V0, LEGACY_FS_CLICK_HANDLER_V1, FS_CLICK_HANDLER,
-    FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_CSS_TAIL,
+    FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_CSS_TAIL, LEGACY_FS_HIDE_CSS_V0,
     patchSlideHtml, revealAssetTags, bumpRevealVersion
 };

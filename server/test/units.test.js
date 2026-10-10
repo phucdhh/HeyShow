@@ -19,7 +19,7 @@ const {
     patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER,
     FULLSCREEN_MARKER, LEGACY_FULLSCREEN_LABELS, FS_CLICK_HANDLER,
     LEGACY_FS_CLICK_HANDLER_V0, LEGACY_FS_CLICK_HANDLER_V1,
-    FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_CSS_TAIL
+    FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_CSS_TAIL, LEGACY_FS_HIDE_CSS_V0
 } = require('../src/slide-parts');
 
 function tmpDir(prefix) {
@@ -370,6 +370,37 @@ test('slide-parts: bài thiếu quy tắc ẩn nút khi chiếu được nối t
     const again = patchSlideHtml(html);
     assert.deepEqual(again.added, [], 'nối CSS phải idempotent');
     assert.equal(again.html, html);
+});
+
+// Sáng 2026-10-10 có một bản template trung gian đã kịp vá xuống 96 bài: khối CSS ẩn nút
+// của nó (chưa có selector theo class, lời bình sai) nằm lại dưới khối mới thành hai quy tắc
+// trùng nhau. Bài trên đĩa production thật (admin/published/test.html) đang mang đúng hình
+// này, nên bước xóa phải chạy được trên file thật và không được ăn luôn khối mới.
+test('slide-parts: khối CSS ẩn nút bản trung gian bị xóa, chỉ khi khối mới đã có mặt', () => {
+    const current = patchSlideHtml(oldDeck()).html;
+    const doubled = current.replace(
+        FS_FULLSCREEN_HIDE_CSS, FS_FULLSCREEN_HIDE_CSS + LEGACY_FS_HIDE_CSS_V0
+    );
+    assert.ok(doubled.includes(LEGACY_FS_HIDE_CSS_V0), 'fixture phải có cả hai khối như đĩa thật');
+
+    const { html, added } = patchSlideHtml(doubled);
+    assert.deepEqual(added, ['css'], 'chỉ dọn CSS');
+    assert.ok(!html.includes(LEGACY_FS_HIDE_CSS_V0), 'khối cũ phải bị xóa');
+    assert.ok(html.includes(FS_FULLSCREEN_HIDE_CSS), 'khối mới phải còn nguyên');
+    assert.equal(html, current, 'dọn xong phải đúng bằng bản template hiện tại');
+
+    const again = patchSlideHtml(html);
+    assert.deepEqual(again.added, [], 'xóa CSS phải idempotent');
+
+    // Bài mới publish chưa từng mang khối trung gian thì không được đụng vào CSS của nó.
+    assert.deepEqual(patchSlideHtml(current).added, [], 'bản sạch thì phải bỏ qua');
+
+    // Bài chỉ có khối cũ (chưa từng được nối khối mới): nối trước, dọn sau, cuối cùng vẫn
+    // còn đúng một quy tắc ẩn nút — không bao giờ bị mất tính năng.
+    const onlyOld = current.replace(FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_HIDE_CSS_V0);
+    const fixed = patchSlideHtml(onlyOld);
+    assert.ok(!fixed.html.includes(LEGACY_FS_HIDE_CSS_V0));
+    assert.equal(fixed.html, current, 'khối cũ một mình cũng phải về đúng bản hiện tại');
 });
 
 // Đo bằng Chrome thật: trang bài chịu CSP sandbox (origin "null") gọi requestFullscreen thì
