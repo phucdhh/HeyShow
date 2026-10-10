@@ -64,6 +64,21 @@ const SLIDE_STORAGE_SHIM = `
 
 // Hai mảnh CSS + HTML + JS của nút toàn màn hình. Bài cũ trên đĩa không có nên script
 // repair cũng phải chèn đúng ba mảnh này.
+
+// Tách riêng quy tắc ẩn nút khi đang chiếu: 96 bài đã vá hôm nay kết thúc khối CSS ở dòng
+// @media print, nên muốn nâng cấp chúng thì phải có đúng chuỗi này để chèn tiếp vào sau.
+const FS_FULLSCREEN_HIDE_CSS = `
+        /* Đang trình chiếu thì bỏ luôn nút: Chrome tự hiện dòng "press Esc to exit full
+           screen" ngay lúc vào, nên cái nút góc phải chỉ còn là vật che mất tiêu đề slide.
+           Hai selector đầu cho bài mở ở tab riêng; class heyshow-fs là cho bài mở trong
+           khung xem của Gallery — đo bằng Chrome thì tài liệu trong iframe CSP sandbox
+           KHÔNG hề fullscreen (fullscreenElement vẫn null, html:fullscreen không khớp),
+           nên gallery phải báo xuống và bài tự ẩn nút theo class. */
+        html:fullscreen .heyshow-fullscreen,
+        html:-webkit-full-screen .heyshow-fullscreen,
+        html.heyshow-fs .heyshow-fullscreen { display: none !important; }`;
+const LEGACY_FS_CSS_TAIL = '        @media print { .heyshow-fullscreen { display: none !important; } }';
+
 const SLIDE_FULLSCREEN_CSS = `
         /* Nút toàn màn hình: bài mở ở tab vẫn còn thanh địa chỉ, người xem tưởng như
            chưa được "Full Screen". Trình duyệt không cho bỏ thanh đó bằng HTML, chỉ có
@@ -82,13 +97,74 @@ const SLIDE_FULLSCREEN_CSS = `
         .heyshow-fullscreen:hover { background: rgba(17, 24, 39, .8); }
         /* thumbnail của gallery là iframe ?embed=1 — nút này chỉ tổ che mất góc ảnh */
         .heyshow-embed .heyshow-fullscreen { display: none !important; }
-        @media print { .heyshow-fullscreen { display: none !important; } }`;
+${LEGACY_FS_CSS_TAIL}${FS_FULLSCREEN_HIDE_CSS}`;
 
-const SLIDE_FULLSCREEN_BUTTON = `<button class="heyshow-fullscreen" type="button" title="Toàn màn hình (phím F)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path></svg><span>Toàn màn hình</span></button>`;
+// Nhãn tiếng Anh cho khớp với chữ "Full Screen" mà người dùng biết từ PowerPoint/Canva.
+// 93 bài đã vá ngày 2026-10-10 đang mang nhãn tiếng Việt cũ, vì vậy patchSlideHtml có thêm
+// bước đổi nhãn (LEGACY_LABELS) — nếu không thì bài mới publish chữ Anh, bài cũ chữ Việt.
+const FS_LABEL = 'Full Screen';
+const FS_LABEL_EXIT = 'Exit';
+const FS_TITLE = 'Full Screen (F)';
+
+const SLIDE_FULLSCREEN_BUTTON = `<button class="heyshow-fullscreen" type="button" title="${FS_TITLE}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path></svg><span>${FS_LABEL}</span></button>`;
 
 // Reveal đã có sẵn phím "f" nhưng người xem trên điện thoại thì không có phím nào để bấm.
 // webkit* là cho Android WebView/iOS cũ; requestFullscreen trả về Promise bị từ chối khi
 // trang không có thao tác của người dùng, nên phải bắt lỗi ở đây.
+//
+// Nút phải nhờ tới trang cha khi bài nằm trong iframe: đo bằng Chrome cho thấy trang bài
+// chịu CSP sandbox (origin "null") thì requestFullscreen bị từ chối hẳn, kể cả khi iframe
+// có allow="fullscreen" — phần tử duy nhất fullscreen được lúc đó là cái iframe, mà chỉ
+// trang cha mới gọi được. Gallery nghe 'heyshow-fs' ở client/src/gallery.js. Ai nhúng bài
+// mà không nghe message thì sao? Thì hai dòng enter/leave bên dưới vẫn còn đó, cùng lắm là
+// bị từ chối im lặng như trước.
+const FS_CLICK_HANDLER = `            btn.addEventListener('click', () => {
+                // Trang cha fullscreen lấy cái iframe thì tài liệu trong này không hề
+                // fullscreen, nên bấm lần thứ hai phải nhờ gallery thoát; leave() ở đây chỉ
+                // có tác dụng khi chính trang này vào fullscreen (bài mở ở tab riêng).
+                if (window.top !== window.self) { try { parent.postMessage('heyshow-fs', '*'); } catch (err) { /* bị chặn thì thôi */ } }
+                if (isFull()) { try { const r = leave(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* bỏ */ } return; }
+                try { const r = enter(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* trình duyệt không cho */ }
+            });
+
+            // Nhãn "Exit" và class ẩn nút do trang cha gửi xuống khi bài mở trong khung xem
+            // của Gallery: ở đó tài liệu này không hề fullscreen (fullscreenElement vẫn null,
+            // html:fullscreen không khớp) nên fullscreenchange cũng không nổ.
+            window.addEventListener('message', (e) => {
+                if (e.data !== 'heyshow-fs-on' && e.data !== 'heyshow-fs-off') return;
+                const on = e.data === 'heyshow-fs-on';
+                document.documentElement.classList.toggle('heyshow-fs', on);
+                if (label) label.textContent = on ? '${FS_LABEL_EXIT}' : '${FS_LABEL}';
+            });`;
+
+// Nguyên văn handler mà bản vá chiều 2026-10-10 để lại trên 96 bài (có postMessage nhưng
+// message listener chỉ đổi nhãn). Bài đã publish là file tĩnh, muốn nâng cấp tiếp thì phải
+// giữ đúng chuỗi cũ này.
+const LEGACY_FS_CLICK_HANDLER_V1 = `            btn.addEventListener('click', () => {
+                // isFull() của tài liệu trong iframe cũng báo true khi trang cha fullscreen
+                // lấy cái iframe, nên phải báo cho cha TRƯỚC khi rẽ nhánh — không thì bấm
+                // lần thứ hai chỉ gọi leave(), cái đó bị từ chối, tức là không thoát được.
+                if (window.top !== window.self) { try { parent.postMessage('heyshow-fs', '*'); } catch (err) { /* bị chặn thì thôi */ } }
+                if (isFull()) { try { const r = leave(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* bỏ */ } return; }
+                try { const r = enter(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* trình duyệt không cho */ }
+            });
+
+            // Trang cha fullscreen lấy cái iframe: tài liệu trong này không hề có
+            // fullscreenchange (phần tử fullscreen nằm ở trang cha), nên nhãn "Exit"
+            // phải do trang cha gửi xuống.
+            window.addEventListener('message', (e) => {
+                if (e.data !== 'heyshow-fs-on' && e.data !== 'heyshow-fs-off') return;
+                if (label) label.textContent = e.data === 'heyshow-fs-on' ? '${FS_LABEL_EXIT}' : '${FS_LABEL}';
+            });`;
+
+// Nguyên văn handler của bản vá 2026-10-10 đợt đầu (chưa biết nhờ trang cha). V0 -> V1 ->
+// hiện tại chạy nối tiếp trong patchSlideHtml, nên bài nào còn sót ở V0 vẫn về được bản
+// mới nhất chỉ sau một lần vá.
+const LEGACY_FS_CLICK_HANDLER_V0 = `            btn.addEventListener('click', () => {
+                if (isFull()) leave();
+                else { try { const r = enter(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* trình duyệt không cho */ } }
+            });`;
+
 const SLIDE_FULLSCREEN_JS = `
     <script>
         (() => {
@@ -101,20 +177,20 @@ const SLIDE_FULLSCREEN_JS = `
             const leave = () => (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document);
             const isFull = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
 
-            btn.addEventListener('click', () => {
-                if (isFull()) leave();
-                else { try { const r = enter(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* trình duyệt không cho */ } }
-            });
+${FS_CLICK_HANDLER}
 
             const sync = () => {
-                // Điện thoại không có phím Esc để thoát, nên nút vẫn ở đó và đổi nhãn.
-                if (label) label.textContent = isFull() ? 'Thoát' : 'Toàn màn hình';
+                // Bài mở ở tab riêng thì html:fullscreen tự ẩn nút, còn trong Gallery thì
+                // class heyshow-fs làm việc đó — nhãn vẫn đổi để phòng khi bài bị nhúng vào
+                // một trang không có quy tắc CSS.
+                if (label) label.textContent = isFull() ? '${FS_LABEL_EXIT}' : '${FS_LABEL}';
             };
             document.addEventListener('fullscreenchange', sync);
             document.addEventListener('webkitfullscreenchange', sync);
 
-            // Gallery mở bài ở tab mới kèm ?fs=1: thử vào toàn màn hình ngay, trình duyệt
-            // từ chối (không có thao tác người dùng) thì nút vẫn còn đó để bấm.
+            // ?fs=1 cho link tự phát (thầy cô dán vào bài giảng, muốn mở ra là chiếu luôn).
+            // Trình duyệt có thể từ chối vì lúc đó chưa có thao tác của người dùng — khi đó
+            // vẫn còn nút trên màn hình để bấm.
             if (new URLSearchParams(location.search).has('fs')) {
                 try { const r = enter(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* bỏ */ }
             }
@@ -126,6 +202,15 @@ const SLIDE_FULLSCREEN_JS = `
 const GUARD_MARKER = '.reveal:not(.overview) .slides>section:not(.present)';
 const SHIM_MARKER = "Object.defineProperty(window, 'sessionStorage'";
 const FULLSCREEN_MARKER = 'heyshow-fullscreen';
+
+// Nguyên văn ba chuỗi nhãn tiếng Việt mà bản vá ngày 2026-10-10 để lại trên 93 bài.
+// Phải giữ ở đây chứ không xóa đi cùng lần đổi nhãn: bài trên đĩa là file tĩnh, chỉ
+// có đúng hai chuỗi này mới tìm thấy chúng mà đổi sang tiếng Anh.
+const LEGACY_FULLSCREEN_LABELS = [
+    ['title="Toàn màn hình (phím F)"', `title="${FS_TITLE}"`],
+    ['<span>Toàn màn hình</span>', `<span>${FS_LABEL}</span>`],
+    ["isFull() ? 'Thoát' : 'Toàn màn hình'", `isFull() ? '${FS_LABEL_EXIT}' : '${FS_LABEL}'`]
+];
 
 function firstMatch(haystack, patterns) {
     for (const re of patterns) {
@@ -172,6 +257,35 @@ function patchSlideHtml(html) {
         added.push('fullscreen');
     }
 
+    // Nhãn cũ bằng tiếng Việt trên bài đã vá: đổi nguyên văn ba chuỗi ở trên, không đụng
+    // gì khác. Bài nào tình cờ mang đúng chuỗi đó trong nội dung thì script vá sẽ thấy
+    // "phần bài viết thay đổi" và bỏ qua — đó là cách nó tự giữ an toàn.
+    let renamed = false;
+    for (const [from, to] of LEGACY_FULLSCREEN_LABELS) {
+        if (out.includes(from)) { out = out.split(from).join(to); renamed = true; }
+    }
+    if (renamed) added.push('label');
+
+    // Bài đã có nút nhưng mang bản CSS chưa có quy tắc ẩn nút khi đang chiếu (96 bài vá
+    // sáng 2026-10-10): khối CSS của chúng kết thúc đúng ở dòng @media print nên nối tiếp
+    // vào sau đó được, không phải đụng lại nội dung bài.
+    if (out.includes(FULLSCREEN_MARKER) && !out.includes(FS_FULLSCREEN_HIDE_CSS) && out.includes(LEGACY_FS_CSS_TAIL)) {
+        out = out.split(LEGACY_FS_CSS_TAIL).join(LEGACY_FS_CSS_TAIL + FS_FULLSCREEN_HIDE_CSS);
+        added.push('css');
+    }
+
+    // Handler trên bài đã vá: V0 (chưa nhờ trang cha) -> V1 (có postMessage, message listener
+    // chỉ đổi nhãn) -> bản hiện tại (listener còn dán/nhả class ẩn nút). Hai phép thế chạy
+    // nối tiếp nên bài còn sót ở V0 cũng về được bản mới nhất sau đúng một lần vá.
+    if (out.includes(LEGACY_FS_CLICK_HANDLER_V0)) {
+        out = out.split(LEGACY_FS_CLICK_HANDLER_V0).join(LEGACY_FS_CLICK_HANDLER_V1);
+        if (!added.includes('handler')) added.push('handler');
+    }
+    if (out.includes(LEGACY_FS_CLICK_HANDLER_V1)) {
+        out = out.split(LEGACY_FS_CLICK_HANDLER_V1).join(FS_CLICK_HANDLER);
+        if (!added.includes('handler')) added.push('handler');
+    }
+
     return { html: out, added };
 }
 
@@ -211,5 +325,8 @@ module.exports = {
     REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS,
     SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER,
     SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS, FULLSCREEN_MARKER,
+    FS_LABEL, FS_LABEL_EXIT, LEGACY_FULLSCREEN_LABELS,
+    LEGACY_FS_CLICK_HANDLER_V0, LEGACY_FS_CLICK_HANDLER_V1, FS_CLICK_HANDLER,
+    FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_CSS_TAIL,
     patchSlideHtml, revealAssetTags, bumpRevealVersion
 };

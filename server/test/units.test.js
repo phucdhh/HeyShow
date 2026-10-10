@@ -15,7 +15,12 @@ const access = require('../src/access');
 const { cleanSvg } = require('../src/svgclean');
 const history = require('../src/history');
 const { createJsonStore, atomicWrite } = require('../src/storage');
-const { patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER, FULLSCREEN_MARKER } = require('../src/slide-parts');
+const {
+    patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER,
+    FULLSCREEN_MARKER, LEGACY_FULLSCREEN_LABELS, FS_CLICK_HANDLER,
+    LEGACY_FS_CLICK_HANDLER_V0, LEGACY_FS_CLICK_HANDLER_V1,
+    FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_CSS_TAIL
+} = require('../src/slide-parts');
 
 function tmpDir(prefix) {
     return fs.mkdtempSync(path.join(os.tmpdir(), `heyshow-${prefix}-`));
@@ -337,7 +342,84 @@ test('slide-parts: nút toàn màn hình vào đúng chỗ, CSS trong head JS tr
     assert.ok(html.indexOf('class="heyshow-fullscreen"') < html.indexOf('</body>'), 'nút phải vào trước </body>');
     assert.ok(html.indexOf('class="heyshow-fullscreen"') < html.indexOf('heyshow-fullscreen\')'),
         'script phải lấy được nút đã chèn');
-    assert.ok(html.includes('?fs'), 'phải hỗ trợ ?fs=1 để gallery mở là vào luôn toàn màn hình');
+    assert.ok(html.includes('?fs'), 'phải hỗ trợ ?fs=1 cho link tự phát mở ra là chiếu');
+    assert.ok(html.includes('<span>Full Screen</span>'), 'nhãn nút phải là "Full Screen"');
+    assert.ok(!html.includes('Toàn màn hình'), 'bài mới không còn nhãn tiếng Việt ở nút');
+    // Bài mở trong khung xem của gallery thì trang bài không tự fullscreen được (xem test
+    // bên dưới), nên handler phải biết nhờ trang cha.
+    assert.ok(html.includes("parent.postMessage('heyshow-fs', '*')"), 'bấm nút trong iframe phải nhờ trang cha');
+    assert.ok(html.includes("'heyshow-fs-on'"), 'phải nghe trang cha báo để đổi nhãn sang Exit');
+    assert.ok(html.includes("classList.toggle('heyshow-fs', on)"), 'trang cha báo vào thì phải dán class ẩn nút');
+    assert.ok(html.includes('html:fullscreen .heyshow-fullscreen'), 'đang chiếu ở tab riêng thì nút phải bị CSS ẩn đi');
+    assert.ok(html.includes('html.heyshow-fs .heyshow-fullscreen'), 'đang chiếu trong khung xem gallery thì nút phải bị CSS ẩn đi');
+});
+
+// 96 bài vá sáng 2026-10-10 có khối CSS kết thúc ở dòng @media print. Người dùng bảo đã có
+// dòng "press Esc to exit full screen" của Chrome thì cái nút góc trên bên phải chỉ che mất
+// slide — nên bản CSS mới nối thêm quy tắc html:fullscreen, và bài cũ phải nối tiếp được
+// đúng chỗ đó mà không phải viết lại cả khối.
+test('slide-parts: bài thiếu quy tắc ẩn nút khi chiếu được nối thêm, lần hai không đổi nữa', () => {
+    const legacy = patchSlideHtml(oldDeck()).html.split(FS_FULLSCREEN_HIDE_CSS).join('');
+    assert.ok(!legacy.includes(FS_FULLSCREEN_HIDE_CSS), 'fixture phải dừng ở dòng @media print');
+    assert.ok(legacy.includes(LEGACY_FS_CSS_TAIL), 'fixture phải giữ nguyên phần CSS cũ');
+
+    const { html, added } = patchSlideHtml(legacy);
+    assert.deepEqual(added, ['css'], 'chỉ nối thêm CSS');
+    assert.ok(html.includes(FS_FULLSCREEN_HIDE_CSS));
+
+    const again = patchSlideHtml(html);
+    assert.deepEqual(again.added, [], 'nối CSS phải idempotent');
+    assert.equal(again.html, html);
+});
+
+// Đo bằng Chrome thật: trang bài chịu CSP sandbox (origin "null") gọi requestFullscreen thì
+// bị từ chối hẳn, kể cả khi iframe có allow="fullscreen" — chỉ trang cha fullscreen được cái
+// iframe. 93 bài vá hôm 2026-10-10 đang mang handler cũ, tức là nút bấm không ăn trong
+// gallery đúng như người dùng báo; không có bước thế này thì file tĩnh trên đĩa mãi vẫn thế.
+test('slide-parts: handler V1 được nâng cấp lên bản biết ẩn nút, lần hai không đổi nữa', () => {
+    const legacy = patchSlideHtml(oldDeck()).html
+        .split(FS_CLICK_HANDLER).join(LEGACY_FS_CLICK_HANDLER_V1);
+    assert.ok(legacy.includes(LEGACY_FS_CLICK_HANDLER_V1), 'fixture phải đúng như bản trên đĩa');
+    assert.ok(!legacy.includes("classList.toggle('heyshow-fs'"), 'V1 chưa dán class ẩn nút');
+
+    const { html, added } = patchSlideHtml(legacy);
+    assert.deepEqual(added, ['handler'], 'chỉ thế handler, không chèn thêm mảnh nào');
+    assert.ok(html.includes(FS_CLICK_HANDLER));
+
+    const again = patchSlideHtml(html);
+    assert.deepEqual(again.added, [], 'nâng cấp handler phải idempotent');
+    assert.equal(again.html, html);
+});
+
+// V0 (chưa nhờ trang cha) còn sót ở đâu đó thì một lần vá phải đưa thẳng về bản hiện tại:
+// V0 -> V1 -> hiện tại chạy nối tiếp trên cùng chuỗi.
+test('slide-parts: handler V0 về bản hiện tại trong một lần vá', () => {
+    const current = patchSlideHtml(oldDeck()).html;
+    const legacy = current.split(FS_CLICK_HANDLER).join(LEGACY_FS_CLICK_HANDLER_V0);
+    assert.ok(legacy.includes(LEGACY_FS_CLICK_HANDLER_V0), 'fixture phải đúng như bản vá đợt đầu');
+
+    const { html, added } = patchSlideHtml(legacy);
+    assert.deepEqual(added, ['handler']);
+    assert.equal(html, current, 'V0 và V1 phải về cùng một bản');
+});
+
+// 93 bài đã vá ngày 2026-10-10 mang nhãn tiếng Việt nguyên văn ba chuỗi đó trên đĩa. Đổi
+// nhãn trong template mà không có bước thế lại thì bài cũ vĩnh viễn chữ Việt, bài mới chữ
+// Anh — mà người dùng phàn nàn đúng về hai chữ cạnh nhau trên cùng một màn hình.
+test('slide-parts: bài mang nhãn nút bản cũ được đổi sang Full Screen, lần hai không đổi nữa', () => {
+    let legacy = patchSlideHtml(oldDeck()).html;
+    for (const [before, now] of LEGACY_FULLSCREEN_LABELS) legacy = legacy.split(now).join(before);
+    assert.ok(legacy.includes('<span>Toàn màn hình</span>'), 'fixture phải đúng như bản trên đĩa');
+
+    const { html, added } = patchSlideHtml(legacy);
+    assert.deepEqual(added, ['label'], 'chỉ đổi nhãn, không chèn thêm mảnh nào');
+    assert.ok(html.includes('<span>Full Screen</span>'));
+    assert.ok(html.includes("isFull() ? 'Exit' : 'Full Screen'"), 'nhãn lúc đang chiếu cũng phải đổi');
+    assert.ok(!html.includes('Toàn màn hình'));
+
+    const again = patchSlideHtml(html);
+    assert.deepEqual(again.added, [], 'đổi nhãn phải idempotent');
+    assert.equal(again.html, html);
 });
 
 // TT.html trên đĩa thật là một bài mà người dùng dán nguyên một trang Reveal khác vào
