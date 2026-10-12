@@ -220,16 +220,39 @@ test('nâng cấp Reveal: server và client cùng phiên bản, đúng layout c�
     assert.ok(html.includes(optsOf(server)), 'bài publish phải mang cấu hình KaTeX chung');
 });
 
-// Sidebar và các mục trên trang /templates đều sinh từ GROUPS + khai báo group của từng mẫu.
-// Khai báo lệch một ký tự là mẫu biến mất khỏi trang trong im lặng (không lỗi, không cảnh báo),
-// nên test chốt lại tính khép kín của bộ dữ liệu đó.
+// Sidebar và nội dung trang /templates sinh từ GROUP + SAMPLES của từng file danh mục trong
+// client/src/templates/, nối nhau theo thứ tự khai báo ở groups.js. Khai báo lệch một ký tự là
+// mẫu biến mất khỏi trang trong im lặng (không lỗi, không cảnh báo), nên test chốt lại tính
+// khép kín của bộ dữ liệu đó — kể cả việc mọi file đều có tên trong groups.js.
 test('thư viện mẫu: danh mục khép kín, mọi bài trình chiếu có tên file', () => {
-    const src = fs.readFileSync(path.join(__dirname, '../../client/src/templates.js'), 'utf8');
-    const groups = [...src.matchAll(/^ {8}id: '([a-z-]+)', kind: '(deck|slide)',/gm)]
-        .map(m => ({ id: m[1], kind: m[2] }));
-    const used = [...src.matchAll(/^ {8}group: '([a-z-]+)',/gm)].map(m => m[1]);
-    const ids = [...src.matchAll(/^ {8}id: '([a-z-]+)',$/gm)].map(m => m[1]);
-    const fileNames = [...src.matchAll(/^ {8}fileName: '([^']+)',/gm)].map(m => m[1]);
+    const dir = path.join(__dirname, '../../client/src/templates');
+    const manifest = fs.readFileSync(path.join(dir, 'groups.js'), 'utf8');
+    const files = [...manifest.matchAll(/^import \* as [A-Z]+ from '\.\/([a-z-]+)\.js';$/gm)].map(m => m[1]);
+    const onDisk = fs.readdirSync(dir).filter(f => f.endsWith('.js') && f !== 'groups.js')
+        .map(f => f.slice(0, -3)).sort();
+    assert.deepEqual(files.slice().sort(), onDisk,
+        'mọi file danh mục phải được groups.js nạp — file nằm ngoài danh sách là mẫu không hiện ra trang');
+
+    const groups = [];
+    const used = [], ids = [], fileNames = [];
+    for (const name of files) {
+        const src = fs.readFileSync(path.join(dir, name + '.js'), 'utf8');
+        const g = src.match(/^ {4}id: '([a-z-]+)', kind: '(deck|slide)', label: '/m);
+        assert.ok(g, `${name}.js phải export GROUP đủ id/kind/label cho sidebar`);
+        groups.push({ id: g[1], kind: g[2] });
+        used.push(...[...src.matchAll(/^ {8}group: '([a-z-]+)',/gm)].map(m => m[1]));
+        ids.push(...[...src.matchAll(/^ {8}id: '([a-z-]+)',$/gm)].map(m => m[1]));
+        fileNames.push(...[...src.matchAll(/^ {8}fileName: '([^']+)',/gm)].map(m => m[1]));
+
+        // Reveal đặt width:960px cho section với box-sizing: content-box, nên padding tự nó
+        // đẩy thẻ slide rộng hơn khung vẽ: ~28px cạnh phải bị cắt trong preview và cả khi chiếu.
+        for (const m of src.matchAll(/\.reveal \.slides section \{([^}]*)\}/g)) {
+            if (m[1].includes('padding:')) {
+                assert.ok(m[1].includes('box-sizing:border-box'),
+                    `rule section có padding phải kèm box-sizing:border-box, nếu không slide tràn khỏi khung 960×700: ${m[1].trim()}`);
+            }
+        }
+    }
 
     assert.ok(groups.length >= 10, 'GROUPS phải có danh mục cho sidebar');
     assert.equal(ids.length, used.length, 'mọi mẫu phải được gán group');
@@ -247,15 +270,6 @@ test('thư viện mẫu: danh mục khép kín, mọi bài trình chiếu có t�
     const deckCount = used.filter(g => groups.some(x => x.id === g && x.kind === 'deck')).length;
     assert.equal(fileNames.length, deckCount,
         'mẫu cả bài cần fileName để nút "Dùng mẫu này" tạo file nháp');
-
-    // Reveal đặt width:960px cho section với box-sizing: content-box, nên padding tự nó
-    // đẩy thẻ slide rộng hơn khung vẽ: ~28px cạnh phải bị cắt trong preview và cả khi chiếu.
-    for (const m of src.matchAll(/\.reveal \.slides section \{([^}]*)\}/g)) {
-        if (m[1].includes('padding:')) {
-            assert.ok(m[1].includes('box-sizing:border-box'),
-                `rule section có padding phải kèm box-sizing:border-box, nếu không slide tràn khỏi khung 960×700: ${m[1].trim()}`);
-        }
-    }
 });
 
 // Route cấp một được khớp không phân biệt hoa/thường, nên "Gallery" cũng che mất
