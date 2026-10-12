@@ -13,6 +13,7 @@ import * as MODAU from './modau.js';
 import * as SOLIEU from './solieu.js';
 import * as BOCUC from './bocuc.js';
 import * as TUONGTAC from './tuongtac.js';
+import * as AMTHANVIDEO from './amthanvideo.js';
 
 // Nền sáng là quy ước của cả kho mẫu, dù theme Reveal nạp kèm là black: section-master
 // phải phủ .reveal background bằng gradient nhạt, và màu đề mục phải !important vì theme
@@ -28,4 +29,5 @@ export const CATEGORIES = [
     SOLIEU,
     BOCUC,
     TUONGTAC,
+    AMTHANVIDEO,
 ];

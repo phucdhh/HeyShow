@@ -27,7 +27,7 @@ Nói ngắn gọn: PowerPoint và Canva bán cho bạn một định dạng và 
 - **Soạn slide** trong trình soạn hai khung: bên trái là code, bên phải là bài thật đang chạy. Đặt con trỏ vào slide nào, khung xem nhảy tới slide đó.
 - **Giữ thiết kế chung cho cả bài** bằng `<section-master>` — đặt nền, tiêu đầu, chân trang một lần, áp cho mọi slide.
 - **Nhờ AI viết giúp**: chọn vị trí chèn (thiết lập dùng chung / slide hiện tại / slide tiếp theo / slide cuối cùng) rồi mô tả bằng tiếng Việt.
-- **Dùng mẫu có sẵn** tại `/templates`, bấm "Dùng mẫu này" là có ngay bản nháp trong trình soạn; tìm mẫu không cần gõ dấu (`giao an` vẫn ra "Giáo án").
+- **Dùng mẫu có sẵn** tại `/templates`: 33 mẫu chia 11 danh mục — giáo án lên lớp theo từng môn, chuyên đề bồi dưỡng, và các slide tương tác (kể cả mẫu Âm thanh & video: âm báo đúng/sai, luyện nghe, video tự dừng để hỏi bài). Bấm "Dùng mẫu này" là có ngay bản nháp trong trình soạn; tìm mẫu không cần gõ dấu (`giao an` vẫn ra "Giáo án").
 - **Đưa bài đã có vào**: import PowerPoint, Markdown hoặc LaTeX beamer; xem báo cáo từng slide rồi mới quyết định import.
 - **Quản lý bài** tại `/dashboard`: publish, xuất bản lại, in ra PDF, về nháp, tải HTML, đổi tên, xoá; xem ai vừa thích và bình luận bài của mình; sửa hồ sơ, ảnh đại diện, link cá nhân.
 - **Quay lại bản cũ**: mỗi lần lưu, bản trước được cất lại — xem thử và khôi phục ~3 bản gần nhất.
@@ -54,7 +54,7 @@ Chưa muốn đăng ký? Vào `/gallery` xem bài của người khác và bấm
 ```bash
 npm install && (cd client && npm install) && (cd server && npm install)
 npm run lint              # ESLint toàn repo
-npm test                  # 57 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
+npm test                  # 100 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
 cd client && npm run dev  # trình soạn + hot reload
 cd server && npm run dev  # backend
 ```
