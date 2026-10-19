@@ -231,12 +231,13 @@ function mediaHtml(slide) {
     for (const vid of slide.videos) {
         if (vid.url) {
             out += `<!-- Video liên kết ngoài từ PowerPoint: -->\n`;
-            out += `<iframe width="720" height="405" src="${escapeHtml(vid.url)}" title="${escapeHtml(vid.name)}" frameborder="0" allowfullscreen></iframe>\n`;
+            out += `<video controls playsinline preload="metadata" width="720" src="${escapeHtml(vid.url)}" title="${escapeHtml(vid.name)}"></video>\n`;
         } else {
             out += `<!-- ⚡ VIDEO "${escapeHtml(vid.name)}" (Slide ${slide.index}) nhúng trong PowerPoint khong the lay ra.\n`
-                + `     Tai len YouTube (chế độ công khai/ không liệt kê) hoặc Gan Jing World →\n`
-                + `     lấy link nhúng (embed) kiểu youtube.com/embed/<ID> rồi thay vào src bên dưới: -->\n`;
-            out += `<iframe width="720" height="405" src="" title="Video từ PowerPoint" frameborder="0" allowfullscreen></iframe>\n`;
+                + `     src phải là LINK TRỰC TIẾP tới file .mp4 hoặc .m3u8 (HLS) — thẻ <video> phát được trên\n`
+                + `     cả trang đã publish. HeyShow không hỗ trợ chèn video từ YouTube.\n`
+                + `     Clip trên Gan Jing World thì mở bằng giml (https://www.truyenthong.edu.vn/apps/giml/) để lấy link .m3u8. -->\n`;
+            out += `<video controls playsinline preload="metadata" width="720" src="" title="Video từ PowerPoint"></video>\n`;
         }
     }
     if (slide.tables) out += `<!-- ⚠ Slide này có ${slide.tables} BẢNG trong PowerPoint — không import được. Gõ lại bằng <table> HTML hoặc dùng ✨ AI trong Design. -->\n`;
@@ -250,7 +251,7 @@ function buildDraftHtml(analysis, origName) {
         `<!-- Nhập từ file "${escapeHtml(origName)}" bằng HeyShow Import.\n`
         + `     Các mục có ⚠ cần bạn bổ sung thủ công:\n`
         + `     - ẢNH: tải lên Google Drive → Chia sẻ "Bất kỳ ai có đường dẫn" → src="https://lh3.googleusercontent.com/d/<FILE_ID>"\n`
-        + `     - VIDEO: tải lên YouTube hoặc Gan Jing World → dán link nhúng (embed) vào src của iframe\n`
+        + `     - VIDEO: src của thẻ <video> phải là link trực tiếp .mp4/.m3u8 (HeyShow không hỗ trợ YouTube)\n`
         + `     - Bảng / Biểu đồ / SmartArt: gõ lại bằng HTML hoặc nhờ ✨ AI trong Design\n`
         + `     Mở /design để hoàn thiện — preview sẽ hiện ngay khi sửa. -->\n`;
 

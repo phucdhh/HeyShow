@@ -549,10 +549,12 @@ function textMedia(slide) {
             + `<img src="" alt="${escapeHtml(img.name)}" style="max-width: 70%;">\n`;
     }
     for (const vid of slide.videos) {
-        if (vid.url) out += `<!-- Video liên kết ngoài: -->\n<iframe width="720" height="405" src="${escapeHtml(vid.url)}" title="${escapeHtml(vid.name)}" frameborder="0" allowfullscreen></iframe>\n`;
+        if (vid.url) out += `<!-- Video liên kết ngoài: -->\n<video controls playsinline preload="metadata" width="720" src="${escapeHtml(vid.url)}" title="${escapeHtml(vid.name)}"></video>\n`;
         else out += `<!-- ⚡ VIDEO "${escapeHtml(vid.name)}" (Slide ${slide.index}) tham chiếu cục bộ, không tải lên được.\n`
-            + `     Tải lên YouTube hoặc Gan Jing World → dán link nhúng (embed) vào src: -->\n`
-            + `<iframe width="720" height="405" src="" title="Video" frameborder="0" allowfullscreen></iframe>\n`;
+            + `     src phải là LINK TRỰC TIẾP tới file .mp4 hoặc .m3u8 (HLS) — thẻ <video> phát được trên\n`
+            + `     cả trang đã publish. HeyShow không hỗ trợ chèn video từ YouTube; clip trên Gan Jing World\n`
+            + `     thì mở bằng giml (https://www.truyenthong.edu.vn/apps/giml/) để lấy link .m3u8. -->\n`
+            + `<video controls playsinline preload="metadata" width="720" src="" title="Video"></video>\n`;
     }
     if (slide.tables) out += `<!-- ⚠ Slide này có ${slide.tables} BẢNG — không import được. Gõ lại bằng <table> HTML hoặc dùng ✨ AI trong Design. -->\n`;
     if (slide.charts) {
@@ -575,7 +577,7 @@ function buildDraftHtml(analysis, origName) {
         + `     Công thức toán giữ nguyên để KaTeX hiển thị: $...$, $$...$$, \\(...\\), \\[...\\]\n`
         + `     Các mục có ⚠ cần bổ sung thủ công:\n`
         + `     - ẢNH: tải lên Google Drive → Chia sẻ "Bất kỳ ai có đường dẫn" → src="https://lh3.googleusercontent.com/d/<FILE_ID>"\n`
-        + `     - VIDEO: tải lên YouTube hoặc Gan Jing World → dán link nhúng (embed) vào src của iframe\n`
+        + `     - VIDEO: src của thẻ <video> phải là link trực tiếp .mp4/.m3u8 (HeyShow không hỗ trợ YouTube)\n`
         + `     - Bảng: gõ lại bằng <table> HTML hoặc nhờ ✨ AI trong Design\n`
         + `     - HÌNH VẼ TikZ/pgfplots: code vẽ hình không import được, chụp từ PDF rồi dán link ảnh\n`
         + `     Mở /design để hoàn thiện — preview hiện ngay khi sửa. -->\n`;

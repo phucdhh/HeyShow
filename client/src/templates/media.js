@@ -9,15 +9,21 @@
 //   chỉ tồn tại trên giấy, không bao giờ được thực thi.
 // - AudioContext và speechSynthesis chỉ được khởi tạo bên trong hàm xử lý bấm (user gesture).
 //   Tạo sẵn lúc trang load thì trình duyệt chặn, bấm không ra tiếng.
+// - Video: thẻ <video> (.mp4 hoặc .m3u8 + hls.js) phát được trên CẢ trang publish, vì CSP sandbox
+//   của /show chỉ siết script, không chạm quyền media. iframe YouTube thì khác — sandbox lan xuống
+//   iframe con nên trang publish chỉ còn một ô đen đặc. Mẫu video vì thế nhận ra sandbox và ẩn khung
+//   YouTube đi ngay, thà hiện hướng dẫn còn hơn để giáo viên đứng lớp thấy màn hình đen.
 // - Không có file âm thanh nào đi kèm: tiếng chuông đúng/sai do Web Audio tổng hợp, còn mẫu
 //   "nghe file" và mẫu "video" dùng nguồn công khai của MDN/W3Schools làm nguồn demo.
 // - Script tự giới hạn trong section chứa nó nên giáo viên dán cùng một mẫu hai lần trong một bài
-//   vẫn chạy đủ hai bộ; vì vậy các lớp đều nằm gọn dưới lớp cha riêng (.mbds, .bc, .tt, .fa, .vd).
+//   vẫn chạy đủ hai bộ; vì vậy các lớp đều nằm gọn dưới lớp cha riêng (.mbds, .bc, .tt, .fa, .vd,
+//   .gsp). Hai mẫu video dùng chung một cơ chế nhưng đặt tên lớp khác nhau: dán cả hai vào cùng một
+//   bài thì <style> của chúng là toàn cục, trùng tên là mẫu này ghi đè mẫu kia.
 
 // Danh mục trên sidebar: Âm thanh & video
 export const GROUP = {
     id: 'am-thanh-video', kind: 'slide', label: 'Âm thanh & video',
-    lead: 'Slide có tiếng và hình động: âm báo đúng/sai khi làm trắc nghiệm, chuông điều khiển lớp học, luyện nghe tiếng Anh bằng giọng đọc của trình duyệt, và video tự dừng ở các mốc thời gian để học sinh trả lời câu hỏi.'
+    lead: 'Slide có tiếng và hình động: âm báo đúng/sai khi làm trắc nghiệm, chuông điều khiển lớp học, luyện nghe tiếng Anh bằng giọng đọc của trình duyệt, và video tự dừng ở các mốc thời gian để học sinh trả lời câu hỏi. Với video, chỉ cần dán link Gan Jing World vào data-gjw — HeyShow tự tìm nguồn phát. HeyShow không hỗ trợ chèn video từ YouTube.'
 };
 
 export const SAMPLES = [
@@ -329,68 +335,86 @@ export const SAMPLES = [
         id: 'video-dung-moc',
         group: 'am-thanh-video',
         title: 'Video tự dừng ở các mốc, mỗi mốc một câu hỏi',
-        desc: 'Khai các mốc giây trong data-moc; tới mốc là video tạm dừng và câu hỏi hiện ra, trả lời xong bấm Tiếp tục để chiếu tiếp.',
-        note: 'data-moc="2,5,8" nghĩa là dừng ở 0:02, 0:05, 0:08; thêm mốc thì thêm một khối .ch với data-so tương ứng. src trong mẫu là video demo 10 giây của W3Schools (Big Buck Bunny), hãy thay bằng video bài học của bạn — mọi khối .lua có data-dung="1" là đáp án đúng. Nếu mạng chặn video, bấm "Chạy thử câu hỏi" để xem cơ chế dừng vẫn hoạt động.',
+        desc: 'Dán link video Gan Jing World vào data-gjw là clip tự phát và tự dừng ở các mốc để hỏi bài; cũng nhận link trực tiếp .mp4 và .m3u8. Bấm một nút mốc dưới clip để nhảy thẳng tới cảnh đó.',
+        note: 'Nguồn clip, chọn một trong ba: data-gjw="link" — dán link video trên Gan Jing World (ganjingworld.com/video/<ID> hoặc link chia sẻ /s/<code>), HeyShow tự tìm nguồn phát nên khỏi phải dò file .m3u8; data-src="*.mp4" hoặc thẻ <source> — link trực tiếp tới file .mp4; data-m3u8="*.m3u8" — link HLS, nhớ xóa thẻ <source>. HeyShow không hỗ trợ chèn video từ YouTube, và Google Drive cũng không dùng được: muốn chiếu clip trên YouTube thì tải nó lên Gan Jing World rồi dán link vào data-gjw. Dãy mốc: data-moc="2,5,8" là dừng ở 0:02, 0:05, 0:08; thêm mốc thì thêm một khối .ch với data-so tăng dần, đáp án đúng là nút có data-dung="1". Bấm một nút mốc dưới clip để nhảy thẳng tới cảnh đó, khỏi tua tay clip hàng chục phút. Bố cục hai cột: clip và dải mốc bên trái, câu hỏi bên phải nên cả bốn đáp án lẫn dòng giải thích luôn nằm trong màn hình. Nếu mạng chặn clip, bấm "Chạy thử câu hỏi" để phần hỏi đáp vẫn chạy được.',
         code: String.raw`<section data-background-gradient="linear-gradient(135deg,#eef2ff,#f8fafc)" style="color:#1f2937">
   <style>
-    .vd .man { width:600px; margin:0 auto; }
-    .vd video { width:100%; max-height:290px; border-radius:12px; background:#0f172a; }
-    .vd .moc { display:flex; gap:8px; justify-content:center; margin:8px 0; }
+    .vd .man { display:flex; flex-wrap:wrap; gap:6px 20px; width:920px; margin:0 auto; }
+    .vd .trai { flex:0 0 520px; }
+    .vd .phai { flex:1 1 360px; min-width:0; }
+    .vd video { display:block; width:100%; max-width:100%; max-height:none; border-radius:12px;
+                 background:#0f172a; }
+    .vd iframe { display:block; width:100%; max-width:100%; height:293px; border:0; border-radius:12px;
+                  background:#0f172a; }
+    .vd .bao { display:none; margin:8px 0 0; padding:8px 14px; text-align:left; font-size:0.4em;
+                color:#7c2d12; background:#fef3c7; border:1px solid #f59e0b; border-radius:10px; }
+    .vd .moc { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-start; margin:8px 0 0; }
     .vd .moc span { font-size:0.42em; padding:4px 12px; border-radius:999px; border:1px solid #c7d2fe;
-                    background:#ffffff; color:#3730a3; }
+                     background:#ffffff; color:#3730a3; cursor:pointer; }
     .vd .moc span.hoi { border-color:#f59e0b; background:#fef3c7; color:#7c2d12; }
     .vd .moc span.xong { border-color:#16a34a; background:#dcfce7; color:#14532d; }
-    .vd .ch { display:none; width:600px; margin:0 auto; padding:10px 16px; text-align:left;
-              background:#ffffff; border:2px solid #c7d2fe; border-radius:12px; }
+    .vd .cho { margin:0; padding:12px 16px; font-size:0.44em; color:#6b7280; background:#ffffff;
+                border:2px dashed #c7d2fe; border-radius:12px; }
+    .vd .phai.co .cho { display:none; }
+    .vd .ch { display:none; margin:0; padding:12px 16px; text-align:left; background:#ffffff;
+               border:2px solid #c7d2fe; border-radius:12px; }
     .vd .ch.on { display:block; }
-    .vd .ch .h { font-size:0.52em; color:#4338ca; margin:0 0 6px; }
-    .vd .ch .lua { display:block; width:100%; margin:4px 0; padding:6px 12px; text-align:left;
-                   font-family:inherit; font-size:0.45em; border:2px solid #cbd5e1; border-radius:10px;
-                   background:#ffffff; color:#1f2937; cursor:pointer; }
+    .vd .ch .h { font-size:0.5em; color:#4338ca; margin:0 0 6px; }
+    .vd .ch .lua { display:block; width:100%; margin:4px 0; padding:5px 12px; text-align:left;
+                    font-family:inherit; font-size:0.44em; border:2px solid #cbd5e1; border-radius:10px;
+                    background:#ffffff; color:#1f2937; cursor:pointer; }
     .vd .ch .lua.sai { border-color:#dc2626; background:#fee2e2; }
     .vd .ch .lua.dung { border-color:#16a34a; background:#dcfce7; }
-    .vd .ch .giai { display:none; font-size:0.42em; color:#14532d; }
-    .vd .ch .tiep { display:none; margin-top:6px; font-family:inherit; font-size:0.45em; padding:6px 16px;
-                    border-radius:10px; border:2px solid #4f46e5; background:#4f46e5; color:#ffffff; cursor:pointer; }
+    .vd .ch .giai { display:none; font-size:0.4em; color:#14532d; }
+    .vd .ch .tiep { display:none; margin-top:6px; font-family:inherit; font-size:0.44em; padding:5px 16px;
+                     border-radius:10px; border:2px solid #4f46e5; background:#4f46e5; color:#ffffff;
+                     cursor:pointer; }
     .vd .ch .tiep.on { display:inline-block; }
-    .vd .len { text-align:center; margin-top:8px; }
-    .vd .len button { font-family:inherit; font-size:0.42em; padding:6px 14px; border-radius:10px;
-                      border:1px solid #c7d2fe; background:#ffffff; color:#4338ca; cursor:pointer; }
-    .vd .thai { font-size:0.42em; color:#6b7280; }
+    .vd .len { flex:0 0 100%; margin:0; }
+    .vd .len button { font-family:inherit; font-size:0.42em; padding:5px 14px; border-radius:10px;
+                       border:1px solid #c7d2fe; background:#ffffff; color:#4338ca; cursor:pointer; }
+    .vd .thai { flex:0 0 100%; margin:0; font-size:0.4em; color:#6b7280; }
   </style>
-  <h2 style="color:#4338ca;">🎬 Xem video và trả lời ở từng mốc</h2>
+  <h2 style="color:#4338ca; font-size: 0.6em;">🎬 Xem video và trả lời ở từng mốc</h2>
   <div class="vd" data-moc="2,5,8">
     <div class="man">
-      <video controls preload="metadata" playsinline>
-        <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
-      </video>
-      <div class="moc"></div>
-      <div class="ch" data-so="1">
-        <p class="h"><b>Mốc 0:02 —</b> Nhân vật chính của đoạn video là con gì?</p>
-        <button type="button" class="lua">A. Một con mèo</button>
-        <button type="button" class="lua" data-dung="1">B. Một con thỏ</button>
-        <button type="button" class="lua">C. Một chú gấu</button>
-        <button type="button" class="lua">D. Một chú bé</button>
-        <p class="giai">Nhân vật chính là chú thỏ to trong phim hoạt hình 3D "Big Buck Bunny" của Blender Foundation.</p>
-        <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+      <div class="trai">
+        <video controls preload="metadata" playsinline>
+          <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
+        </video>
+        <p class="bao">Clip này không phát được trên trang đang mở — kiểm tra lại mạng hoặc nguồn clip.
+          Muốn làm phần hỏi đáp ngay, bấm "Chạy thử câu hỏi".</p>
+        <div class="moc"></div>
       </div>
-      <div class="ch" data-so="2">
-        <p class="h"><b>Mốc 0:05 —</b> Đoạn video này được tạo ra bằng cách nào?</p>
-        <button type="button" class="lua">A. Quay bằng máy quay</button>
-        <button type="button" class="lua" data-dung="1">B. Dựng hình 3D (hoạt hình máy tính)</button>
-        <button type="button" class="lua">C. Vẽ tay rồi chụp lại</button>
-        <button type="button" class="lua">D. Ảnh ghép</button>
-        <p class="giai">Phim được làm bằng Blender, phần mềm mã nguồn mở.</p>
-        <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
-      </div>
-      <div class="ch" data-so="3">
-        <p class="h"><b>Mốc 0:08 —</b> Bối cảnh mở đầu của đoạn video là?</p>
-        <button type="button" class="lua">A. Một thành phố đông xe</button>
-        <button type="button" class="lua">B. Trong một lớp học</button>
-        <button type="button" class="lua" data-dung="1">C. Bãi cỏ ven hồ có nhiều hoa</button>
-        <button type="button" class="lua">D. Khu rừng tuyết</button>
-        <p class="giai">Thỏ tỉnh dậy giữa bãi cỏ đầy hoa, bên cạnh dòng suối nhỏ.</p>
-        <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+      <div class="phai">
+        <p class="cho">Câu hỏi của từng mốc hiện ra ở cột này — bấm ▶ để bắt đầu, clip sẽ tự dừng ở mỗi mốc.</p>
+        <div class="ch" data-so="1">
+          <p class="h"><b>Mốc 0:02 —</b> Nhân vật chính của đoạn video là con gì?</p>
+          <button type="button" class="lua">A. Một con mèo</button>
+          <button type="button" class="lua" data-dung="1">B. Một con thỏ</button>
+          <button type="button" class="lua">C. Một chú gấu</button>
+          <button type="button" class="lua">D. Một chú bé</button>
+          <p class="giai">Nhân vật chính là chú thỏ to trong phim hoạt hình 3D "Big Buck Bunny" của Blender Foundation.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
+        <div class="ch" data-so="2">
+          <p class="h"><b>Mốc 0:05 —</b> Đoạn video này được tạo ra bằng cách nào?</p>
+          <button type="button" class="lua">A. Quay bằng máy quay</button>
+          <button type="button" class="lua" data-dung="1">B. Dựng hình 3D (hoạt hình máy tính)</button>
+          <button type="button" class="lua">C. Vẽ tay rồi chụp lại</button>
+          <button type="button" class="lua">D. Ảnh ghép</button>
+          <p class="giai">Phim được làm bằng Blender, phần mềm mã nguồn mở.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
+        <div class="ch" data-so="3">
+          <p class="h"><b>Mốc 0:08 —</b> Bối cảnh mở đầu của đoạn video là?</p>
+          <button type="button" class="lua">A. Một thành phố đông xe</button>
+          <button type="button" class="lua">B. Trong một lớp học</button>
+          <button type="button" class="lua" data-dung="1">C. Bãi cỏ ven hồ có nhiều hoa</button>
+          <button type="button" class="lua">D. Khu rừng tuyết</button>
+          <p class="giai">Thỏ tỉnh dậy giữa bãi cỏ đầy hoa, bên cạnh dòng suối nhỏ.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
       </div>
       <div class="len"><button type="button" class="thu">Chạy thử câu hỏi (không cần video)</button></div>
       <p class="thai">Bấm ▶ trên video để bắt đầu; tới các mốc đã khai, video tự dừng và câu hỏi hiện ra.</p>
@@ -400,15 +424,25 @@ export const SAMPLES = [
     (function () {
       var sec = document.currentScript.closest('section');
       var box = sec.querySelector('.vd');
+      var phai = box.querySelector('.phai');
+      var thai = box.querySelector('.thai');
+      var bao = box.querySelector('.bao');
       var video = box.querySelector('video');
       var nguon = box.querySelector('source');
-      var thai = box.querySelector('.thai');
-      var danhSach = box.getAttribute('data-moc').split(',').map(function (x) { return parseFloat(x); });
-      var khoi = {}, chip = {};
+      var khung = box.querySelector('iframe');
+      var m3u8 = box.getAttribute('data-m3u8');
+      var danhSach = (box.getAttribute('data-moc') || '').split(',').map(parseFloat).filter(isFinite);
+      var khoi = {}, chip = {}, mo = null, gio = -1, chay = false, san = false, lan = -1;
       box.querySelectorAll('.ch').forEach(function (c) { khoi[c.getAttribute('data-so')] = c; });
+      function giay(t) {
+        var p = Math.floor(t / 60), g = Math.round(t % 60);
+        return p + ':' + (g < 10 ? '0' : '') + g;
+      }
       danhSach.forEach(function (t, i) {
         var s = document.createElement('span');
-        s.textContent = '0:' + (t < 10 ? '0' : '') + t;
+        s.textContent = giay(t);
+        s.title = 'Nhảy tới ' + giay(t) + ' và xem tiếp';
+        s.addEventListener('click', function () { tim(i + 1, t); });
         box.querySelector('.moc').appendChild(s);
         chip[i + 1] = s;
       });
@@ -429,23 +463,57 @@ export const SAMPLES = [
         o.start(t);
         o.stop(t + dai + 0.05);
       }
-      var mo = null;
+      function gui(tk) {
+        if (khung && khung.contentWindow) khung.contentWindow.postMessage(JSON.stringify(tk), '*');
+      }
+      // Một bộ điều khiển cho cả ba nguồn: thẻ <video> thì gọi thẳng, YouTube thì nhắn qua widget.
+      var may = {
+        dung: function () {
+          if (video) video.pause();
+          else gui({ event: 'command', func: 'pauseVideo', args: [], id: 'heyshow', channel: 'widget' });
+        },
+        chay: function () {
+          if (video) { var h = video.play(); if (h && h.catch) h.catch(function () {}); return; }
+          gui({ event: 'command', func: 'playVideo', args: [], id: 'heyshow', channel: 'widget' });
+        }
+      };
+      // Clip bài học thường dài hàng chục phút nên bấm mốc là nhảy tới đó, khỏi tua tay.
+      // lan = điểm bắt đầu xem: chỉ mốc nào video chạy ngang qua mới hỏi, nên nhảy tới 5:01
+      // không làm câu 1:58 bật lại. Mốc vừa nhảy tới cũng không hỏi (cả lớp đang xem cảnh của
+      // nó) — câu hỏi của mốc đó vẫn mở được bằng "Chạy thử câu hỏi".
+      function doiCho() { phai.classList.toggle('co', !!mo); }
+      function tim(so, t) {
+        may.dung();
+        // Nhảy sang cảnh khác khi đang mở câu hỏi: đóng câu hỏi đó lại, coi như chưa trả lời.
+        if (mo) { chip[mo].className = ''; khoi[mo].classList.remove('on'); mo = null; }
+        doiCho();
+        lan = gio = t; // gio phải đúng ngay, nếu không thì bấm "Chạy thử" lập tức sẽ hỏi lại mốc cũ
+        if (video) video.currentTime = t;
+        else gui({ event: 'command', func: 'seekTo', args: [t, true], id: 'heyshow', channel: 'widget' });
+        may.chay();
+        thai.textContent = 'Nhảy tới ' + giay(t) + ' — cả lớp xem tiếp.';
+      }
       function hoi(so) {
         if (mo || !khoi[so]) return;
-        video.pause();
+        may.dung();
         mo = so;
+        doiCho();
         chip[so].className = 'hoi';
         khoi[so].classList.add('on');
-        thai.textContent = 'Video đang dừng ở mốc ' + chip[so].textContent + '.';
+        thai.textContent = 'Clip dừng ở mốc ' + chip[so].textContent + ' — cả lớp trả lời.';
       }
-      video.addEventListener('timeupdate', function () {
-        if (mo) return;
+      function kiemTra() {
+        if (mo || !chay) return;
+        // Nhảy mốc hay tua tay giữa clip: coi điểm đang đứng là điểm bắt đầu xem,
+        // mốc đã nằm phía sau không bật câu hỏi nữa.
+        if (gio < lan || gio > lan + 3) lan = gio;
         for (var i = 0; i < danhSach.length; i++) {
-          var so = i + 1;
-          if (chip[so].className === 'xong') continue;
-          if (video.currentTime >= danhSach[i]) { hoi(so); break; }
+          if (chip[i + 1].className === 'xong') continue;
+          if (danhSach[i] > lan && gio >= danhSach[i]) { hoi(i + 1); break; }
         }
-      });
+        lan = gio;
+      }
+      setInterval(kiemTra, 250);
       Object.keys(khoi).forEach(function (so) {
         var k = khoi[so];
         k.querySelectorAll('.lua').forEach(function (b) {
@@ -467,21 +535,454 @@ export const SAMPLES = [
           chip[so].className = 'xong';
           k.classList.remove('on');
           mo = null;
-          thai.textContent = 'Mốc ' + chip[so].textContent + ' đã hoàn thành — video chạy tiếp.';
-          video.play();
+          doiCho();
+          thai.textContent = 'Mốc ' + chip[so].textContent + ' đã xong — clip chạy tiếp.';
+          may.chay();
         });
       });
       box.querySelector('.thu').addEventListener('click', function () {
-        for (var so = 1; so <= danhSach.length; so++) {
-          if (chip[so].className !== 'xong') { hoi(so); return; }
+        // Mốc gần nhất tính từ chỗ đang xem: nhảy tới 5:01 rồi bấm nút này thì hỏi câu 5:01,
+        // không quay lại câu 0:15. Chưa xem tới mốc nào thì lấy mốc đầu tiên còn trống.
+        var gan = null;
+        for (var i = 0; i < danhSach.length; i++) {
+          if (gio >= danhSach[i] && chip[i + 1].className !== 'xong') gan = i + 1;
         }
-        thai.textContent = 'Đã trả lời hết các mốc.';
+        for (var so = 1; gan === null && so <= danhSach.length; so++) {
+          if (chip[so].className !== 'xong') gan = so;
+        }
+        if (gan) hoi(gan); else thai.textContent = 'Đã trả lời hết các mốc.';
       });
-      nguon.addEventListener('error', function () {
-        thai.textContent = 'Không tải được video demo. Thay src bằng video của bạn, hoặc bấm "Chạy thử câu hỏi".';
+      function hong(ly) {
+        if (bao) bao.style.display = 'block';
+        thai.textContent = ly + ' — bấm "Chạy thử câu hỏi" để xem cơ chế dừng vẫn chạy.';
+      }
+      function sauKhiTai() {
+        if (window.Hls && window.Hls.isSupported && window.Hls.isSupported()) {
+          // capLevelToPlayerSize: lấy rendition vừa khung hình thôi. Chọn theo băng thông thì ô
+          // video 420px vẫn kéo về 1080p, nhảy tới phút 5 là buffer dễ vỡ; hls.js chữa lỗi bằng cách
+          // nạp lại MSE và playhead bị kéo về 0:00 — cả lớp đang xem dở quay lại đầu clip.
+          var h = new window.Hls({ capLevelToPlayerSize: true });
+          h.loadSource(m3u8);
+          h.attachMedia(video);
+          h.on(window.Hls.Events.ERROR, function (e, d) { if (d.fatal) hong('Clip HLS lỗi ' + d.details); });
+          return;
+        }
+        // Chrome để canPlayType HLS trả "maybe" rồi báo lỗi khi phát, nên nhánh này chỉ dùng sau cùng.
+        if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = m3u8;
+        else hong('Trình duyệt này không phát được HLS');
+      }
+      function taiHls() {
+        if (window.Hls) { sauKhiTai(); return; } // mẫu khác trên cùng trang đã tải hls.js rồi
+        var co = document.getElementById('hls-js');
+        if (co) { co.addEventListener('load', sauKhiTai); return; }
+        var s = document.createElement('script');
+        s.id = 'hls-js';
+        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1';
+        s.onload = sauKhiTai;
+        s.onerror = function () { hong('Không tải được bộ phát HLS'); };
+        document.head.appendChild(s);
+      }
+      // data-gjw="link video trên Gan Jing World" — giáo viên chỉ cần dán link, HeyShow tự tìm
+      // nguồn phát. API công khai gw.ganjingworld.com/v1.1/content/query?ids=<ID> trả video_url
+      // (master.m3u8) kèm access-control-allow-origin:*, nên gọi được cả từ trang /show bị CSP
+      // sandbox (Origin gửi đi là 'null' nhưng bên kia cho hết). Link chia sẻ dạng /s/<code> thì
+      // theo bước nhảy 301 và đọc id từ địa chỉ cuối.
+      function layTuGJW(id) {
+        thai.textContent = 'Đang lấy nguồn clip từ Gan Jing World…';
+        fetch('https://gw.ganjingworld.com/v1.1/content/query?ids=' + encodeURIComponent(id) +
+              '&lang=en-US&query=basic,full&include_unlisted=true')
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (j) {
+            var v = ((j.data && j.data.list) || [])[0];
+            if (!v || !v.video_url) throw new Error('không thấy video với id đó');
+            m3u8 = v.video_url;
+            taiHls();
+          })
+          .catch(function (e) { hong('Gan Jing World không trả nguồn clip (' + e.message + ')'); });
+      }
+      function tuGJW(link) {
+        var m = String(link).match(/\/video\/([A-Za-z0-9_-]{8,})/) || String(link).match(/^([A-Za-z0-9_-]{10,})$/);
+        if (m) { layTuGJW(m[1]); return; }
+        m = String(link).match(/\/s\/([A-Za-z0-9_-]{4,})/);
+        if (m) {
+          thai.textContent = 'Đang mở link chia sẻ Gan Jing World…';
+          fetch('https://www.ganjingworld.com/s/' + encodeURIComponent(m[1]))
+            .then(function (r) {
+              var k = String(r.url).match(/\/video\/([A-Za-z0-9_-]{8,})/);
+              if (!k) throw new Error('link chia sẻ không trỏ tới video nào');
+              layTuGJW(k[1]);
+            })
+            .catch(function (e) { hong('Không đọc được link chia sẻ (' + e.message + ')'); });
+          return;
+        }
+        hong('Đó không phải link Gan Jing World. HeyShow không hỗ trợ chèn video từ YouTube — '
+          + 'hãy tải clip lên Gan Jing World rồi dán link '
+          + 'ganjingworld.com/video/<ID> vào data-gjw.');
+      }
+      if (video) {
+        video.addEventListener('timeupdate', function () { gio = video.currentTime; });
+        video.addEventListener('play', function () { chay = true; san = true; });
+        video.addEventListener('waiting', function () { thai.textContent = 'Clip đang tải…'; });
+        video.addEventListener('playing', function () {
+          if (!mo) thai.textContent = 'Clip đang chiếu — tới mốc là tự dừng.';
+        });
+        video.addEventListener('canplay', function () {
+          if (mo || san) return; // chỉ báo "sẵn sàng" một lần, trước khi cả lớp bắt đầu xem
+          san = true;
+          thai.textContent = 'Clip đã sẵn sàng — bấm ▶ trên video, tới mốc là clip tự dừng.';
+        });
+        video.addEventListener('error', function () { hong('Không tải được clip (link hết hạn hoặc mạng chặn).'); });
+        if (nguon) nguon.addEventListener('error', function () {
+          hong('Không tải được clip (link hết hạn hoặc mạng chặn).');
+        });
+        if (m3u8) taiHls();
+        else if (box.getAttribute('data-src')) video.src = box.getAttribute('data-src');
+        else if (box.getAttribute('data-gjw')) tuGJW(box.getAttribute('data-gjw'));
+        else if (!nguon) hong('Chưa khai nguồn clip: dán link .mp4 vào thẻ <source> hoặc data-src, '
+          + 'link .m3u8 vào data-m3u8, hoặc link video Gan Jing World vào data-gjw.');
+        return;
+      }
+      if (!khung) return;
+      // Trang publish chạy slide trong CSP sandbox: YouTube vẫn hiện (khung đen) nhưng không bao giờ
+      // báo được giờ. window.origin mới là 'null', còn location.origin vẫn trả origin của URL.
+      if (window.origin === 'null' && /^https?:$/.test(location.protocol)) {
+        khung.style.display = 'none';
+        if (bao) bao.style.display = 'block';
+        thai.textContent = 'Trang này không đọc được giờ của clip YouTube — xem dòng chữ vàng.';
+        return;
+      }
+      window.addEventListener('message', function (e) {
+        if (!khung || e.source !== khung.contentWindow) return;
+        var d = e.data;
+        if (typeof d !== 'string') return;
+        try { d = JSON.parse(d); } catch (err) { return; }
+        var i = d && d.info;
+        if (!i) return;
+        if (typeof i.currentTime === 'number') gio = i.currentTime;
+        if ('playerState' in i) chay = i.playerState === 1;
+        if (!san) {
+          san = true;
+          thai.textContent = 'Clip đã sẵn sàng — bấm ▶ trên video, tới mốc là clip tự dừng.';
+        }
       });
+      function langNghe() { gui({ event: 'listening', id: 'heyshow', channel: 'widget' }); }
+      khung.addEventListener('load', langNghe);
+      langNghe();
+      setTimeout(langNghe, 1500);
+      setTimeout(langNghe, 4000);
+      setTimeout(function () { if (!san) hong('YouTube không báo được giờ của clip'); }, 10000);
+    })();
+  </script>
+</section>`
+    },
+
+    {
+        id: 'video-moc-sketchpad',
+        group: 'am-thanh-video',
+        title: 'Ví dụ bài học: clip Sketchpad dừng ở 5 mốc, mỗi mốc một câu hỏi',
+        desc: 'Clip "Vẽ đồ thị hàm số trên The Geometer’s Sketchpad" (3:41) tự dừng ở 0:12, 1:08, 2:02, 2:32 và 3:30; mỗi mốc một câu hỏi về đúng thao tác vừa xem, trả lời xong mới chiếu tiếp.',
+        note: 'Mẫu dựng sẵn cho một clip bài học thật (3:41) để thấy cơ chế chạy với video dài. Muốn đổi sang clip của mình, chỉ sửa ba chỗ: thay link ở data-gjw, đổi dãy mốc ở data-moc (tính bằng giây, phải tăng dần và nhỏ hơn độ dài clip), viết lại năm câu hỏi — mỗi mốc một khối .ch có data-so đúng thứ tự, đáp án đúng mang data-dung="1"; phần còn lại giữ nguyên. data-gjw nhận link trang Gan Jing World, kể cả link chia sẻ /s/...: HeyShow tự lấy nguồn phát và tự chọn độ phân giải cho vừa khung hình. Câu hỏi chỉ bật khi clip chạy ngang qua mốc, nên bấm nút mốc để nhảy tới cảnh bất kỳ sẽ không bị hỏi lại mấy mốc đã qua; nút "Chạy thử câu hỏi" mở câu của mốc gần nhất, dùng được cả khi mạng chặn clip. Bố cục hai cột: clip và dải mốc bên trái, hộp câu hỏi bên phải nên không bao giờ tràn khỏi màn hình — .man rộng 920px, đổi cỡ chữ thì chỉnh .trai/.phai. Mẫu này chỉ nhận link Gan Jing World; cần file .mp4/.m3u8 trực tiếp thì dùng mẫu "Video tự dừng ở các mốc, mỗi mốc một câu hỏi" ở trên.',
+        code: String.raw`<section data-background-gradient="linear-gradient(135deg,#eef2ff,#f8fafc)" style="color:#1f2937">
+  <style>
+    .gsp .man { display:flex; flex-wrap:wrap; gap:6px 20px; width:920px; margin:0 auto; }
+    .gsp .trai { flex:0 0 520px; }
+    .gsp .phai { flex:1 1 360px; min-width:0; }
+    .gsp video { display:block; width:100%; max-width:100%; max-height:none; border-radius:12px;
+                 background:#0f172a; }
+    .gsp iframe { display:block; width:100%; max-width:100%; height:293px; border:0; border-radius:12px;
+                  background:#0f172a; }
+    .gsp .bao { display:none; margin:8px 0 0; padding:8px 14px; text-align:left; font-size:0.4em;
+                color:#7c2d12; background:#fef3c7; border:1px solid #f59e0b; border-radius:10px; }
+    .gsp .moc { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-start; margin:8px 0 0; }
+    .gsp .moc span { font-size:0.42em; padding:4px 12px; border-radius:999px; border:1px solid #c7d2fe;
+                     background:#ffffff; color:#3730a3; cursor:pointer; }
+    .gsp .moc span.hoi { border-color:#f59e0b; background:#fef3c7; color:#7c2d12; }
+    .gsp .moc span.xong { border-color:#16a34a; background:#dcfce7; color:#14532d; }
+    .gsp .cho { margin:0; padding:12px 16px; font-size:0.44em; color:#6b7280; background:#ffffff;
+                border:2px dashed #c7d2fe; border-radius:12px; }
+    .gsp .phai.co .cho { display:none; }
+    .gsp .ch { display:none; margin:0; padding:12px 16px; text-align:left; background:#ffffff;
+               border:2px solid #c7d2fe; border-radius:12px; }
+    .gsp .ch.on { display:block; }
+    .gsp .ch .h { font-size:0.5em; color:#4338ca; margin:0 0 6px; }
+    .gsp .ch .lua { display:block; width:100%; margin:4px 0; padding:5px 12px; text-align:left;
+                    font-family:inherit; font-size:0.44em; border:2px solid #cbd5e1; border-radius:10px;
+                    background:#ffffff; color:#1f2937; cursor:pointer; }
+    .gsp .ch .lua.sai { border-color:#dc2626; background:#fee2e2; }
+    .gsp .ch .lua.dung { border-color:#16a34a; background:#dcfce7; }
+    .gsp .ch .giai { display:none; font-size:0.4em; color:#14532d; }
+    .gsp .ch .tiep { display:none; margin-top:6px; font-family:inherit; font-size:0.44em; padding:5px 16px;
+                     border-radius:10px; border:2px solid #4f46e5; background:#4f46e5; color:#ffffff;
+                     cursor:pointer; }
+    .gsp .ch .tiep.on { display:inline-block; }
+    .gsp .len { flex:0 0 100%; margin:0; }
+    .gsp .len button { font-family:inherit; font-size:0.42em; padding:5px 14px; border-radius:10px;
+                       border:1px solid #c7d2fe; background:#ffffff; color:#4338ca; cursor:pointer; }
+    .gsp .thai { flex:0 0 100%; margin:0; font-size:0.4em; color:#6b7280; }
+  </style>
+  <h2 style="color:#4338ca; font-size:0.58em;">📐 Vẽ đồ thị hàm số bằng Sketchpad</h2>
+  <div class="gsp" data-gjw="https://www.ganjingworld.com/s/YK8W9vYRXX" data-moc="12,68,122,152,210">
+    <div class="man">
+      <div class="trai">
+        <video controls preload="metadata" playsinline></video>
+        <p class="bao">Clip không phát được trên trang này — kiểm tra lại mạng hoặc link ở data-gjw.
+          Muốn làm phần hỏi đáp ngay, bấm "Chạy thử câu hỏi".</p>
+        <div class="moc"></div>
+      </div>
+      <div class="phai">
+        <p class="cho">Câu hỏi của từng mốc hiện ra ở cột này — bấm ▶ để bắt đầu, clip sẽ tự dừng ở mỗi mốc.</p>
+        <div class="ch" data-so="1">
+          <p class="h"><b>Mốc 0:12 —</b> Trên màn hình đang có sẵn những gì?</p>
+          <button type="button" class="lua" data-dung="1">A. Hệ trục tọa độ, các điểm O, 1, a, b, M, N và bảng số đo</button>
+          <button type="button" class="lua">B. Một parabol vẽ sẵn</button>
+          <button type="button" class="lua">C. Một bảng giá trị x; y</button>
+          <button type="button" class="lua">D. Mặt phẳng trắng, chưa có gì</button>
+          <p class="giai">Bảng số góc trái là kết quả Measure: x_M = 2,22; y_M = 2,94; khoảng cách
+            MN = √((x_N−x_M)² + (y_N−y_M)²) = 2,85. Điểm M dựng được là nhờ hạ hai đường vuông góc từ a
+            (trục hoành) và b (trục tung) — đúng cách xác định tọa độ một điểm.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
+        <div class="ch" data-so="2">
+          <p class="h"><b>Mốc 1:08 —</b> Dòng "2·x + 1 = 9,59" vừa xuất hiện. Nó ở đâu ra?</p>
+          <button type="button" class="lua">A. Người dùng gõ số 9,59 vào</button>
+          <button type="button" class="lua" data-dung="1">B. Máy tính ra từ x: Number ▸ New Calculation, gõ 2·x + 1</button>
+          <button type="button" class="lua">C. Đo được bằng công cụ Length</button>
+          <button type="button" class="lua">D. Lấy từ tọa độ điểm M</button>
+          <p class="giai">x là một số tự do (dòng "x = 4,29" phía dưới). Biểu thức 2·x + 1 tham chiếu
+            thẳng tới x nên lúc x = 4,29 máy ra 9,59; đây là cách Sketchpad tạo ra một đại lượng biến
+            thiên phụ thuộc vào đại lượng khác.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
+        <div class="ch" data-so="3">
+          <p class="h"><b>Mốc 2:02 —</b> Đang có x = −1,60 và 2·x + 1 = −2,20. Kéo điểm x trên trục hoành
+            sang chỗ khác thì gì đổi?</p>
+          <button type="button" class="lua">A. Chỉ x đổi, còn 2·x + 1 giữ nguyên −2,20</button>
+          <button type="button" class="lua">B. Cả hai cùng đứng yên</button>
+          <button type="button" class="lua" data-dung="1">C. x đổi và 2·x + 1 tự tính lại theo x</button>
+          <button type="button" class="lua">D. Sketchpad báo lỗi vì số âm</button>
+          <p class="giai">Bởi 2·x + 1 là công thức chứ không phải một con số gõ vào. Kéo x tới −1,94 thì
+            máy báo −2,09; tới −0,22 thì báo 0,55 — đúng như bảng giá trị sống.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
+        <div class="ch" data-so="4">
+          <p class="h"><b>Mốc 2:32 —</b> Các điểm (x; 2·x + 1) vừa được vẽ liên tục nằm thành hình gì?</p>
+          <button type="button" class="lua">A. Một parabol</button>
+          <button type="button" class="lua">B. Một hypebol</button>
+          <button type="button" class="lua" data-dung="1">C. Một đường thẳng</button>
+          <button type="button" class="lua">D. Một đám điểm ngẫu nhiên</button>
+          <p class="giai">y = 2x + 1 là hàm bậc nhất: x thêm bao nhiêu thì y thêm gấp đôi, nên mọi điểm
+            đều rơi trên cùng một đường thẳng. Người dùng đang vẽ đồ thị theo cách thủ công — lấy từng
+            điểm rồi ghép lại.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
+        <div class="ch" data-so="5">
+          <p class="h"><b>Mốc 3:30 —</b> Sau khi khai báo f(x) = x³ − x², Graph ▸ Plot Function được chọn.
+            Kết quả sẽ là gì?</p>
+          <button type="button" class="lua">A. Bảng giá trị của f(x)</button>
+          <button type="button" class="lua" data-dung="1">B. Máy vẽ luôn cả đường cong của f(x) = x³ − x²</button>
+          <button type="button" class="lua">C. Tiếp tuyến của đồ thị tại gốc O</button>
+          <button type="button" class="lua">D. Đổi màu cho parabol đang có</button>
+          <p class="giai">New Function khai báo hàm, Plot Function vẽ đồ thị của nó trên hệ trục đang có —
+            không cần điểm x tự do, không cần lấy từng điểm. So với cách thủ công ở mốc 2:32 thì đây là
+            con đường ngắn nhất từ công thức tới đồ thị. Chú ý parabol x² − x (sửa từ 2·x + 1) vẫn còn
+            trên màn hình nên hai đồ thị nằm cạnh nhau để so sánh.</p>
+          <button type="button" class="tiep">▶ Tiếp tục chiếu</button>
+        </div>
+      </div>
+      <div class="len"><button type="button" class="thu">Chạy thử câu hỏi (không cần video)</button></div>
+      <p class="thai">Bấm ▶ trên video để bắt đầu; tới các mốc đã khai, clip tự dừng và câu hỏi hiện ra.</p>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var sec = document.currentScript.closest('section');
+      var box = sec.querySelector('.gsp');
+      var phai = box.querySelector('.phai');
+      var video = box.querySelector('video');
+      var thai = box.querySelector('.thai');
+      var bao = box.querySelector('.bao');
+      var danhSach = (box.getAttribute('data-moc') || '').split(',').map(parseFloat).filter(isFinite);
+      var m3u8 = '';
+      var khoi = {}, chip = {}, mo = null, gio = -1, chay = false, san = false, lan = -1;
+      box.querySelectorAll('.ch').forEach(function (c) { khoi[c.getAttribute('data-so')] = c; });
+      function giay(t) {
+        var p = Math.floor(t / 60), g = Math.round(t % 60);
+        return p + ':' + (g < 10 ? '0' : '') + g;
+      }
+      danhSach.forEach(function (t, i) {
+        var s = document.createElement('span');
+        s.textContent = giay(t);
+        s.title = 'Nhảy tới ' + giay(t) + ' và xem tiếp';
+        s.addEventListener('click', function () { tim(i + 1, t); });
+        box.querySelector('.moc').appendChild(s);
+        chip[i + 1] = s;
+      });
+      var ctx = null;
+      function bam(dai, tran) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!ctx) ctx = new AC();
+        if (ctx.state === 'suspended') ctx.resume();
+        var o = ctx.createOscillator(), v = ctx.createGain(), t = ctx.currentTime;
+        o.type = 'sine';
+        o.frequency.setValueAtTime(tran ? 233.08 : 784, t);
+        v.gain.setValueAtTime(0.0001, t);
+        v.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+        v.gain.exponentialRampToValueAtTime(0.0001, t + dai);
+        o.connect(v);
+        v.connect(ctx.destination);
+        o.start(t);
+        o.stop(t + dai + 0.05);
+      }
+      // Clip bài học dài hàng chục phút nên bấm chip là nhảy tới mốc, khỏi tua tay. Chỉ mốc nào
+      // clip chạy ngang qua mới hỏi, nên nhảy tới 3:30 không làm câu 2:32 bật lại.
+      function doiCho() { phai.classList.toggle('co', !!mo); }
+      function tim(so, t) {
+        video.pause();
+        if (mo) { chip[mo].className = ''; khoi[mo].classList.remove('on'); mo = null; }
+        doiCho();
+        lan = gio = t; // gio phải đúng ngay, nếu không thì bấm "Chạy thử" sẽ hỏi lại mốc vừa nhảy tới
+        video.currentTime = t;
+        var h = video.play();
+        if (h && h.catch) h.catch(function () {});
+        thai.textContent = 'Nhảy tới ' + giay(t) + ' — cả lớp xem tiếp.';
+      }
+      function hoi(so) {
+        if (mo || !khoi[so]) return;
+        video.pause();
+        mo = so;
+        doiCho();
+        chip[so].className = 'hoi';
+        khoi[so].classList.add('on');
+        thai.textContent = 'Clip dừng ở mốc ' + chip[so].textContent + ' — cả lớp trả lời.';
+      }
+      function kiemTra() {
+        if (mo || !chay) return;
+        // Nhảy mốc hay tua tay giữa clip: coi điểm đang đứng là điểm bắt đầu xem.
+        if (gio < lan || gio > lan + 3) lan = gio;
+        for (var i = 0; i < danhSach.length; i++) {
+          if (chip[i + 1].className === 'xong') continue;
+          if (danhSach[i] > lan && gio >= danhSach[i]) { hoi(i + 1); break; }
+        }
+        lan = gio;
+      }
+      setInterval(kiemTra, 250);
+      Object.keys(khoi).forEach(function (so) {
+        var k = khoi[so];
+        k.querySelectorAll('.lua').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var dung = b.getAttribute('data-dung') === '1';
+            bam(dung ? 0.18 : 0.3, !dung);
+            if (dung) {
+              k.querySelectorAll('.lua').forEach(function (x) { x.disabled = true; });
+              b.classList.add('dung');
+              k.querySelector('.giai').style.display = 'block';
+              k.querySelector('.tiep').classList.add('on');
+            } else {
+              b.classList.add('sai');
+              setTimeout(function () { b.classList.remove('sai'); }, 1000);
+            }
+          });
+        });
+        k.querySelector('.tiep').addEventListener('click', function () {
+          chip[so].className = 'xong';
+          k.classList.remove('on');
+          mo = null;
+          doiCho();
+          thai.textContent = 'Mốc ' + chip[so].textContent + ' đã xong — clip chạy tiếp.';
+          var h = video.play();
+          if (h && h.catch) h.catch(function () {});
+        });
+      });
+      box.querySelector('.thu').addEventListener('click', function () {
+        var gan = null;
+        for (var i = 0; i < danhSach.length; i++) {
+          if (gio >= danhSach[i] && chip[i + 1].className !== 'xong') gan = i + 1;
+        }
+        for (var so = 1; gan === null && so <= danhSach.length; so++) {
+          if (chip[so].className !== 'xong') gan = so;
+        }
+        if (gan) hoi(gan); else thai.textContent = 'Đã trả lời hết các mốc.';
+      });
+      function hong(ly) {
+        if (bao) bao.style.display = 'block';
+        thai.textContent = ly + ' — bấm "Chạy thử câu hỏi" để xem cơ chế dừng vẫn chạy.';
+      }
+      function sauKhiTai() {
+        if (window.Hls && window.Hls.isSupported && window.Hls.isSupported()) {
+          // capLevelToPlayerSize: rendition vừa khung hình thôi. Chọn theo băng thông thì ô video
+          // 600px vẫn kéo về 1080p, nhảy tới phút 3 là buffer dễ vỡ; hls.js chữa lỗi bằng cách nạp
+          // lại MSE và playhead bị kéo về 0:00 — cả lớp đang xem dở quay lại đầu clip.
+          var h = new window.Hls({ capLevelToPlayerSize: true });
+          h.loadSource(m3u8);
+          h.attachMedia(video);
+          h.on(window.Hls.Events.ERROR, function (e, d) { if (d.fatal) hong('Clip HLS lỗi ' + d.details); });
+          return;
+        }
+        if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = m3u8;
+        else hong('Trình duyệt này không phát được HLS');
+      }
+      function taiHls() {
+        if (window.Hls) { sauKhiTai(); return; } // mẫu khác trên cùng trang đã tải hls.js rồi
+        var co = document.getElementById('hls-js');
+        if (co) { co.addEventListener('load', sauKhiTai); return; }
+        var s = document.createElement('script');
+        s.id = 'hls-js';
+        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1';
+        s.onload = sauKhiTai;
+        s.onerror = function () { hong('Không tải được bộ phát HLS'); };
+        document.head.appendChild(s);
+      }
+      // data-gjw="link video trên Gan Jing World" — giáo viên chỉ dán link, HeyShow tự tìm nguồn.
+      // API công khai gw.ganjingworld.com/v1.1/content/query?ids=<ID> trả video_url (master.m3u8)
+      // kèm access-control-allow-origin:*, nên gọi được cả từ trang /show bị CSP sandbox.
+      function layTuGJW(id) {
+        thai.textContent = 'Đang lấy nguồn clip từ Gan Jing World…';
+        fetch('https://gw.ganjingworld.com/v1.1/content/query?ids=' + encodeURIComponent(id) +
+              '&lang=en-US&query=basic,full&include_unlisted=true')
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (j) {
+            var v = ((j.data && j.data.list) || [])[0];
+            if (!v || !v.video_url) throw new Error('không thấy video với id đó');
+            m3u8 = v.video_url;
+            taiHls();
+          })
+          .catch(function (e) { hong('Gan Jing World không trả nguồn clip (' + e.message + ')'); });
+      }
+      function tuGJW(link) {
+        var m = String(link).match(/\/video\/([A-Za-z0-9_-]{8,})/) || String(link).match(/^([A-Za-z0-9_-]{10,})$/);
+        if (m) { layTuGJW(m[1]); return; }
+        m = String(link).match(/\/s\/([A-Za-z0-9_-]{4,})/);
+        if (m) {
+          thai.textContent = 'Đang mở link chia sẻ Gan Jing World…';
+          fetch('https://www.ganjingworld.com/s/' + encodeURIComponent(m[1]))
+            .then(function (r) {
+              var k = String(r.url).match(/\/video\/([A-Za-z0-9_-]{8,})/);
+              if (!k) throw new Error('link chia sẻ không trỏ tới video nào');
+              layTuGJW(k[1]);
+            })
+            .catch(function (e) { hong('Không đọc được link chia sẻ (' + e.message + ')'); });
+          return;
+        }
+        hong('Đó không phải link Gan Jing World. HeyShow không hỗ trợ chèn video từ YouTube — '
+          + 'hãy tải clip lên Gan Jing World rồi dán link '
+          + 'ganjingworld.com/video/<ID> vào data-gjw.');
+      }
+      tuGJW(box.getAttribute('data-gjw'));
+      video.addEventListener('timeupdate', function () { gio = video.currentTime; });
+      video.addEventListener('play', function () { chay = true; san = true; });
+      video.addEventListener('waiting', function () { thai.textContent = 'Clip đang tải…'; });
+      video.addEventListener('playing', function () {
+        if (!mo) thai.textContent = 'Clip đang chiếu — tới mốc là tự dừng.';
+      });
+      video.addEventListener('canplay', function () {
+        if (mo || san) return; // chỉ báo "sẵn sàng" một lần, trước khi cả lớp bắt đầu xem
+        san = true;
+        thai.textContent = 'Clip đã sẵn sàng — bấm ▶ trên video, tới mốc là clip tự dừng.';
+      });
+      video.addEventListener('error', function () { hong('Không tải được clip (link hết hạn hoặc mạng chặn).'); });
     })();
   </script>
 </section>`
     }
-];
+]
