@@ -335,6 +335,15 @@
             <tr><td>🗑 Xoá</td><td>Xoá vĩnh viễn cả nháp lẫn bản publish — có hộp hỏi lại trước khi xoá.</td></tr>
           </table>
           <p>
+            Ngay sau tên mỗi bài có <b>nút trạng thái</b>: <b>🔒</b> nền xám là bài chỉ mình bạn dùng,
+            <b>♻</b> nền hổ phách là bài đang cho phép người khác <b>tái sử dụng</b>.
+            Bấm vào nút này để mở hộp xác nhận — phải bấm <b>Đồng ý</b> thì quyền mới thực sự bật/tắt.
+            Khi đang bật, bài của bạn trong Gallery sẽ có nút <b>♻ Reuse</b>: ai đăng nhập cũng bấm được để sao toàn bộ
+            mã nguồn bài của bạn thành <b>bản nháp trên tài khoản của họ</b> rồi mở ngay trong Design biên tập tiếp; bản gốc
+            không bị thay đổi, và bản sao tính vào hạn mức bài của người sao. Thu hồi khoá chỉ chặn lượt sao tiếp theo, các bản
+            đã sao chép vẫn nằm trên tài khoản người khác.
+          </p>
+          <p>
             Tab <b>Activities</b> liệt kê lượt thích và bình luận mới nhất trên các bài của bạn
             (kèm tên người tương tác và nội dung bình luận); bấm vào để nhảy thẳng tới bài trong Gallery.
             Mỗi bài trong Presentations còn hiển thị trạng thái <b>Nháp / Đã publish</b>, lượt xem, thích, bình luận và thời gian cập nhật.
@@ -342,7 +351,8 @@
           <p>
             Tab <b>Profile</b> cho phép đổi <b>ảnh đại diện</b> (bấm vào vòng tròn avatar, PNG/JPG/GIF/WebP dưới 1MB),
             <b>Full Name</b>, <b>Email</b>, <b>Số điện thoại</b>, <b>URL slug</b> (đường dẫn trang cá nhân, tự động bỏ dấu)
-            và <b>mật khẩu mới</b> (để trống nếu không đổi). Full Name đã đặt sẽ hiển thị ngay trên header của Dashboard.
+            và <b>mật khẩu mới</b> (để trống nếu không đổi). Header của Dashboard chỉ hiện <b>ảnh đại diện</b> của bạn
+            (kèm nhãn quyền nếu có), Full Name dùng để vẽ avatar tự sinh khi bạn chưa tải ảnh lên.
           </p>
           <p>
             Tab <b>Import</b> chuyển file PowerPoint <b>.pptx</b> (≤10MB), <b>Markdown .md</b> hoặc <b>LaTeX beamer .tex</b> (≤5MB) thành bản nháp: kéo/thả hoặc chọn file, HeyShow phân tích
@@ -355,8 +365,8 @@
             đang phân tích / chuyển đổi (file nhiều ảnh, video có thể mất vài chục giây).
             Bạn <b>xem xét rồi mới bấm "Import thành bản nháp"</b> (hoặc Huỷ). Chữ và ghi chú được giữ nguyên; ảnh thành
             <code>&lt;img src=""&gt;</code> — tải lên Google Drive, chia sẻ "Bất kỳ ai có đường dẫn" rồi dán link
-            <code>https://lh3.googleusercontent.com/d/&lt;ID&gt;</code>; video thành <code>&lt;iframe src=""&gt;</code> — tải lên
-            YouTube hoặc Gan Jing World rồi dán link nhúng (embed). File không được lưu trên server nếu bạn không bấm Import.
+            <code>https://lh3.googleusercontent.com/d/&lt;ID&gt;</code>; video thành <code>&lt;video src=""&gt;</code> — dán link
+            trực tiếp tới file .mp4 hoặc .m3u8. HeyShow không hỗ trợ chèn video từ YouTube. File không được lưu trên server nếu bạn không bấm Import.
           </p>
         </section>
 
@@ -368,9 +378,10 @@
             <li><b>Tìm kiếm:</b> ô tìm đầu trang lọc theo tên bài hoặc tên tác giả; phân trang 12 bài/trang.</li>
             <li><b>Xem nhanh:</b> bấm vào card để mở viewer hai khung — trái là bài trình chiếu chạy được, phải là thông tin và bình luận.</li>
             <li><b>Thích:</b> nút ♡ để thích / bỏ thích (cần đăng nhập); mỗi người một lượt.</li>
-            <li><b>Bình luận:</b> viết tối đa 2000 ký tự, hỗ trợ công thức KaTeX; bình luận của chính mình có nút Sửa.</li>
+            <li><b>Bình luận:</b> viết tối đa 2000 ký tự, hỗ trợ công thức KaTeX; mỗi bình luận (và mỗi phản hồi) có nút <b>♥ thích</b> — bấm lần hai để bỏ, chưa đăng nhập thì chỉ thấy số lượt thích. Bình luận của chính mình có nút Sửa, muốn trả lời thì bấm <b>Trả lời</b>.</li>
             <li><b>Trang tác giả:</b> bấm tên hoặc avatar tác giả để xem toàn bộ bài công khai của người đó.</li>
             <li><b>Chia sẻ:</b> nút Share mở hộp thoại "Share to" để đăng lên Gan Jing World, Facebook hoặc X, kèm link bài và nút Copy link; mỗi lượt bấm được tính vào số liệu của bài.</li>
+            <li><b>Tái sử dụng:</b> bài nào tác giả bật nút ♻ trong Dashboard sẽ có nút <b>♻ Reuse</b> ngay sau nút Share (cần đăng nhập). Bấm xong là bản nháp của riêng bạn được tạo từ mã nguồn bài đó và mở ra trong Design để sửa tiếp; bản gốc của tác giả không hề hấn gì.</li>
             <li><b>Full Screen:</b> nút <b>Full Screen</b> ở góc trên bên phải bài trình chiếu (bấm phím <code>F</code> cũng được) ẩn luôn thanh địa chỉ của trình duyệt để chiếu thật, kể cả khi bài đang mở trong khung xem của Gallery. Vào chiếu rồi thì nút <b>tự ẩn</b> để không che tiêu đề slide — bấm phím <b>Esc</b> (trên điện thoại là thao tác Back) để thoát, nút sẽ hiện lại. Nút nằm trong chính bài nên cũng dùng được khi mở link bài ở tab riêng.</li>
           </ul>
         </section>
@@ -378,15 +389,24 @@
         <!-- ============ 8. DESIGN ============ -->
         <section class="block" id="design">
           <h1><span class="num">8</span> Sử dụng các tính năng Design</h1>
-          <p class="lead"><a href="/design">/design</a> — editor hai khung với các công cụ hỗ trợ soạn nhanh.</p>
+          <p class="lead"><a href="/design">/design</a> — editor hai khung: bên trái là code, bên phải là ba tab <b>Preview · Debug · AI</b>.</p>
           <h3>Tìm kiếm &amp; thay thế</h3>
           <p>Nút 🔍 Tìm hoặc <code>Ctrl/Cmd+F</code> mở panel tìm ngay trong editor: phân biệt hoa thường, khớp cả từ, regex, thay từng cái hoặc tất cả. Từ đang bôi đen sẽ tự tô sáng mọi chỗ trùng.</p>
           <h3>Đổi màu kiểu VS Code</h3>
           <p>Mọi mã màu trong code (hex, <code>rgb()</code>, <code>hsl()</code>, tên màu CSS) có một ô vuông màu nhỏ đứng trước. Bấm vào ô đó mở bảng chọn màu: kéo vùng sáng–đậm, thanh hue, thanh alpha, gõ hex, và 10 màu dùng gần đây. Kéo thả sửa màu trực tiếp trong code, preview cập nhật theo.</p>
           <h3>Nhãn slide &amp; thu gọn</h3>
           <p>Gutter bên trái gắn nhãn <code>★</code> (master), <code>S1</code>, <code>S2</code>, <code>S2.1</code>… Bấm nhãn để gập/mở code slide đó; hai nút “Thu gọn” / “Mở hết” trên thanh tiêu đề làm toàn bộ. Thanh tiêu đề cũng báo vị trí con trỏ và trạng thái chưa lưu.</p>
-          <h3>Snippets &amp; AI</h3>
-          <p>Gõ <code>section</code>, <code>fragment</code>, <code>math</code>, <code>columns</code>, <code>image</code>, <code>highlight</code>… rồi chọn trong danh sách autocomplete (<code>Ctrl+Space</code>) để chèn khung HTML sẵn. Nút ✨ góc trái dưới mở khung chat AI: mô tả yêu cầu bằng tiếng Việt, AI sinh code và chèn vào bài theo <b>vị trí</b> bạn chọn: (1) <b>Slide Master</b> — chèn thiết lập dùng chung (<code>&lt;style&gt;</code>, header, footer…) vào bên trong <code>&lt;section-master&gt;</code>, nếu bài chưa có Slide Master thì tự tạo mới ở đầu file; (2) <b>Slide hiện tại</b> — chèn nội dung vào cuối slide đang chứa con trỏ; (3) <b>Slide tiếp theo</b> — tạo slide <code>&lt;section&gt;</code> hoàn chỉnh ngay sau slide hiện tại; (4) <b>Slide cuối cùng</b> — thêm slide mới vào cuối file. Ở mỗi vị trí, AI tự nhận ngữ cảnh (code toàn file kèm nội dung Slide Master hoặc slide hiện tại) và được hướng dẫn sinh đúng dạng code: fragment dùng chung cho Master/slide hiện tại, thẻ <code>&lt;section&gt;</code> đầy đủ cho slide mới. Nhà cung cấp AI chọn giữa <b>Groq (mặc định)</b> và <b>DeepSeek</b>; key do quản trị nhập ở trang Admin, lựa chọn nào chưa có key sẽ bị khoá lại.</p>
+          <h3>Snippets</h3>
+          <p>Gõ <code>section</code>, <code>fragment</code>, <code>math</code>, <code>columns</code>, <code>image</code>, <code>highlight</code>… rồi chọn trong danh sách autocomplete (<code>Ctrl+Space</code>) để chèn khung HTML sẵn.</p>
+          <h3>Tab Preview</h3>
+          <p>Bài chạy thật bằng Reveal.js ngay trong khung. Con trỏ đang ở slide nào thì preview nhảy tới slide đó; sửa code xong là khung tự vẽ lại. Tên bản nháp đang mở hiển thị ở thanh tiêu đề khung trái (nút <b>Select</b> trên Header chỉ để đổi file).</p>
+          <h3>Tab Debug</h3>
+          <p>Dóng xem bài có chỗ nào Reveal.js âm thầm bỏ qua không. Mỗi dòng lỗi kèm số dòng, bấm vào là nhảy thẳng tới chỗ đó trong editor. Những thứ đang kiểm: thẻ <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code>, <code>&lt;body&gt;</code> dán lẫn vào bài (HeyShow chỉ nhận các <code>&lt;section&gt;</code>); mở/đóng <code>&lt;section&gt;</code> không cân; chưa có slide nào; chữ hoặc thẻ rơi ra ngoài <code>&lt;section&gt;</code>; slide lồng quá 2 cấp; dấu <code>&lt;</code>, <code>&gt;</code> viết trần trong công thức (hỏng cả slide về sau — dùng <code>\lt</code>, <code>\gt</code>); nhúng YouTube và link chia sẻ Google Drive cho ảnh. Số ở nhãn tab là tổng lỗi + cảnh báo, chỉ hiện khi lớn hơn 0.</p>
+          <h3>Tab AI</h3>
+          <p>Khung chat nằm ngay trong tab này: mô tả yêu cầu bằng tiếng Việt, AI sinh code và chèn vào bài theo <b>vị trí</b> bạn chọn: (1) <b>Slide Master</b> — chèn thiết lập dùng chung (<code>&lt;style&gt;</code>, header, footer…) vào bên trong <code>&lt;section-master&gt;</code>, nếu bài chưa có Slide Master thì tự tạo mới ở đầu file; (2) <b>Slide hiện tại</b> — chèn nội dung vào cuối slide đang chứa con trỏ; (3) <b>Slide tiếp theo</b> — tạo slide <code>&lt;section&gt;</code> hoàn chỉnh ngay sau slide hiện tại; (4) <b>Slide cuối cùng</b> — thêm slide mới vào cuối file. Ở mỗi vị trí, AI tự nhận ngữ cảnh (code toàn file kèm nội dung Slide Master hoặc slide hiện tại) và được hướng dẫn sinh đúng dạng code: fragment dùng chung cho Master/slide hiện tại, thẻ <code>&lt;section&gt;</code> đầy đủ cho slide mới. Nhà cung cấp AI chọn giữa <b>Groq (mặc định)</b> và <b>DeepSeek</b>; key do quản trị nhập ở trang Admin, lựa chọn nào chưa có key sẽ bị khoá lại.</p>
+          <h2 id="quota">Hạn mức bài và nâng quyền</h2>
+          <p>Mỗi quyền tạo được tối đa số bài trình chiếu (tính cả bản nháp lẫn bài đã xuất bản): <b>User 10</b> · <b>Designer 20</b> · <b>Master 50</b> · <b>Admin không giới hạn</b>. Header của Design không đếm số bài trên màn hình: bạn cứ soạn, khi tạo bài mới mà đã hết chỗ thì HeyShow hiện thông báo nhắc một lần.</p>
+          <p>Hết hạn mức thì có hai cách: <b>xoá bớt bài cũ</b> trong <a href="/dashboard">Dashboard</a> (bài đã xuất bản vẫn tính cho tới khi xoá hẳn), hoặc <b>xin nâng quyền</b> — nhắn Admin qua Signal <a href="https://signal.me/#p/+84979555375" target="_blank" rel="noopener"><b>+84 979 555 375</b></a>, ghi rõ tên đăng nhập và số bài bạn cần. Các bài cũ không bị ảnh hưởng: bạn vẫn sửa, lưu, xuất bản lại bình thường.</p>
           <table class="doc">
             <tr><th>Phím tắt</th><th>Tác dụng</th></tr>
             <tr><td><code>Ctrl/Cmd + S</code></td><td>Lưu bản nháp</td></tr>
@@ -425,6 +445,9 @@
 
           <h2>Changelog</h2>
           <ul>
+            <li><b>10/2026 — v2.19:</b> bình luận trong Gallery thích được rồi: mỗi bình luận và mỗi phản hồi có nút <b>♡/♥</b> kèm số lượt thích ngay dưới dòng thời gian, bấm để thích, bấm lần hai để bỏ. Chưa đăng nhập vẫn nhìn thấy số lượt thích; muốn bấm thì cần tài khoản.</li>
+            <li><b>10/2026 — v2.18:</b> khung phải của Design thành ba tab <b>Preview · Debug · AI</b>: bỏ nút ✨ nổi, khung chat AI nằm trong tab AI; tab <b>Debug</b> liệt kê những lỗi Reveal.js vẫn âm thầm bỏ qua — dán lẫn thẻ <code>&lt;html&gt;</code>/<code>&lt;body&gt;</code>, thiếu thẻ đóng <code>&lt;section&gt;</code>, chữ rơi ngoài slide, slide lồng quá 2 cấp, công thức viết <code>&lt;</code> trần, nhúng YouTube hay link chia sẻ Google Drive — bấm một dòng là nhảy tới đúng chỗ trong code. Header <b>thôi đếm số bài</b> cho gọn: chỉ khi tạo vượt hạn mức mới có thông báo, kèm nút nhắn Admin trên <b>Signal</b> và link giải thích ở <a href="#quota">Help</a>. Dropdown chọn file thu lại thành nút <b>Select</b>, tên bài đang mở hiện ở đầu khung soạn thảo.</li>
+            <li><b>10/2026 — v2.17:</b> sửa lỗi hiển thị trên <b>điện thoại</b>: một số slide của bài mở bằng trình duyệt điện thoại hiện trên <b>nền tối</b>, chữ đậm đè nền đậm không đọc được, giữa hai slide là khoảng trống lớn. Nguyên nhân từ chế độ cuộn tự động của Reveal 6 trên màn hình hẹp; nay mọi bài — kể cả những bài đã xuất bản trước đây — giữ <b>một nền sáng suốt bài</b> và <b>vuốt từng slide</b> vừa màn hình như trên máy tính.</li>
             <li><b>10/2026 — v2.16:</b> thư viện mẫu <a href="/templates">/templates</a> lên <b>33 mẫu theo 11 danh mục</b>, thêm danh mục <b>Âm thanh &amp; video</b>: âm báo <i>đúng/sai</i> khi làm trắc nghiệm (trình duyệt tự tổng hợp tiếng, không cần file, mất mạng vẫn chạy), bảng chuông lớp học (bắt đầu giờ · nhắc trật tự · hết giờ · tuyên dương), luyện nghe–nói tiếng Anh bằng giọng đọc của trình duyệt kèm nút đọc chậm, slide nghe từ file âm thanh có nút nghe lại và chỉnh tốc độ, và <b>video tự dừng ở các mốc thời gian</b> — tới mốc là dừng, hiện câu hỏi, trả lời xong mới chiếu tiếp. Toàn bộ mẫu cũ đổi từ nền đen sang <b>nền sáng gradient</b>, 20 ví dụ trong trang này cũng vậy; bài tạo mới nay mở đầu bằng <b>nền trắng</b> thay vì theme đen. Sidebar /templates chuyển thành tab (chỉ danh mục được chọn mới nạp preview) và khung preview co theo màn điện thoại thay vì tràn sang phải.</li>
             <li><b>10/2026 — v2.15:</b> Import <b>LaTeX beamer</b> chạy được với file giáo viên viết tay: <b>lệnh tự đặt</b> trong preamble (<code>\newcommand{\dd}{\,\mathrm{d}}</code>, <code>\def</code>) được thay nghĩa vào nơi dùng — trước đây KaTeX báo <i>Undefined control sequence</i> và <b>hủy cả công thức</b> chỉ vì một lệnh lạ; <code>eqnarray</code>, <code>flalign</code>, <code>multline</code> (ba môi trường KaTeX không có) tự đổi thành <code>align</code>/<code>gathered</code>. Hình vẽ <b>TikZ/pgfplots</b> (<code>\begin{tikzpicture}</code>) không còn để lại chữ lộn xộn và cặp <code>$x$</code> giả giữa câu — bản nháp ghi ⚠ đếm số hình cần chụp lại từ PDF. <b>Trang tiêu đề</b> beamer (frame chỉ có <code>\titlepage</code>) nay lấy đúng <code>\title</code> + <code>\subtitle</code> + <code>\author</code> + <code>\date</code>, <code>\today</code> thành ngày. Nội dung mỗi slide giữ <b>đúng thứ tự</b> như file gốc (công thức không còn trôi xuống cuối slide), và <code>\vspace{-2mm}</code>, <code>\column{0.5\textwidth}</code>, <code>\\[6mm]</code> không để sót tham số của chúng.</li>
             <li><b>10/2026 — v2.14:</b> Import file <b>LaTeX beamer</b> giữ được <b>bốn kiểu công thức</b> (<code>$...$</code>, <code>$$...$$</code>, <code>\(...\)</code>, <code>\[...\]</code>) nguyên vẹn, và các môi trường tự đứng như <code>equation</code>, <code>align*</code>, <code>gather</code>, <code>multline</code> được bọc vào <code>\[...\]</code> — trước đây bị gỡ lệnh mất cả công thức nên KaTeX chỉ còn hiện chữ thô. Bảng xét dấu viết bằng <code>array</code> bên trong <code>\[ \]</code> không còn bị vứt. <code>50\%</code> và <code>5\$</code> được hiểu là ký tự thường thay vì mở công thức.</li>

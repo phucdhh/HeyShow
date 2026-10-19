@@ -137,15 +137,16 @@ test('publish trả về link /show/ và slide nhận CSP sandbox', async () => 
         assert.ok(src.includes(GUARD), `${file} phải giữ đúng rule của bản publish`);
     }
 
-    // Khác biệt có chủ đích, đừng "đồng bộ" cho giống nhau: dưới 435px bề ngang Reveal 6 tự
-    // chuyển sang chế độ cuộn và bỏ phép co slide về vừa khung. Khung preview mẫu ở /templates
-    // chỉ rộng ~356px nên nếu để mặc định, thẻ mẫu hiện ra cắt góc trên nền đen. Bản publish
-    // thì giữ mặc định — điện thoại đọc cả bài theo kiểu cuộn là hành vi đúng của Reveal.
+    // Reveal 6 bật chế độ cuộn khi khung chứa ≤435px, tức là mọi điện thoại dọc và mọi khung
+    // preview. Ở chế độ đó slide nằm trong trang cao theo kích thước thật của section, trên
+    // nền đen của theme black (nền sáng của mẫu gắn ở .reveal chứ không ở <section>) — người
+    // dùng báo bài mở trên điện thoại có slide nền tối. Preview và bản publish phải tắt như
+    // nhau để điện thoại nào cũng còn vuốt từng slide, co vừa màn hình.
     const previewSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'src/reveal-preview.js'), 'utf8');
-    assert.ok(previewSrc.includes('scrollActivationWidth: null'),
+    assert.ok(previewSrc.includes('${REVEAL_SCROLL_MODE_OFF}'),
         'preview phải tắt chế độ cuộn tự động để luôn ra một slide trọn vẹn');
-    assert.ok(!slideHtml.includes('scrollActivationWidth'),
-        'bản publish không được tắt chế độ cuộn, chỉ preview mới tắt');
+    assert.ok(slideHtml.includes('scrollActivationWidth: null'),
+        'bản publish phải tắt chế độ cuộn, nếu không điện thoại dọc ra nền đen');
 
     // CSP sandbox biến sessionStorage thành bẫy ném SecurityError, còn Reveal 5/6 thì gọi
     // nó mỗi lần chuyển slide -> vuốt trên điện thoại chết hẳn. Bản publish phải tự đỡ
@@ -205,7 +206,16 @@ test('nâng cấp Reveal: server và client cùng phiên bản, đúng layout c�
             `${file} phải lấy URL Reveal từ reveal-cdn.js thay vì tự ghi`);
         assert.ok(read(`../../client/${file}`).includes('${REVEAL_KATEX_OPTS}'),
             `${file} phải dùng chung cấu hình KaTeX với bản publish`);
+        assert.ok(read(`../../client/${file}`).includes('${REVEAL_SCROLL_MODE_OFF}'),
+            `${file} phải tắt chế độ cuộn y hệt bản publish`);
     }
+
+    // Khóa tắt chế độ cuộn: ba chỗ (publish, preview mẫu, editor) phải cùng một chuỗi.
+    const scrollOf = src => (src.match(/REVEAL_SCROLL_MODE_OFF = '([^']+)'/) || [])[1];
+    assert.equal(scrollOf(server), 'scrollActivationWidth: null',
+        'server/src/slide-parts.js phải định nghĩa REVEAL_SCROLL_MODE_OFF');
+    assert.equal(scrollOf(client), scrollOf(server),
+        'client/src/reveal-cdn.js phải chép hệt khóa tắt chế độ cuộn của server');
 
     // Chữ Việt trong $...$ khiến KaTeX bắn cảnh báo mỗi lần mở console; tắt đúng loại đó,
     // server và client phải khai báo giống nhau từng ký tự.
@@ -428,6 +438,84 @@ test('bình luận lồng nhau thành thread một cấp', async () => {
     const thread = detail.json.presentation.threads.find(c => c.id === rootId);
     assert.equal(thread.replies.length, 1);
     assert.equal(thread.replies[0].text, 'phản hồi');
+});
+
+// Bình luận cũng thích được như cả bài: toggle hai chiều, cộng dồn theo người, khách chỉ nhìn
+// thấy số chứ không bấm được.
+test('thích bình luận: toggle hai chiều, phản hồi cũng thích được', async () => {
+    const root = (await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/comments', {
+        token: srv.users.designer.login, body: { text: 'bình luận để thích' }
+    })).json.comment;
+    const reply = (await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/comments', {
+        token: srv.users.master.login, body: { text: 'phản hồi để thích', parentId: root.id }
+    })).json.comment;
+    const likePath = id => `/api/p/tmaster/hist.html/comments/${id}/like`;
+
+    const first = await apiRequest(srv.url, 'POST', likePath(root.id), { token: srv.users.user.login });
+    assert.equal(first.status, 200);
+    assert.deepEqual(first.json, { success: true, likes: 1, likedByMe: true });
+
+    const second = await apiRequest(srv.url, 'POST', likePath(root.id), { token: srv.users.master.login });
+    assert.equal(second.json.likes, 2, 'hai người khác nhau thì cộng dồn');
+
+    const again = await apiRequest(srv.url, 'POST', likePath(root.id), { token: srv.users.user.login });
+    assert.equal(again.json.likes, 1, 'bấm lần hai là bỏ thích');
+    assert.equal(again.json.likedByMe, false);
+
+    const onReply = await apiRequest(srv.url, 'POST', likePath(reply.id), { token: srv.users.user.login });
+    assert.equal(onReply.json.likes, 1, 'phản hồi cũng có lượt thích riêng');
+
+    const asUser = await apiRequest(srv.url, 'GET', '/api/p/tmaster/hist.html', { token: srv.users.user.login });
+    const thread = asUser.json.presentation.threads.find(c => c.id === root.id);
+    assert.equal(thread.likes, 1);
+    assert.equal(thread.likedByMe, false, 'đã bỏ thích thì không được tính là thích');
+    assert.equal(thread.replies[0].likes, 1);
+    assert.equal(thread.replies[0].likedByMe, true);
+
+    const asGuest = await apiRequest(srv.url, 'GET', '/api/p/tmaster/hist.html', {});
+    const guestThread = asGuest.json.presentation.threads.find(c => c.id === root.id);
+    assert.equal(guestThread.likes, 1, 'khách vẫn thấy số lượt thích');
+    assert.equal(guestThread.likedByMe, false, 'khách thì chưa thích gì cả');
+
+    const anon = await apiRequest(srv.url, 'POST', likePath(root.id), {});
+    assert.equal(anon.status, 401, 'khách không bấm thích được');
+
+    const missing = await apiRequest(srv.url, 'POST', likePath('deadbeef'), { token: srv.users.user.login });
+    assert.equal(missing.status, 404, 'bình luận không tồn tại thì 404');
+
+    // Bình luận bị gỡ phải chặn cửa like, nếu không số liệu vẫn nhảy trên một vỏ rỗng.
+    const doomed = (await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/comments', {
+        token: srv.users.designer.login, body: { text: 'bình luận sắp bị xóa' }
+    })).json.comment;
+    await apiRequest(srv.url, 'DELETE', `/api/p/tmaster/hist.html/comments/${doomed.id}`, {
+        token: srv.users.designer.login
+    });
+    const afterDelete = await apiRequest(srv.url, 'POST', likePath(doomed.id), { token: srv.users.user.login });
+    assert.equal(afterDelete.status, 404, 'bình luận đã xóa thì không thích được');
+});
+
+// Mọi bình luận đang nằm trong social.json trên production đều CHƯA có trường likes (nó chỉ
+// có từ hôm nay), nên bản cũ phải đọc ra 0 lượt và thích được ngay mà không cần migrate.
+test('bình luận cũ chưa có trường likes vẫn đọc và thích được', async () => {
+    await sleep(400); // đợi hàng đợi ghi của store yên hẳn kẻo nó đè mất file vừa sửa
+    const file = path.join(srv.dataDir, 'social.json');
+    const social = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const rec = social.presentations['tmaster/hist.html'];
+    assert.ok(rec, 'test ở trên phải để lại record của bài này');
+    rec.comments.push({ id: 'legacy01', author: 'tdesigner', text: 'bình luận của bản cũ', at: Date.now() - 1000 });
+    fs.writeFileSync(file, JSON.stringify(social), { mode: 0o600 });
+
+    const detail = await apiRequest(srv.url, 'GET', '/api/p/tmaster/hist.html', { token: srv.users.user.login });
+    const found = detail.json.presentation.comments.find(c => c.id === 'legacy01');
+    assert.ok(found, 'server phải nạp lại file vừa đổi trên đĩa');
+    assert.equal(found.likes, 0, 'chưa có trường likes phải đọc ra 0 lượt');
+    assert.equal(found.likedByMe, false);
+
+    const liked = await apiRequest(srv.url, 'POST', '/api/p/tmaster/hist.html/comments/legacy01/like', {
+        token: srv.users.user.login
+    });
+    assert.equal(liked.status, 200);
+    assert.equal(liked.json.likes, 1, 'bình luận cũ thích được ngay, không cần chuyển đổi');
 });
 
 test('quyền gỡ bình luận: người dưng bị chặn, admin gỡ được', async () => {
@@ -785,4 +873,103 @@ test('mã ngoài tập cú pháp thì đòi API Key chứ không vẽ bừa', as
     const empty = await srv.api('POST', '/api/ai/tikz', { body: { code: '   ' } });
     assert.equal(empty.status, 400);
     assert.match(empty.json.error, /Không có mã TikZ/);
+});
+
+// ---------- tái sử dụng bài trình chiếu ----------
+// Tài khoản riêng: test đổi mật khẩu ở trên đã thu hồi token của tdesigner/tuser.
+
+let reuseOwner = '';
+let reuseFan = '';
+
+async function makeUser(username) {
+    await srv.api('POST', '/api/admin/users', { body: { username, password: 'matkhau123', role: 'user' } });
+    const login = await apiRequest(srv.url, 'POST', '/api/auth/login', { body: { username, password: 'matkhau123' } });
+    assert.equal(login.status, 200, `không đăng nhập được ${username}`);
+    return login.json.token;
+}
+
+test('mở khoá thì người khác tái sử dụng thành bản nháp của riêng họ', async () => {
+    reuseOwner = await makeUser('treuse-a');
+    reuseFan = await makeUser('treuse-b');
+    await apiRequest(srv.url, 'POST', '/api/files/dao-ham.html', {
+        token: reuseOwner, body: { content: '<section><h1>Đạo hàm</h1></section>' }
+    });
+    await apiRequest(srv.url, 'POST', '/api/files/dao-ham.html/publish', { token: reuseOwner });
+
+    const closed = await apiRequest(srv.url, 'POST', '/api/p/treuse-a/dao-ham.html/reuse', { token: reuseFan });
+    assert.equal(closed.status, 403, 'chưa mở khoá thì phải chặn');
+    assert.match(closed.json.error, /chưa cho phép/);
+    // từ chối kiểu này KHÔNG được mang code 'auth', nếu không api.js đá nhầm người đang online
+    assert.notEqual(closed.json.code, 'auth');
+
+    const guest = await apiRequest(srv.url, 'POST', '/api/p/treuse-a/dao-ham.html/reuse', {});
+    assert.equal(guest.status, 401, 'phải đăng nhập mới tái sử dụng được');
+    assert.equal(guest.json.code, 'auth');
+
+    const on = await apiRequest(srv.url, 'POST', '/api/files/dao-ham.html/reuse', {
+        token: reuseOwner, body: { allow: true }
+    });
+    assert.equal(on.status, 200, JSON.stringify(on.json));
+    assert.equal(on.json.allowReuse, true);
+
+    const ownerDash = await apiRequest(srv.url, 'GET', '/api/dashboard', { token: reuseOwner });
+    assert.equal(ownerDash.json.items.find(i => i.fileName === 'dao-ham.html').allowReuse, true,
+        'Dashboard phải hiện ổ khoá mở cho chủ bài');
+
+    const detail = await apiRequest(srv.url, 'GET', '/api/p/treuse-a/dao-ham.html', { token: reuseFan });
+    assert.equal(detail.json.presentation.allowReuse, true, 'gallery cần cờ này để hiện nút Reuse');
+
+    const original = await apiRequest(srv.url, 'GET', '/api/files/dao-ham.html', { token: reuseOwner });
+
+    const copy = await apiRequest(srv.url, 'POST', '/api/p/treuse-a/dao-ham.html/reuse', { token: reuseFan });
+    assert.equal(copy.status, 200, JSON.stringify(copy.json));
+    assert.equal(copy.json.fileName, 'dao-ham.html', 'chưa trùng tên thì giữ nguyên tên gốc');
+
+    const copied = await apiRequest(srv.url, 'GET', '/api/files/dao-ham.html', { token: reuseFan });
+    assert.match(copied.json.content, /^<!-- Tái sử dụng từ bài «Đạo hàm» của @treuse-a/, 'phải ghi nguồn tác giả');
+    assert.ok(copied.json.content.includes(original.json.content), 'phải chép nguyên văn mã nguồn gốc');
+
+    const untouched = await apiRequest(srv.url, 'GET', '/api/files/dao-ham.html', { token: reuseOwner });
+    assert.equal(untouched.json.content, original.json.content, 'tái sử dụng không được đụng tới bản gốc');
+
+    const again = await apiRequest(srv.url, 'POST', '/api/p/treuse-a/dao-ham.html/reuse', { token: reuseFan });
+    assert.equal(again.json.fileName, 'dao-ham-2.html', 'trùng tên phải tự thành dao-ham-2.html');
+
+    const fanDash = await apiRequest(srv.url, 'GET', '/api/dashboard', { token: reuseFan });
+    const draftItem = fanDash.json.items.find(i => i.fileName === 'dao-ham.html');
+    assert.equal(draftItem.status, 'draft', 'bản sao chỉ là nháp, không tự publish');
+    assert.equal(draftItem.title, 'Đạo hàm', 'bản sao mang tiêu đề bài gốc chứ không chỉ tên file');
+});
+
+test('thu hồi khoá thì tái sử dụng bị chặn lại', async () => {
+    const off = await apiRequest(srv.url, 'POST', '/api/files/dao-ham.html/reuse', {
+        token: reuseOwner, body: { allow: false }
+    });
+    assert.equal(off.json.allowReuse, false);
+
+    const denied = await apiRequest(srv.url, 'POST', '/api/p/treuse-a/dao-ham.html/reuse', { token: reuseFan });
+    assert.equal(denied.status, 403);
+
+    const ghost = await apiRequest(srv.url, 'POST', '/api/files/khongtontai.html/reuse', {
+        token: reuseOwner, body: { allow: true }
+    });
+    assert.equal(ghost.status, 404, 'không được ghi record cho tên file không tồn tại');
+});
+
+test('tái sử dụng chịu hạn mức bài của người bấm', async () => {
+    const full = await makeUser('treuse-full');
+    for (let i = 1; i <= 10; i++) {
+        await apiRequest(srv.url, 'POST', `/api/files/lop-${i}.html`, {
+            token: full, body: { content: '<section><h1>x</h1></section>' }
+        });
+    }
+    await apiRequest(srv.url, 'POST', '/api/files/dao-ham.html/reuse', { token: reuseOwner, body: { allow: true } });
+
+    const res = await apiRequest(srv.url, 'POST', '/api/p/treuse-a/dao-ham.html/reuse', { token: full });
+    assert.equal(res.status, 403);
+    assert.match(res.json.error, /tối đa 10 bài/);
+    assert.notEqual(res.json.code, 'auth', 'đầy hạn mức không phải phiên chết');
+
+    const still = await apiRequest(srv.url, 'GET', '/api/files', { token: full });
+    assert.equal(still.json.files.length, 10, 'bị chặn thì không được để lại bản nháp mồ côi');
 });

@@ -222,14 +222,17 @@
       }
       .viewer-stats span { display: inline-flex; align-items: center; gap: 6px; }
       #btn-like,
-      #btn-share {
+      #btn-share,
+      #btn-reuse {
         background: var(--bg-panel); color: var(--text-color);
         border: 1px solid var(--border-color); border-radius: 20px;
         padding: 5px 14px; cursor: pointer; font-size: 0.85rem;
         display: inline-flex; align-items: center; gap: 6px;
       }
       #btn-like:hover,
-      #btn-share:hover { background: var(--bg-deep); }
+      #btn-share:hover,
+      #btn-reuse:hover { background: var(--bg-deep); }
+      #btn-reuse { color: var(--accent-strong); font-weight: 600; }
       #btn-like.liked { background: var(--accent-color); color: var(--ink); border-color: var(--accent-color); font-weight: 600; }
 
       /* ---------- Hộp thoại Share to ---------- */
@@ -295,6 +298,11 @@
         cursor: pointer; font-size: 0.72rem; padding: 0;
       }
       .comment-actions button:hover { color: var(--accent-color); text-decoration: underline; }
+      /* Bình luận đã được mình thích: tô đỏ như nút ♥ của cả bài. Cao cố định vì ♥ và ♡
+         đến từ hai font khác nhau nên box cao 12px/17px — không neo thì dòng nhảy khi bấm. */
+      .comment-actions button.like { display: inline-flex; align-items: center; height: 17px; }
+      .comment-actions button.liked { color: #e11d48; font-weight: 600; }
+      .comment-actions button.liked:hover { color: #be123c; text-decoration: none; }
       .comment-edited { color: var(--muted); font-size: 0.7rem; font-style: italic; margin: 2px 0 0 12px; }
       .comment-edit-box { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
       .comment-edit-box textarea {
@@ -444,6 +452,7 @@
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line></svg>
             <b id="stat-shares">0</b>
           </button>
+          <button id="btn-reuse" class="hidden" type="button" title="Tạo bản nháp của riêng bạn từ mã nguồn bài này">♻ Reuse</button>
         </div>
 
         <div id="comment-list"></div>

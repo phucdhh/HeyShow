@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
 const { createJsonStore, atomicWrite } = require('./storage');
-const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS } = require('./slide-parts');
+const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS } = require('./slide-parts');
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
@@ -238,11 +238,21 @@ function seedDatabase() {
     console.log('============================================================\n');
 }
 
+// Like của một bình luận: danh sách username, đã loại trùng. social.json của các bài đang
+// chạy chưa hề có trường này (bình luận chỉ có like từ hôm nay) nên normalize phải dựng ra
+// mảng rỗng thay vì để undefined lan xuống route và client.
+function commentLikers(list) {
+    if (!Array.isArray(list)) return [];
+    return Array.from(new Set(list.filter(u => typeof u === 'string' && u)));
+}
+
 function normalizePresentationRec(rec) {
     if (!rec || typeof rec !== 'object') return false;
     rec.likes = Array.isArray(rec.likes) ? rec.likes : [];
     rec.comments = Array.isArray(rec.comments) ? rec.comments : [];
+    for (const c of rec.comments) if (c && typeof c === 'object') c.likes = commentLikers(c.likes);
     rec.views = Number.isFinite(rec.views) ? rec.views : 0;
+    rec.allowReuse = rec.allowReuse === true;
     if (!rec.replyCounts || typeof rec.replyCounts !== 'object') rec.replyCounts = {};
     if (!rec.shares || typeof rec.shares !== 'object') rec.shares = {};
     rec.shares.count = Number.isFinite(rec.shares.count) ? rec.shares.count : 0;
@@ -334,8 +344,10 @@ function authorInfo(loginId, user) {
 
 // Gắn thông tin hiển thị của bình luận (không trả passwordHash ra ngoài).
 // parentId != null nghĩa là đây là phản hồi lồng dưới một bình luận khác.
-function decorateComment(comment, currentDB) {
+// me: username của người đang xem, để client biết có nên tô ♥ hay không.
+function decorateComment(comment, currentDB, me = null) {
     const user = currentDB.users[comment.author] || {};
+    const likers = commentLikers(comment.likes);
     return {
         id: comment.id,
         text: comment.text,
@@ -343,6 +355,8 @@ function decorateComment(comment, currentDB) {
         editedAt: comment.editedAt || null,
         deletedAt: comment.deletedAt || null,
         parentId: comment.parentId || null,
+        likes: likers.length,
+        likedByMe: Boolean(me && likers.includes(me)),
         author: authorInfo(comment.author, user)
     };
 }
@@ -1531,6 +1545,7 @@ ${SLIDE_HEAD_GUARD}
             }
 
             Reveal.initialize({
+                ${REVEAL_SCROLL_MODE_OFF}, // điện thoại dọc: giữ vuốt từng slide, không rơi vào nền đen (xem slide-parts.js)
                 hash: true,
                 slideNumber: true,
                 ${REVEAL_KATEX_OPTS},
@@ -1652,6 +1667,24 @@ app.post('/api/files/:name/unpublish', authenticateToken, (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
+});
+
+// 11. Bật/tắt "cho phép tái sử dụng". Cờ nằm trong record gallery của chính bài,
+// nên đổi tên bài thì cờ đi theo, và xoá bài thì cờ mất cùng bài.
+app.post('/api/files/:name/reuse', authenticateToken, (req, res) => {
+    const fileName = safeFileName(req.params.name);
+    if (!fileName) return res.status(400).json({ success: false, error: 'Tên file không hợp lệ' });
+
+    // Chặn tạo record rác cho tên file không tồn tại
+    if (!presentationNames(req.userDir).includes(fileName)) {
+        return res.status(404).json({ success: false, error: 'Không tìm thấy bài trình chiếu' });
+    }
+
+    const allow = req.body?.allow === true;
+    mutateSocial(social => {
+        getPres(social, presKey(req.user.username, fileName), Date.now()).allowReuse = allow;
+    });
+    res.json({ success: true, allowReuse: allow });
 });
 
 // 8. Export HTML hoàn chỉnh (tải về chạy offline). Bài chưa publish thì dựng từ nháp.
@@ -1813,6 +1846,7 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
             items.push({
                 fileName,
                 title: rec?.title || fileName.replace(/\.html$/i, ''),
+                allowReuse: rec?.allowReuse === true,
                 status: published ? 'published' : 'draft',
                 hasDraft,
                 versions: history.listVersions(req.userDir, fileName).length,
@@ -2202,8 +2236,8 @@ function visibleComments(rec) {
     return list.filter(c => !c.deletedAt);
 }
 
-function buildCommentTree(rec, currentDB) {
-    const decorated = visibleComments(rec).map(c => decorateComment(c, currentDB));
+function buildCommentTree(rec, currentDB, me = null) {
+    const decorated = visibleComments(rec).map(c => decorateComment(c, currentDB, me));
     const topLevel = decorated.filter(c => !c.parentId);
     const repliesByParent = new Map();
     for (const c of decorated) {
@@ -2249,10 +2283,11 @@ app.get('/api/p/:user/:file', optionalAuth, (req, res) => {
             likedByMe: me ? rec.likes.includes(me) : false,
             shares: rec.shares.count,
             sharesByChannel: rec.shares.byChannel,
+            allowReuse: rec.allowReuse === true,
             // Chủ bài và quản trị được gỡ bình luận rác trên bài của mình
             canModerate,
-            threads: buildCommentTree(rec, currentDB),
-            comments: visibleComments(rec).map(c => decorateComment(c, currentDB))
+            threads: buildCommentTree(rec, currentDB, me),
+            comments: visibleComments(rec).map(c => decorateComment(c, currentDB, me))
         }
     });
 });
@@ -2302,6 +2337,47 @@ app.post('/api/p/:user/:file/share', limitWrite, (req, res) => {
     });
 
     res.json({ success: true, ...result });
+});
+
+// Tái sử dụng: sao mã nguồn của bài đã mở khoá thành bản nháp CỦA NGƯỜI BẤM.
+// Lấy từ drafts chứ không phải published: bản publish đã bị phủ khung Reveal, còn
+// bản nháp mới đúng fragment mà Design biên tập tiếp được.
+app.post('/api/p/:user/:file/reuse', authenticateToken, limitWrite, (req, res) => {
+    const target = resolvePresentation(req, res);
+    if (!target) return;
+
+    const ownerRec = getSocial().presentations[presKey(target.loginId, target.fileName)];
+    if (!ownerRec || ownerRec.allowReuse !== true) {
+        return res.status(403).json({ success: false, error: 'Tác giả chưa cho phép tái sử dụng bài này' });
+    }
+
+    const blocked = quotaError(req.user.username);
+    if (blocked) return res.status(blocked.status).json(blocked.body);
+
+    let source;
+    try {
+        source = fs.readFileSync(path.join(userDir(target.loginId), 'drafts', target.fileName), 'utf-8');
+    } catch (err) {
+        return res.status(404).json({ success: false, error: 'Không đọc được mã nguồn bài này' });
+    }
+
+    const title = ownerRec.title || target.fileName.replace(/\.html$/i, '');
+    const banner = `<!-- Tái sử dụng từ bài «${escapeHtml(title)}» của @${escapeHtml(slugOf(target.loginId, target.user))} -->\n`;
+    const fileName = reserveDraftName(req, target.fileName.replace(/\.html$/i, ''));
+
+    try {
+        writeDraft(req, fileName, banner + source);
+        // Dashboard lấy tiêu đề từ record gallery, nên bản sao mang tên bài gốc chứ không
+        // chỉ tên file; publish lại thì rec.title tự tính lại từ nội dung.
+        mutateSocial(social => {
+            getPres(social, presKey(req.user.username, fileName), Date.now()).title = title;
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+        return;
+    }
+
+    res.json({ success: true, fileName, title });
 });
 
 const COMMENT_MAX_LEN = 2000;
@@ -2357,6 +2433,7 @@ app.post('/api/p/:user/:file/comments', authenticateToken, limitWrite, (req, res
             author: req.user.username,
             text,
             at: Date.now(),
+            likes: [],
             parentId: parent ? parent.id : null
         };
         rec.comments.push(comment);
@@ -2364,7 +2441,29 @@ app.post('/api/p/:user/:file/comments', authenticateToken, limitWrite, (req, res
     });
 
     if (outcome.error) return res.status(outcome.error.status).json(outcome.error.body);
-    res.json({ success: true, comment: decorateComment(outcome.comment, currentDB) });
+    res.json({ success: true, comment: decorateComment(outcome.comment, currentDB, req.user.username) });
+});
+
+// Thích / bỏ thích một bình luận (kể cả phản hồi): cùng kiểu toggle như like của cả bài.
+app.post('/api/p/:user/:file/comments/:commentId/like', authenticateToken, limitWrite, (req, res) => {
+    const target = resolvePresentation(req, res);
+    if (!target) return;
+
+    const outcome = mutateSocial(social => {
+        const rec = getPres(social, presKey(target.loginId, target.fileName), fileMtime(target.pubPath));
+        const comment = rec.comments.find(c => c.id === req.params.commentId);
+        if (!comment || comment.deletedAt) return { missing: true };
+
+        comment.likes = commentLikers(comment.likes);
+        const me = req.user.username;
+        const index = comment.likes.indexOf(me);
+        if (index >= 0) comment.likes.splice(index, 1);
+        else comment.likes.push(me);
+        return { likes: comment.likes.length, likedByMe: index < 0 };
+    });
+
+    if (outcome.missing) return res.status(404).json({ success: false, error: 'Không tìm thấy bình luận' });
+    res.json({ success: true, likes: outcome.likes, likedByMe: outcome.likedByMe });
 });
 
 // Quyền sửa/xóa một bình luận: tác giả, chủ bài, hoặc admin
@@ -2398,7 +2497,7 @@ app.patch('/api/p/:user/:file/comments/:commentId', authenticateToken, limitWrit
 
     if (outcome.missing) return res.status(404).json({ success: false, error: 'Không tìm thấy bình luận' });
     if (outcome.forbidden) return res.status(403).json({ success: false, error: 'Chỉ được sửa bình luận của chính bạn' });
-    res.json({ success: true, comment: decorateComment(outcome.comment, currentDB) });
+    res.json({ success: true, comment: decorateComment(outcome.comment, currentDB, req.user.username) });
 });
 
 // Xóa bình luận: tác giả rút lại, chủ bài và admin thì gỡ nội dung rác.

@@ -28,6 +28,7 @@ const statComments = document.getElementById('stat-comments');
 const btnLike = document.getElementById('btn-like');
 const statShares = document.getElementById('stat-shares');
 const btnShare = document.getElementById('btn-share');
+const btnReuse = document.getElementById('btn-reuse');
 const shareOverlay = document.getElementById('share-dialog-overlay');
 const btnCloseShare = document.getElementById('btn-close-share');
 const shareChannels = document.getElementById('share-channels');
@@ -410,6 +411,14 @@ function renderComment(comment, { isReply = false } = {}) {
     const isMine = myUsername && comment.author.username === myUsername;
     const actions = document.createElement('div');
     actions.className = 'comment-actions';
+    // Nút thích đặt trước "Trả lời" cho đúng thứ tự Facebook. Khách vẫn thấy số lượt thích,
+    // chỉ cần đăng nhập mới bấm được — giống hệt nút thích của cả bài.
+    const likeBtn = document.createElement('button');
+    likeBtn.type = 'button';
+    likeBtn.className = 'like';
+    likeBtn.addEventListener('click', () => toggleCommentLike(comment, likeBtn));
+    paintCommentLike(likeBtn, comment);
+    actions.append(likeBtn);
     if (isMine) {
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
@@ -437,6 +446,32 @@ function renderComment(comment, { isReply = false } = {}) {
 
     row.append(avatarLink, wrap);
     return row;
+}
+
+// ♥/♡ + số lượt thích; 0 lượt thì chỉ có biểu tượng cho đỡ rối mắt.
+function paintCommentLike(btn, comment) {
+    btn.classList.toggle('liked', Boolean(comment.likedByMe));
+    btn.title = comment.likedByMe ? 'Bỏ thích' : 'Thích bình luận này';
+    const n = Number(comment.likes) || 0;
+    btn.textContent = comment.likedByMe ? `♥${n ? ' ' + n : ''}` : `♡${n ? ' ' + n : ''}`;
+}
+
+async function toggleCommentLike(comment, btn) {
+    if (!isAuthed()) return showToast('Hãy đăng nhập để thích bình luận này', true);
+    if (!current) return;
+    const { user, fileName } = current;
+    btn.disabled = true;
+    try {
+        const data = await post(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}`
+            + `/comments/${encodeURIComponent(comment.id)}/like`);
+        comment.likes = data.likes;
+        comment.likedByMe = data.likedByMe;
+        paintCommentLike(btn, comment);
+    } catch (e) {
+        showToast(e.message || 'Không gửi được lượt thích', true);
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 // Ô trả lời mở ngay dưới bình luận gốc đang được trả lời
@@ -572,6 +607,8 @@ function applyPresentationMeta(p) {
     statShares.textContent = p.shares || 0;
     btnLike.classList.toggle('liked', p.likedByMe);
     btnLike.firstChild.textContent = p.likedByMe ? '♥ ' : '♡ ';
+    // Nút Reuse chỉ hiện khi chủ bài mở khoá trong Dashboard
+    btnReuse.classList.toggle('hidden', p.allowReuse !== true);
     canModerate = Boolean(p.canModerate);
     renderThreads(p.threads || []);
 }
@@ -658,6 +695,21 @@ btnLike.addEventListener('click', async () => {
         btnLike.firstChild.textContent = data.likedByMe ? '♥ ' : '♡ ';
     } catch (e) {
         showToast(e.message || 'Không gửi được lượt thích', true);
+    }
+});
+
+// Server sao mã nguồn thành bản nháp CỦA MÌNH rồi trả tên file; Design nạp qua ?file=.
+btnReuse.addEventListener('click', async () => {
+    if (!isAuthed()) return showToast('Hãy đăng nhập để tái sử dụng bài này', true);
+    if (!current) return;
+    const { user, fileName } = current;
+    btnReuse.disabled = true;
+    try {
+        const data = await post(`/api/p/${encodeURIComponent(user)}/${encodeURIComponent(fileName)}/reuse`);
+        location.href = `/design?file=${encodeURIComponent(data.fileName)}`;
+    } catch (e) {
+        btnReuse.disabled = false;
+        showToast(e.message || 'Không tái sử dụng được bài này', true);
     }
 });
 
