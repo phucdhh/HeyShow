@@ -54,7 +54,7 @@ Chưa muốn đăng ký? Vào `/gallery` xem bài của người khác và bấm
 ```bash
 npm install && (cd client && npm install) && (cd server && npm install)
 npm run lint              # ESLint toàn repo
-npm test                  # 100 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
+npm test                  # 107 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
 cd client && npm run dev  # trình soạn + hot reload
 cd server && npm run dev  # backend
 ```
