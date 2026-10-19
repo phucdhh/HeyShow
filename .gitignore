@@ -31,6 +31,9 @@ tmp/
 .backups/
 server/*.log
 
+# --- Bản sao dữ liệu (scripts/backup-data.sh) ---
+/backup/
+
 # --- Script deploy chứa địa chỉ máy chủ nội mạng ---
 # Chỉ commit bản mẫu; người dùng copy thành sync2fold4.sh và điền DEPLOY_USER/HOST.
 /sync2fold4.sh

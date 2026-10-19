@@ -49,7 +49,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
     # vì server phục vụ thẳng thư mục đó), nếu không dry run sẽ báo sai.
     rsync -avni --delete \
         --exclude 'node_modules' --exclude 'client/node_modules' --exclude 'server/node_modules' \
-        --exclude 'data' --exclude '.git' --exclude '.env' --exclude '.env.*' \
+        --exclude 'data' --exclude 'backup' --exclude '.git' --exclude '.env' --exclude '.env.*' \
         --exclude '*.log' --exclude '.backups' --exclude '.DS_Store' \
         ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_DIR}/"
     echo '--- Dry run kết thúc, không có gì được ghi. ---'
@@ -71,7 +71,7 @@ step 'Đồng bộ lên Fold 4'
 # nhưng data/ đã loại trừ ở cả hai chiều nên không bao giờ bị xóa.
 rsync -avz --delete \
     --exclude 'node_modules' --exclude 'client/node_modules' --exclude 'server/node_modules' \
-    --exclude 'data' --exclude '.git' --exclude '.env' --exclude '.env.*' \
+    --exclude 'data' --exclude 'backup' --exclude '.git' --exclude '.env' --exclude '.env.*' \
     --exclude '*.log' --exclude '.backups' --exclude '.DS_Store' \
     -e "ssh -p ${DEPLOY_PORT}" \
     ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_DIR}/"

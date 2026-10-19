@@ -7,8 +7,9 @@
 #   KEEP=30 ./scripts/backup-data.sh      giữ 30 bản thay vì 14
 #   HEYSHOW_BACKUP_DIR=/Volumes/SSD/bs ./scripts/backup-data.sh
 #
-# Bản sao đặt ngoài thư mục dự án theo mặc định ($HOME/HeyShowBackups) để Google
-# Drive không đẩy lên cloud — trong data/ có hash mật khẩu và API key AI.
+# Bản sao đặt trong ./backup (đã gitignore). Vì thư mục dự án nằm trên Google
+# Drive, data/ gồm hash mật khẩu và API key AI sẽ được đồng bộ lên cloud: muốn
+# giữ kín thì chạy HEYSHOW_BACKUP_DIR=/Volumes/SSD/bs ./scripts/backup-data.sh
 
 set -euo pipefail
 
@@ -23,19 +24,26 @@ sync_default() {
     sed -n "s|^[[:space:]]*$1=\"\\\${$1:-\\(.*\\)}\".*|\\1|p" "$SYNC_FILE" | head -n1
 }
 
+# DEPLOY_TARGET (alias ssh, ưu tiên) hoặc bộ ba DEPLOY_USER/DEPLOY_HOST (đi thẳng LAN).
+DEPLOY_TARGET="${DEPLOY_TARGET:-$(sync_default DEPLOY_TARGET)}"
 DEPLOY_USER="${DEPLOY_USER:-$(sync_default DEPLOY_USER)}"
 DEPLOY_HOST="${DEPLOY_HOST:-$(sync_default DEPLOY_HOST)}"
 DEPLOY_PORT="${DEPLOY_PORT:-$(sync_default DEPLOY_PORT)}"
-REMOTE_DIR="${REMOTE_DIR:-HeyShow}"
-BACKUP_DIR="${HEYSHOW_BACKUP_DIR:-$HOME/HeyShowBackups}"
+DEPLOY_PORT="${DEPLOY_PORT:-8022}"
+REMOTE_DIR="${REMOTE_DIR:-$(sync_default REMOTE_DIR)}"
+REMOTE_DIR="${REMOTE_DIR:-~/HeyShow}"
+if [[ -z "$DEPLOY_TARGET" && -n "$DEPLOY_USER$DEPLOY_HOST" ]]; then
+    DEPLOY_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
+fi
+BACKUP_DIR="${HEYSHOW_BACKUP_DIR:-$ROOT_DIR/backup}"
 KEEP="${KEEP:-14}"
 
 MODE=remote
 if [[ "${1:-}" == "--local" ]]; then MODE=local; fi
 
-if [[ "$MODE" == remote && -z "$DEPLOY_USER$DEPLOY_HOST" ]]; then
+if [[ "$MODE" == remote && -z "$DEPLOY_TARGET" ]]; then
     echo "Chưa có địa chỉ máy chủ. Chạy: cp sync2fold4.example.sh sync2fold4.sh rồi điền" >&2
-    echo "DEPLOY_USER/DEPLOY_HOST, hoặc truyền trực tiếp: DEPLOY_HOST=... DEPLOY_USER=... $0" >&2
+    echo "DEPLOY_TARGET (alias ssh) hoặc DEPLOY_USER/DEPLOY_HOST, hoặc truyền trực tiếp: DEPLOY_TARGET=fold4 $0" >&2
     exit 1
 fi
 
@@ -46,7 +54,7 @@ echo "==> Tạo bản sao ($MODE) tại $OUT"
 # Server vẫn đang chạy khi ta sao lưu: tầng lưu trữ ghi theo kiểu file tạm + rename,
 # nên tar luôn bắt được các file hoàn chỉnh.
 if [[ "$MODE" == remote ]]; then
-    ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" "tar -czf - -C ~/${REMOTE_DIR} data" > "$OUT"
+    ssh -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "cd ${REMOTE_DIR} && tar -czf - data" > "$OUT"
 else
     tar -czf "$OUT" -C "$ROOT_DIR" data
 fi
@@ -85,7 +93,7 @@ echo "==> Xong. Còn ${TOTAL} bản trong ${BACKUP_DIR}"
 cat <<EOF
 
 Khôi phục khi cần (dừng server trước để tránh ghi đè file đang mở):
-  ssh -p ${DEPLOY_PORT} ${DEPLOY_USER}@${DEPLOY_HOST} 'pm2 stop heyshow'
-  cat ${OUT} | ssh -p ${DEPLOY_PORT} ${DEPLOY_USER}@${DEPLOY_HOST} 'tar -xzf - -C ~/${REMOTE_DIR}'
-  ssh -p ${DEPLOY_PORT} ${DEPLOY_USER}@${DEPLOY_HOST} 'pm2 restart heyshow'
+  ssh -p ${DEPLOY_PORT} ${DEPLOY_TARGET} 'cd ${REMOTE_DIR} && pm2 stop heyshow'
+  cat ${OUT} | ssh -p ${DEPLOY_PORT} ${DEPLOY_TARGET} 'cd ${REMOTE_DIR} && tar -xzf -'
+  ssh -p ${DEPLOY_PORT} ${DEPLOY_TARGET} 'cd ${REMOTE_DIR} && pm2 restart heyshow'
 EOF
