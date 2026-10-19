@@ -17,3 +17,9 @@ export const REVEAL_MATH_JS = `<script src="${REVEAL_CDN}/plugin/math.js"></scri
 // Phải khớp server/src/slide-parts.js: tắt riêng cảnh báo KaTeX "chữ Việt có dấu trong
 // công thức" để preview trong editor và bản publish im lặng như nhau.
 export const REVEAL_KATEX_OPTS = `katex: { strict: { unicodeTextInMathMode: 'ignore' } }`;
+
+// Cũng phải khớp server/src/slide-parts.js. Reveal 6 bật chế độ cuộn mỗi khi khung chứa
+// ≤435px, tức là mọi khung preview và mọi điện thoại dọc: slide bị đặt vào một trang cao
+// theo kích thước THẬT của section, trên nền đen của theme black. Khung nào cũng phải co
+// slide vừa trọn màn hình thay vì cuộn.
+export const REVEAL_SCROLL_MODE_OFF = 'scrollActivationWidth: null';

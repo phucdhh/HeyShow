@@ -17,7 +17,7 @@ const history = require('../src/history');
 const { createJsonStore, atomicWrite } = require('../src/storage');
 const {
     patchSlideHtml, bumpRevealVersion, SLIDE_HEAD_GUARD, GUARD_MARKER, SHIM_MARKER,
-    FULLSCREEN_MARKER, LEGACY_FULLSCREEN_LABELS, FS_CLICK_HANDLER,
+    FULLSCREEN_MARKER, LEGACY_FULLSCREEN_LABELS, FS_CLICK_HANDLER, REVEAL_SCROLL_MODE_OFF,
     LEGACY_FS_CLICK_HANDLER_V0, LEGACY_FS_CLICK_HANDLER_V1,
     FS_FULLSCREEN_HIDE_CSS, LEGACY_FS_CSS_TAIL, LEGACY_FS_HIDE_CSS_V0
 } = require('../src/slide-parts');
@@ -324,7 +324,7 @@ ${extra}</head>
 
 test('slide-parts: vá bài cũ thêm đủ guard + shim + nút toàn màn hình, shim đứng trước script Reveal', () => {
     const { html, added } = patchSlideHtml(oldDeck());
-    assert.deepEqual(added, ['guard', 'shim', 'fullscreen']);
+    assert.deepEqual(added, ['guard', 'shim', 'fullscreen', 'scroll']);
     assert.ok(html.includes(SHIM_MARKER), 'phải có shim sessionStorage');
     assert.ok(html.includes(GUARD_MARKER), 'phải có rule ẩn slide không hiện tại');
     assert.ok(html.indexOf(SHIM_MARKER) < html.indexOf('<script src="https://cdnjs'),
@@ -460,13 +460,47 @@ test('slide-parts: bài nhúng nguyên một trang HTML khác thì nút vẫn v�
     const nested = oldDeck().replace('<h1>HAI</h1>',
         '<h1>HAI</h1></div></div></body></html><html><body>x</body></html><div class="reveal"><div class="slides">');
     const { html, added } = patchSlideHtml(nested);
-    assert.deepEqual(added, ['guard', 'shim', 'fullscreen']);
+    assert.deepEqual(added, ['guard', 'shim', 'fullscreen', 'scroll']);
 
     const bodies = [...html.matchAll(/<\/body>/gi)].map(m => m.index);
     assert.equal(bodies.length, 3, 'fixture: trang của người dùng hai </body>, trang slide một </body>');
     const btn = html.indexOf('class="heyshow-fullscreen"');
     assert.ok(btn > bodies[bodies.length - 2], 'không được chèn vào giữa trang HTML người dùng dán vào');
     assert.ok(btn < bodies[bodies.length - 1], 'nút phải đứng trước </body> cuối của trang slide');
+});
+
+// Bài dán nguyên trang Reveal khác vào slide cũng mang Reveal.initialize RIÊNG của trang đó,
+// nằm trước initialize của template. Khóa tắt chế độ cuộn phải vào lời gọi CUỐI — lời gọi
+// của template — vì sửa cái của người dán là sửa nội dung bài.
+test('slide-parts: khóa tắt chế độ cuộn vào initialize của template, không vào bài người dùng dán', () => {
+    const nested = oldDeck().replace('<h1>HAI</h1>',
+        '<h1>HAI</h1><script>Reveal.initialize({ hash: true });</' + 'script>');
+    const { html } = patchSlideHtml(nested);
+    assert.equal(html.split(REVEAL_SCROLL_MODE_OFF).length - 1, 1, 'chỉ được thêm đúng một khóa');
+    const calls = [...html.matchAll(/Reveal\.initialize\(\{[^}]*\}/g)].map(m => m[0]);
+    assert.equal(calls.length, 2, 'fixture phải có hai lời gọi initialize');
+    assert.ok(!calls[0].includes(REVEAL_SCROLL_MODE_OFF), 'initialize của bài dán phải giữ nguyên');
+    assert.ok(calls[1].includes(REVEAL_SCROLL_MODE_OFF), 'initialize của template phải có khóa mới');
+});
+
+// Template viết initialize xuống nhiều dòng, còn bài cũ trên đĩa có thể viết gọn một dòng;
+// cả hai khuôn phải nhận ra. Bài không có initialize (lệch khuôn) thì bỏ qua, không chèn mò.
+test('slide-parts: khóa tắt chế độ cuộn chèn được cả initialize một dòng lẫn nhiều dòng', () => {
+    const oneLine = patchSlideHtml(oldDeck());
+    assert.ok(oneLine.html.includes('Reveal.initialize({ scrollActivationWidth: null, hash: true });'),
+        'initialize một dòng: khóa mới đứng đầu, dấu phẩy đủ');
+
+    const manyLines = patchSlideHtml(oldDeck().replace(
+        'Reveal.initialize({ hash: true });',
+        'Reveal.initialize({\n                hash: true,\n                slideNumber: true\n            });'));
+    assert.ok(manyLines.html.includes(
+        'Reveal.initialize({\n                scrollActivationWidth: null,\n                hash: true,'),
+        'initialize nhiều dòng: phải thụt lề theo các khoá bên dưới');
+
+    const noCall = patchSlideHtml('<!DOCTYPE html><html><head></head><body><div class="slides"></div>'
+        + '<script>console.log(1)</script></body></html>');
+    assert.ok(!noCall.html.includes(REVEAL_SCROLL_MODE_OFF), 'không có initialize thì bỏ qua');
+    assert.deepEqual(patchSlideHtml(oneLine.html).added, [], 'chèn xong thì lần sau không đổi nữa');
 });
 
 test('slide-parts: bài đã có mảnh nào thì không chèn lại lần nữa', () => {
@@ -476,7 +510,7 @@ test('slide-parts: bài đã có mảnh nào thì không chèn lại lần nữa
     assert.equal(twice.html, once);
 
     const onlyShim = patchSlideHtml(oldDeck(`    <style>${SLIDE_HEAD_GUARD}</style>\n`));
-    assert.deepEqual(onlyShim.added, ['shim', 'fullscreen'], 'đã có guard thì chỉ thiếu shim và nút');
+    assert.deepEqual(onlyShim.added, ['shim', 'fullscreen', 'scroll'], 'đã có guard thì chỉ thiếu shim, nút và khóa cuộn');
 });
 
 // Bài do buildFullHtml của bản 5.1.0 sinh ra, viết đúng khuôn năm thẻ asset — khuôn này

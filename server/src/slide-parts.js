@@ -22,6 +22,16 @@ const REVEAL_MATH_JS = `<script src="${REVEAL_CDN}/plugin/math.js"></script>`;
 // mở console. Tắt đúng loại cảnh báo đó, các loại khác (lỗi cú pháp LaTeX thật) vẫn giữ.
 const REVEAL_KATEX_OPTS = `katex: { strict: { unicodeTextInMathMode: 'ignore' } }`;
 
+// Reveal 6 tự bật chế độ cuộn khi bề ngang khung chứa ≤435px (mặc định
+// scrollActivationWidth: 435), tức là mọi điện thoại dọc. Ở chế độ đó mỗi slide nằm trong
+// một .scroll-page cao theo chiều cao THẬT của section chứ không phải bản đã co
+// (--slide-scale ~0.38), nên giữa hai slide là khoảng trống cao gấp ~4 lần; và nền của
+// .scroll-page lấy từ background của chính thẻ <section> — template HeyShow đặt nền ở
+// .reveal nên section trong suốt, Reveal rơi về --r-background-color của theme black
+// (#191919). Kết quả đo trên khung 375px: cả bài nằm trên nền đen, chữ đậm của mẫu không
+// đọc được. Tắt đi thì điện thoại trở lại vuốt từng slide, co vừa màn hình như thời 5.1.
+const REVEAL_SCROLL_MODE_OFF = 'scrollActivationWidth: null';
+
 // Mảnh CSS chèn vào đầu mọi file slide. Phải giống hệt bản client
 // (client/src/reveal-preview.js, client/src/main.js) để preview và bản publish không lệch nhau.
 const SLIDE_HEAD_GUARD = `
@@ -233,6 +243,21 @@ function firstMatch(haystack, patterns) {
     return -1;
 }
 
+// Thêm một khoá vào lời gọi Reveal.initialize({...}) của template. Lấy lần CUỐI vì bài của
+// người dùng có khi dán nguyên một trang Reveal khác vào slide, và trang đó mang
+// initialize riêng — nó nằm phía trước, không được đụng vào. Trả về changed:false khi
+// không tìm thấy lời gọi nào (bài lệch khuôn) để chỗ gọi tự quyết định bỏ qua.
+function addRevealOption(html, option) {
+    const call = html.lastIndexOf('Reveal.initialize(');
+    if (call < 0) return { html, changed: false };
+    const brace = html.indexOf('{', call);
+    if (brace < 0) return { html, changed: false };
+    const rest = html.slice(brace + 1);
+    const multiline = /^\s*\n([ \t]+)/.exec(rest);
+    const insert = multiline ? `\n${multiline[1]}${option},` : ` ${option},`;
+    return { html: html.slice(0, brace + 1) + insert + rest, changed: true };
+}
+
 // Chèn thiếu gì thì chèn đúng cái đó, không đụng nội dung bài. Trả về { html, added }
 // hoặc { html, error } khi file không phải một trang Reveal hoàn chỉnh.
 function patchSlideHtml(html) {
@@ -307,6 +332,17 @@ function patchSlideHtml(html) {
         if (!added.includes('handler')) added.push('handler');
     }
 
+    // Bài đã publish trước đây không có khoá tắt chế độ cuộn, nên mở trên điện thoại dọc là
+    // rơi vào nền đen của theme black (xem REVEAL_SCROLL_MODE_OFF). Bài nào không theo khuôn
+    // template (không còn Reveal.initialize) thì bỏ qua, không sửa mò.
+    if (!out.includes(REVEAL_SCROLL_MODE_OFF)) {
+        const withOption = addRevealOption(out, REVEAL_SCROLL_MODE_OFF);
+        if (withOption.changed) {
+            out = withOption.html;
+            added.push('scroll');
+        }
+    }
+
     return { html: out, added };
 }
 
@@ -344,6 +380,7 @@ function bumpRevealVersion(html, { from, to }) {
 
 module.exports = {
     REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS,
+    REVEAL_SCROLL_MODE_OFF, addRevealOption,
     SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER,
     SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS, FULLSCREEN_MARKER,
     FS_LABEL, FS_LABEL_EXIT, LEGACY_FULLSCREEN_LABELS,

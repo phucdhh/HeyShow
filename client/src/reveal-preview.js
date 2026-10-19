@@ -1,6 +1,6 @@
 // Giống hệt template publish của server (server/src/app.js - buildFullHtml)
 // để preview trong Help/Templates trùng khớp thứ người xem nhận được.
-import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS } from './reveal-cdn.js';
+import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF } from './reveal-cdn.js';
 
 export function previewHtml(code) {
     const template = `<!DOCTYPE html>
@@ -52,11 +52,11 @@ export function previewHtml(code) {
             Reveal.initialize({
                 hash: false,
                 slideNumber: true,
-                // Khác biệt CÓ CHỦ ĐÍCH so với bản publish, đừng "đồng bộ" lại: dưới 435px
-                // bề ngang, Reveal 6 tự bật chế độ cuộn (body nhận .reveal-scroll) và bỏ luôn
-                // phép co slide về vừa khung. Khung preview chỉ vài trăm px nên slide hiện ra
-                // cắt góc trên nền đen. Trang /templates và /help cần bản thu nhỏ trọn vẹn.
-                scrollActivationWidth: null,
+                // Dưới 435px bề ngang, Reveal 6 tự bật chế độ cuộn (body nhận .reveal-scroll)
+                // và bỏ phép co slide về vừa khung: khung preview chỉ vài trăm px nên slide
+                // hiện ra cắt góc trên nền đen. Bản publish cũng tắt như vậy — xem
+                // REVEAL_SCROLL_MODE_OFF ở server/src/slide-parts.js.
+                ${REVEAL_SCROLL_MODE_OFF},
                 ${REVEAL_KATEX_OPTS},
                 plugins: [ RevealMath.KaTeX ]
             });
