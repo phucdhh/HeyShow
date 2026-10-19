@@ -12,9 +12,10 @@ import {
 } from "@codemirror/autocomplete";
 import { lintGutter } from "@codemirror/lint";
 import { slideGutter, slidesField, sectionLinter, slideStatus, slideAt, topSectionAt } from "./slides.js";
+import { runDiagnostics, countIssues } from "./debug.js";
 import { colorSwatches, closeColorPicker } from "./color-picker.js";
 import { get, post, getToken, setToken, clearToken, tokenPayload, onUnauthorized, ApiError } from "./api.js";
-import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS } from "./reveal-cdn.js";
+import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF } from "./reveal-cdn.js";
 
 // Các DOM elements
 const editorContainer = document.getElementById('editor-container');
@@ -24,7 +25,7 @@ const newFileNameInput = document.getElementById('new-file-name');
 const btnCreate = document.getElementById('btn-create');
 const btnSave = document.getElementById('btn-save');
 const btnPublish = document.getElementById('btn-publish');
-const quotaBadge = document.getElementById('quota-badge');
+const editorFileName = document.getElementById('editor-file-name');
 const toastEl = document.getElementById('toast');
 
 let currentFileName = '';
@@ -89,6 +90,13 @@ const heyshowSnippets = [
 
 const editorStatus = document.getElementById('editor-status');
 let savedContent = '';
+
+// Dropdown thu gọn thành nút "Select" nên tên file đang mở hiển thị ở header của Editor
+function setCurrentFile(name) {
+    currentFileName = name;
+    editorFileName.textContent = name || 'Editor';
+    editorFileName.title = name;
+}
 
 function isDirty() {
     return !!currentFileName && editorView.state.doc.toString() !== savedContent;
@@ -174,6 +182,7 @@ function initEditor() {
                     clearTimeout(window.previewTimeout);
                     window.previewTimeout = setTimeout(() => {
                         updatePreview(true);
+                        renderDebug();
                     }, 500);
                 } else if (update.selectionSet) {
                     clearTimeout(window.previewTimeout);
@@ -201,8 +210,94 @@ function showToast(message, isError = false) {
     setTimeout(() => toastEl.classList.remove('show'), 3000);
 }
 
+// --- Tabs của khung phải: Preview / Debug / AI ---
+const tabs = {
+    preview: { btn: document.getElementById('tab-btn-preview'), body: document.getElementById('tab-preview') },
+    debug: { btn: document.getElementById('tab-btn-debug'), body: document.getElementById('tab-debug') },
+    ai: { btn: document.getElementById('tab-btn-ai'), body: document.getElementById('tab-ai') }
+};
+const debugSummary = document.getElementById('debug-summary');
+const debugList = document.getElementById('debug-list');
+const debugBadge = document.getElementById('debug-badge');
+let activeTab = 'preview';
+let previewStale = false;
+
+function switchTab(name) {
+    if (name === activeTab) return;
+    activeTab = name;
+    for (const [key, tab] of Object.entries(tabs)) {
+        tab.body.classList.toggle('hidden', key !== name);
+        tab.btn.classList.toggle('active', key === name);
+        tab.btn.setAttribute('aria-selected', key === name ? 'true' : 'false');
+    }
+    if (name === 'preview') {
+        // Lúc bị ẩn iframe không có kích thước nên Reveal không layout được, bù lại ở đây
+        if (previewStale) updatePreview(true);
+        else previewIframe.contentWindow?.Reveal?.layout?.();
+    } else if (name === 'ai') {
+        loadAiProviders();
+        aiPromptInput.focus();
+    }
+}
+
+for (const [name, tab] of Object.entries(tabs)) {
+    tab.btn.addEventListener('click', () => switchTab(name));
+}
+
+function gotoLine(line) {
+    const doc = editorView.state.doc;
+    const pos = doc.line(Math.min(Math.max(line, 1), doc.lines)).from;
+    editorView.focus();
+    editorView.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: true });
+}
+
+const DEBUG_MARKS = { error: '✕', warning: '⚠', info: 'ℹ' };
+
+function renderDebug() {
+    const scan = editorView.state.field(slidesField);
+    const issues = runDiagnostics(editorView.state.doc, scan);
+    const { errors, warnings } = countIssues(issues);
+
+    debugSummary.textContent = errors + warnings > 0
+        ? `${errors} lỗi · ${warnings} cảnh báo · ${scan.total} slide`
+        : `Không phát hiện vấn đề · ${scan.total} slide`;
+    debugBadge.textContent = String(errors + warnings);
+    debugBadge.classList.toggle('hidden', errors + warnings === 0);
+
+    debugList.textContent = '';
+    for (const issue of issues) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = `dbg-item ${issue.severity}`;
+        row.title = 'Nhảy tới dòng này trong Editor';
+
+        const mark = document.createElement('span');
+        mark.className = 'dbg-tag';
+        mark.textContent = DEBUG_MARKS[issue.severity] || '';
+
+        const text = document.createElement('span');
+        text.textContent = issue.message;
+
+        const at = document.createElement('span');
+        at.className = 'dbg-line';
+        at.textContent = `dòng ${issue.line}`;
+
+        row.append(mark, text, at);
+        row.addEventListener('click', () => gotoLine(issue.line));
+        debugList.appendChild(row);
+    }
+}
+
 // Cập nhật iframe preview sử dụng cấu trúc Reveal.js
 function updatePreview(fullReload = true) {
+    // Đang xem tab khác thì frames bị ẩn, Reveal tính toán sai kích thước: hoãn lại,
+    // bấm về Preview sẽ vẽ một lần là đủ.
+    if (activeTab !== 'preview') {
+        previewStale = true;
+        return;
+    }
+    previewStale = false;
+
     const code = editorView.state.doc.toString();
     const { h, v } = getSlideIndices(editorView.state.field(slidesField), editorView.state.selection.main.head);
     
@@ -266,6 +361,7 @@ function updatePreview(fullReload = true) {
                 }
 
                 Reveal.initialize({
+                    ${REVEAL_SCROLL_MODE_OFF}, // editor trên điện thoại: xem slide co vừa khung, không cuộn trên nền đen
                     hash: false, 
                     slideNumber: true,
                     ${REVEAL_KATEX_OPTS},
@@ -422,13 +518,13 @@ async function maybeUsePendingTemplate() {
         }
 
         await post(`/api/files/${encodeURIComponent(name)}`, { content: tpl.code });
-        currentFileName = name;
+        setCurrentFile(name);
         await loadFiles();
         fileSelect.value = name;
         await loadFileContent(name);
         showToast(`Đã tạo bản nháp từ mẫu: ${tpl.name || name}`);
     } catch (e) {
-        showToast(e instanceof ApiError ? e.message : 'Lỗi tạo file từ mẫu', true);
+        reportError(e, 'Lỗi tạo file từ mẫu');
     }
 }
 
@@ -547,12 +643,13 @@ btnSaveProfile.addEventListener('click', async () => {
 btnLogout.addEventListener('click', () => {
     clearToken();
     closeColorPicker(false);
-    currentFileName = '';
+    setCurrentFile('');
     savedContent = '';
     editorView.dispatch({ changes: { from: 0, to: editorView.state.doc.length, insert: "" } });
     updatePreview();
     updateStatus();
-    fileSelect.innerHTML = '<option value="" disabled selected>-- Chọn file nháp --</option>';
+    renderDebug();
+    fileSelect.innerHTML = '<option value="" disabled selected>Select</option>';
     checkAuth();
 });
 
@@ -635,19 +732,34 @@ btnAuthSubmit.addEventListener('click', async () => {
     }
 });
 
-// Admin (max = null) không giới hạn nên không cần nhắc hạn mức
-function renderQuota(quota) {
-    if (!quota || quota.max === null) {
-        quotaBadge.classList.add('hidden');
-        return;
-    }
-    quotaBadge.textContent = `${quota.used}/${quota.max} bài`;
-    quotaBadge.title = quota.used >= quota.max
-        ? 'Đã hết hạn mức — xoá bớt bài cũ hoặc liên hệ quản trị để nâng quyền'
-        : `Còn tạo được ${quota.max - quota.used} bài nữa`;
-    quotaBadge.classList.toggle('near', quota.used >= quota.max);
-    quotaBadge.classList.remove('hidden');
+// Header không hiện số bài nữa (chiếm chỗ mà người dùng ít cần), nên khi server chặn vì
+// vượt hạn mức phải nhắc rõ ở modal: liên hệ Admin qua Signal, hoặc đọc Help.
+const quotaModal = document.getElementById('quota-modal');
+const quotaModalText = document.getElementById('quota-modal-text');
+
+function isQuotaError(e) {
+    return e instanceof ApiError && e.status === 403 && e.data?.quota?.allowed === false;
 }
+
+function showQuotaNotice(e) {
+    quotaModalText.textContent = e instanceof ApiError && e.message
+        ? e.message
+        : 'Tài khoản của bạn đã dùng hết số bài trình chiếu mà quyền hiện tại cho phép.';
+    quotaModal.classList.remove('hidden');
+}
+
+// Lỗi API chung: vượt hạn mức thì mở modal, còn lại báo bằng toast
+function reportError(e, fallback) {
+    if (isQuotaError(e)) return showQuotaNotice(e);
+    showToast(e instanceof ApiError ? e.message : fallback, true);
+}
+
+document.getElementById('btn-close-quota').addEventListener('click', () => {
+    quotaModal.classList.add('hidden');
+});
+quotaModal.addEventListener('click', (e) => {
+    if (e.target === quotaModal) quotaModal.classList.add('hidden');
+});
 
 async function loadFiles() {
     try {
@@ -660,7 +772,6 @@ async function loadFiles() {
             fileSelect.appendChild(opt);
         }
         if (currentFileName) fileSelect.value = currentFileName;
-        renderQuota(data.quota);
     } catch (e) {
         if (!(e instanceof ApiError)) showToast("Lỗi tải danh sách file", true);
     }
@@ -670,7 +781,7 @@ async function loadFileContent(fileName) {
     try {
         const data = await get(`/api/files/${encodeURIComponent(fileName)}`);
         closeColorPicker(false);
-        currentFileName = fileName;
+        setCurrentFile(fileName);
         savedContent = data.content;
         editorView.dispatch({
             changes: { from: 0, to: editorView.state.doc.length, insert: data.content },
@@ -679,6 +790,7 @@ async function loadFileContent(fileName) {
         });
         updatePreview();
         updateStatus();
+        renderDebug();
     } catch (e) {
         if (!(e instanceof ApiError)) showToast("Lỗi tải nội dung file", true);
     }
@@ -723,13 +835,13 @@ async function createFile() {
 
     try {
         await post(`/api/files/${encodeURIComponent(rawName)}`, { content: DEFAULT_SLIDE_TEMPLATE });
-        currentFileName = rawName;
+        setCurrentFile(rawName);
         newFileNameInput.value = '';
         showToast("Tạo file mới thành công");
         await loadFiles();
         await loadFileContent(rawName);
     } catch (e) {
-        showToast(e instanceof ApiError ? e.message : "Lỗi tạo file", true);
+        reportError(e, "Lỗi tạo file");
     }
 }
 
@@ -825,24 +937,12 @@ document.addEventListener('mouseup', () => {
     }
 });
 
-// Các DOM elements (Thêm AI)
-const btnAiToggle = document.getElementById('btn-ai-toggle');
-const aiChatPanel = document.getElementById('ai-chat-panel');
-const btnCloseAi = document.getElementById('btn-close-ai');
+// Các DOM elements của tab AI
 const aiPromptInput = document.getElementById('ai-prompt');
 const btnAiSend = document.getElementById('btn-ai-send');
 const aiChatHistory = document.getElementById('ai-chat-history');
 const aiModeSelect = document.getElementById('ai-mode');
 const aiProviderSelect = document.getElementById('ai-provider');
-
-// AI Logic
-btnAiToggle.addEventListener('click', () => {
-    aiChatPanel.classList.toggle('hidden');
-    if (!aiChatPanel.classList.contains('hidden')) loadAiProviders();
-});
-btnCloseAi.addEventListener('click', () => {
-    aiChatPanel.classList.add('hidden');
-});
 
 // Hỏi server nhà cung cấp nào đã có API key để bật/tắt lựa chọn tương ứng
 let aiProvidersLoaded = false;
@@ -994,4 +1094,5 @@ aiPromptInput.addEventListener('keypress', (e) => {
 
 // Khởi chạy
 initEditor();
+renderDebug();
 checkAuth();

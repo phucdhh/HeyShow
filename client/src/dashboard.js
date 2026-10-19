@@ -19,6 +19,10 @@ const deleteMsg = document.getElementById('delete-msg');
 const renameOverlay = document.getElementById('rename-overlay');
 const renameOld = document.getElementById('rename-old');
 const renameInput = document.getElementById('rename-input');
+const reuseOverlay = document.getElementById('reuse-overlay');
+const reuseTitle = document.getElementById('reuse-title');
+const reuseMsg = document.getElementById('reuse-msg');
+const reuseConfirm = document.getElementById('reuse-confirm');
 const quotaLine = document.getElementById('quota-line');
 
 const historyOverlay = document.getElementById('history-overlay');
@@ -38,6 +42,7 @@ const profileMsg = document.getElementById('profile-msg');
 let items = [];
 let pendingDelete = null;
 let pendingRename = null;
+let pendingReuse = null;
 let tempAvatarBase64 = null;
 let myUsername = '';
 
@@ -241,6 +246,16 @@ function renderItem(item) {
 
     const head = el('div', 'item-head');
     head.appendChild(el('span', 'item-title', item.title));
+
+    // 🔒 = chỉ mình bạn dùng; ♻ (cùng ký hiệu với nút Reuse trong Gallery) = bài đang cho tái sử dụng
+    const lock = el('button', item.allowReuse ? 'reuse-toggle on' : 'reuse-toggle',
+        item.allowReuse ? '♻' : '🔒');
+    lock.type = 'button';
+    lock.title = item.allowReuse
+        ? 'Đang cho phép tái sử dụng — bấm để thu hồi'
+        : 'Chưa cho phép tái sử dụng — bấm để mở khoá';
+    lock.addEventListener('click', () => openReuseConfirm(item));
+    head.appendChild(lock);
     head.appendChild(el('span', `badge ${item.status}`, item.status === 'published' ? 'Đã xuất bản' : 'Nháp'));
 
     // Tên file xám, đã publish thì click vào mở thẳng bài viết
@@ -547,7 +562,7 @@ function renderImportReport(report) {
     summary.appendChild(chip('ok', `📄 ${report.slideCount} slide`));
     summary.appendChild(chip('', `✏️ Import được: tiêu đề, chữ, ${report.slides.reduce((n, s) => n + s.bullets, 0)} dòng nội dung${t.notes ? `, ${t.notes} ghi chú` : ''}`));
     if (t.images) summary.appendChild(chip('bad', `🖼 ${t.images} ảnh → cần link Google Drive`));
-    if (t.videos) summary.appendChild(chip('bad', `🎬 ${t.videos} video → cần link YouTube / Gan Jing World`));
+    if (t.videos) summary.appendChild(chip('bad', `🎬 ${t.videos} video → cần link trực tiếp .mp4/.m3u8`));
     if (t.tables) summary.appendChild(chip('bad', `▦ ${t.tables} bảng không import được`));
     if (t.charts) summary.appendChild(chip('bad', `📊 ${t.charts} hình/biểu đồ không import được`));
     if (t.smartArts) summary.appendChild(chip('bad', `🧠 ${t.smartArts} SmartArt không import được`));
@@ -582,7 +597,7 @@ function renderImportReport(report) {
     guide.appendChild(el('p', null, 'Đối với các đối tượng không import được, HeyShow sẽ tạo sẵn chỗ trống (placeholder) trong code để bạn tự dán link vào:'));
     const lines = [
         `• 🖼 ẢNH: tải file ảnh lên Google Drive → Chia sẻ → "Bất kỳ ai có đường dẫn" → dùng link trực tiếp dạng https://lh3.googleusercontent.com/d/<ID> cho thẻ <img src="...">`,
-        `• 🎬 VIDEO: tải lên YouTube (công khai / không liệt kê) hoặc Gan Jing World → lấy link nhúng (embed) dán vào src của thẻ <iframe>`,
+        `• 🎬 VIDEO: lấy LINK TRỰC TIẾP tới file .mp4/.m3u8 dán vào src của thẻ <video>, hoặc dán link video Gan Jing World vào data-gjw của mẫu "Video tự dừng ở các mốc". HeyShow không hỗ trợ chèn video từ YouTube.`,
         `• ▦📊🧠 Bảng / Biểu đồ / SmartArt: gõ lại bằng HTML trong Design, hoặc mô tả cho ✨ AI trong Design để nó viết giúp.`
     ];
     for (const line of lines) guide.appendChild(el('p', null, line));
@@ -831,6 +846,43 @@ renameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') doRename();
     if (e.key === 'Escape') { renameOverlay.classList.add('hidden'); pendingRename = null; }
 });
+
+// ---------- Modal cho phép tái sử dụng ----------
+
+function closeReuse() {
+    reuseOverlay.classList.add('hidden');
+    pendingReuse = null;
+}
+
+function openReuseConfirm(item) {
+    pendingReuse = item;
+    const allow = !item.allowReuse;
+    reuseTitle.textContent = allow ? 'Cho phép tái sử dụng' : 'Thu hồi quyền tái sử dụng';
+    reuseMsg.textContent = allow
+        ? `"${item.title}" sẽ có nút Reuse trong Gallery: người khác tạo được bản nháp của riêng họ từ mã nguồn bài này. Bài còn là nháp (chưa publish) thì chưa ai thấy nút đó.`
+        : `Người khác sẽ không tái sử dụng "${item.title}" được nữa. Các bản đã sao chép trước đó vẫn nằm trên tài khoản của họ.`;
+    reuseConfirm.textContent = allow ? 'Đồng ý, cho phép' : 'Đồng ý, thu hồi';
+    reuseOverlay.classList.remove('hidden');
+}
+
+async function doReuseToggle() {
+    if (!pendingReuse) return;
+    const item = pendingReuse;
+    const allow = !item.allowReuse;
+    closeReuse();
+    try {
+        await post(`/api/files/${encodeURIComponent(item.fileName)}/reuse`, { allow });
+        item.allowReuse = allow;
+        renderItems();
+        showToast(allow ? 'Đã mở khoá, bài có thể được tái sử dụng' : 'Đã khoá bài lại');
+    } catch (e) {
+        fail(e);
+    }
+}
+
+document.getElementById('reuse-cancel').addEventListener('click', closeReuse);
+reuseConfirm.addEventListener('click', doReuseToggle);
+reuseOverlay.addEventListener('click', e => { if (e.target === reuseOverlay) closeReuse(); });
 
 document.getElementById('btn-logout').addEventListener('click', () => {
     clearToken();

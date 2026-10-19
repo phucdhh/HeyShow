@@ -96,6 +96,18 @@
       }
       .item-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
       .item-title { font-weight: 700; font-size: 1.02rem; word-break: break-word; }
+      /* Nút trạng thái ngay sau tên bài: 🔒 nền xám = chỉ mình bạn, ♻ nền hổ phách = cho tái sử dụng.
+         ♻ trùng ký hiệu với nút Reuse trong Gallery nên hai nơi đọc ra cùng một ý. */
+      .reuse-toggle {
+        display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+        width: 26px; height: 24px; padding: 0; cursor: pointer; font-size: 0.9rem; line-height: 1;
+        background: var(--bg-deep); border: 1px solid var(--border-color); border-radius: 999px;
+        color: var(--muted);
+      }
+      .reuse-toggle.on {
+        background: rgba(245, 158, 11, 0.16); border-color: rgba(217, 119, 6, 0.45); color: var(--accent-strong);
+      }
+      .reuse-toggle:hover { filter: brightness(0.94); }
       .item-file { color: var(--muted); font-size: 0.78rem; word-break: break-all; }
       a.item-file:hover { color: var(--accent-strong); text-decoration: underline; }
       .badge { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
@@ -382,6 +394,18 @@
     </div>
 
     <div id="toast"></div>
+
+    <!-- Modal xác nhận cho phép / thu hồi tái sử dụng -->
+    <div id="reuse-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <h3 id="reuse-title">Cho phép tái sử dụng</h3>
+        <p id="reuse-msg"></p>
+        <div class="modal-btns">
+          <button type="button" class="cancel" id="reuse-cancel">Huỷ</button>
+          <button type="button" class="confirm-ok" id="reuse-confirm">Đồng ý</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Modal lịch sử phiên bản bản nháp -->
     <div id="history-overlay" class="modal-overlay hidden">
