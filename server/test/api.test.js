@@ -5,6 +5,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -230,6 +231,91 @@ test('nâng cấp Reveal: server và client cùng phiên bản, đúng layout c�
     assert.ok(html.includes(optsOf(server)), 'bài publish phải mang cấu hình KaTeX chung');
 });
 
+// --- Thẻ <jsxgraph> ---
+// Dấu `<` trong code JS (so sánh `a < b`) rơi vào DOM theo nghĩa HTML sẽ bị parser đọc thành
+// thẻ và nuốt nốt `</section>` phía sau — đúng lớp lỗi "$0<p<1$" từng làm hỏng bài. Nên bản
+// publish đổi cặp thẻ sang <script type="text/jsxgraph"> (raw-text, code còn nguyên từng ký
+// tự) rồi runtime mới dựng bảng. Runtime kéo theo JSXGraph ~1MB, vì vậy bài không có thẻ
+// <jsxgraph> tuyệt đối không được mang theo.
+test('thẻ <jsxgraph>: bản publish mang runtime, code giữ nguyên từng ký tự', async () => {
+    const sp = require('../src/slide-parts.js');
+    const tok = srv.users.master.login;
+    const code = [
+        '<section>',
+        '  <h2>Đường thẳng qua hai điểm</h2>',
+        '  <jsxgraph>',
+        '    const board = JXG.JSXGraph.initBoard(BOARDID, { boundingbox: [-8, 8, 8, -8], axis: true });',
+        "    const A = board.create('point', [-3, 2], { name: 'A' });",
+        "    const B = board.create('point', [2, -1], { name: 'B' });",
+        '    if (A.X() < B.X()) { board.create(\'line\', [A, B], {}); }',
+        '  </jsxgraph>',
+        '</section>'
+    ].join('\n');
+
+    await apiRequest(srv.url, 'POST', '/api/files/jxg.html', { token: tok, body: { content: code } });
+    const pub = await apiRequest(srv.url, 'POST', '/api/files/jxg.html/publish', { token: tok });
+    assert.equal(pub.status, 200);
+    const bai = await (await fetch(srv.url + pub.json.url)).text();
+
+    assert.ok(bai.includes(sp.SLIDE_JSXGRAPH_JS), 'file publish phải nội tuyến đúng runtime mà slide-parts.js sinh ra');
+    assert.ok(bai.includes(sp.SLIDE_JSXGRAPH_STYLE), 'file publish phải kèm CSS của khung bảng');
+    assert.ok(bai.includes(`<script type="${sp.JSXGRAPH_TYPE}"`), 'thẻ phải thành script raw-text');
+    // Hai mảnh runtime có nhắc tới "<jsxgraph>" trong comment/log nên phải gỡ chúng ra trước
+    // rồi mới dò: còn lại đúng nghĩa là phần bài viết không còn thẻ thô.
+    const phanBai = bai.replace(sp.SLIDE_JSXGRAPH_STYLE, '').replace(sp.SLIDE_JSXGRAPH_JS, '');
+    assert.ok(!/<\s*jsxgraph\b/i.test(phanBai), 'không còn thẻ <jsxgraph> thô nào trong bài viết');
+    // Nguyên văn cả dòng có dấu < viết trần: đó chính là thứ từng làm parser nuốt slide
+    assert.ok(bai.includes('if (A.X() < B.X()) {'), 'code JSXGraph phải đi qua nguyên văn, kể cả dấu <');
+    assert.ok(bai.includes(sp.JSXGRAPH_CDN), 'runtime phải trỏ đúng CDN JSXGraph');
+    assert.equal(/<script[^>]*src="[^"]*jsxgraphcore\.js"/.test(bai), false,
+        'JSXGraph do runtime nạp lúc chạy, không được gắn sẵn thẻ script vào <head>');
+
+    // /export của bản nháp đi qua cùng buildFullHtml, phải ra cùng một mảnh
+    await apiRequest(srv.url, 'POST', '/api/files/jxgdraft.html', { token: tok, body: { content: code } });
+    const exported = await (await fetch(`${srv.url}/api/files/jxgdraft.html/export`, {
+        headers: { Authorization: `Bearer ${tok}` }
+    })).text();
+    assert.ok(exported.includes(sp.SLIDE_JSXGRAPH_JS), 'file export cũng phải có runtime');
+    assert.ok(exported.includes(`<script type="${sp.JSXGRAPH_TYPE}"`), 'export cũng đổi thẻ sang script raw-text');
+
+    // Bài chỉ có chữ: không được trả giá 1MB cho một thứslide không dùng
+    const onlyText = '<section><h1>Chỉ chữ</h1><p>$a<b$</p></section>';
+    await apiRequest(srv.url, 'POST', '/api/files/nojxg.html', { token: tok, body: { content: onlyText } });
+    const p2 = await apiRequest(srv.url, 'POST', '/api/files/nojxg.html/publish', { token: tok });
+    const bai2 = await (await fetch(srv.url + p2.json.url)).text();
+    assert.ok(!bai2.includes(sp.JSXGRAPH_MARKER), 'bài không có <jsxgraph> phải sạch runtime');
+    assert.ok(!/jsxgraph/i.test(bai2), 'bài không có <jsxgraph> không được nhắc tới JSXGraph');
+});
+
+// Server cắt chuỗi từ file nguồn của client chứ không import: lệch nhau một ký tự là giáo
+// viên soạn một đằng, người xem nhận một nẻo — y hệt bài học REVEAL_KATEX_OPTS ở test trên.
+test('runtime <jsxgraph>: server và client sinh ra cùng một mảnh HTML', async () => {
+    const read = rel => fs.readFileSync(path.join(__dirname, rel), 'utf8');
+    const sp = require('../src/slide-parts.js');
+    const client = await import('../../client/src/jsxgraph-runtime.js');
+
+    for (const key of ['JSXGRAPH_VERSION', 'JSXGRAPH_CDN', 'JSXGRAPH_MARKER', 'JSXGRAPH_TYPE']) {
+        assert.equal(client[key], sp[key], `client/src/jsxgraph-runtime.js phải cùng ${key} với server`);
+    }
+    assert.equal(client.JSXGRAPH_STYLE, sp.SLIDE_JSXGRAPH_STYLE, 'CSS của preview và bản publish phải một');
+    assert.equal(client.JSXGRAPH_SCRIPT, sp.SLIDE_JSXGRAPH_JS, 'runtime của preview và bản publish phải một');
+
+    const MAU = '<section><jsxgraph data-w="640">board.create(\'point\', [1, 2]);</jsxgraph></section>';
+    assert.equal(client.JSXGRAPH_BOC(MAU), sp.JSXGRAPH_BOC(MAU), 'hai bên đổi thẻ phải ra cùng kết quả');
+
+    // Preview không được tự viết lại cách dựng bảng: phải import đúng runtime này
+    for (const file of ['src/reveal-preview.js', 'src/main.js']) {
+        assert.ok(read(`../../client/${file}`).includes('jsxgraph-runtime.js'),
+            `${file} phải lấy runtime từ jsxgraph-runtime.js thay vì tự ghi`);
+        assert.ok(read(`../../client/${file}`).includes('JSXGRAPH_BOC('),
+            `${file} phải đổi thẻ <jsxgraph> y hệt bản publish trước khi đưa vào DOM`);
+    }
+
+    // Thẻ không cân cặp: BOC bỏ qua để debug.js còn thấy mà báo, không nuốt cả bài
+    const ho = sp.JSXGRAPH_BOC('<jsxgraph>board.create();');
+    assert.equal(ho, '<jsxgraph>board.create();', 'thẻ thiếu </jsxgraph> phải để nguyên');
+});
+
 // Sidebar và nội dung trang /templates sinh từ GROUP + SAMPLES của từng file danh mục trong
 // client/src/templates/, nối nhau theo thứ tự khai báo ở groups.js. Khai báo lệch một ký tự là
 // mẫu biến mất khỏi trang trong im lặng (không lỗi, không cảnh báo), nên test chốt lại tính
@@ -332,6 +418,72 @@ test('không cho đăng ký tên trùng thư mục hoặc trùng slug của tài
             body: { username: 'minhnht.phan2', password: 'matkhau123' }
         });
         assert.equal(free.status, 200, 'tên không đụng thư mục lẫn slug vẫn đăng ký bình thường');
+    } finally {
+        await legacy.stop();
+    }
+});
+
+// Bảng Users xếp theo ngày đăng ký. Tài khoản đời cũ không có createdAt trong db, trước
+// đây suy từ mtime thư mục => mỗi lần user soạn hay publish bài là cả tài khoản bị kéo
+// lên đầu danh sách, admin đọc nhầm thành "vừa đăng ký". Server phải gắn ngày một lần
+// lúc khởi động rồi không bao giờ đổi lại.
+test('ngày đăng ký của tài khoản cũ được ghi một lần và không trôi theo hoạt động', async () => {
+    const longAgo = Math.floor((Date.now() - 40 * 24 * 3600 * 1000) / 1000);
+    const salt = crypto.randomBytes(16);
+    const legacy = await startServer({
+        dbSeed: {
+            users: {
+                admin: {
+                    passwordHash: `scrypt$${salt.toString('hex')}$${crypto.scryptSync('matkhau-quan-tri', salt, 64).toString('hex')}`,
+                    role: 'admin',
+                    tokenVersion: 0,
+                    createdAt: Date.now()
+                },
+                'Minh Nhật Phan': { passwordHash: 'scrypt$00$00', role: 'user', tokenVersion: 0 }
+            }
+        },
+        prepare: (dir) => {
+            const root = path.join(dir, 'users', 'MinhNhtPhan');
+            const drafts = path.join(root, 'drafts');
+            const published = path.join(root, 'published');
+            fs.mkdirSync(drafts, { recursive: true });
+            fs.mkdirSync(published, { recursive: true });
+            // "đăng ký" cách đây 40 ngày: thời điểm tạo thư mục là dấu vết duy nhất còn lại
+            for (const p of [root, drafts, published]) fs.utimesSync(p, longAgo, longAgo);
+        }
+    });
+    try {
+        const login = await apiRequest(legacy.url, 'POST', '/api/auth/login', {
+            body: { username: 'admin', password: 'matkhau-quan-tri' }
+        });
+        assert.equal(login.status, 200, JSON.stringify(login.json));
+        const tok = login.json.token;
+
+        const rowOf = async (name) => {
+            const res = await apiRequest(legacy.url, 'GET', '/api/admin/users', { token: tok });
+            assert.equal(res.status, 200);
+            return res.json.users.find(u => u.username === name);
+        };
+
+        const first = await rowOf('Minh Nhật Phan');
+        assert.ok(Math.abs(first.createdAt - longAgo * 1000) < 2000,
+            `phải lấy đúng dấu vết 40 ngày trước, nhận được ${new Date(first.createdAt).toISOString()}`);
+        const newest = (await rowOf('admin'));
+        assert.ok(newest.createdAt > first.createdAt, 'tài khoản tạo sau phải đứng trên tài khoản tạo trước');
+
+        // User đó vừa sửa avatar vừa publish: mtime của thư mục con và thư mục cha bị đẩy tới bây giờ
+        const root = path.join(legacy.dataDir, 'users', 'MinhNhtPhan');
+        const now = Math.floor(Date.now() / 1000);
+        fs.writeFileSync(path.join(root, 'published', 'bai-moi.html'), '<html></html>');
+        fs.mkdirSync(path.join(root, 'avatar'), { recursive: true });
+        for (const p of [root, path.join(root, 'published'), path.join(root, 'avatar')]) fs.utimesSync(p, now, now);
+
+        const after = await rowOf('Minh Nhật Phan');
+        assert.equal(after.createdAt, first.createdAt, 'sửa bài không được đổi ngày đăng ký');
+
+        const dbOnDisk = JSON.parse(fs.readFileSync(path.join(legacy.dataDir, 'db.json'), 'utf-8'));
+        assert.equal(dbOnDisk.users['Minh Nhật Phan'].createdAt, first.createdAt,
+            'ngày đăng ký phải được ghi ngược vào db, không chỉ suy ra lúc đọc');
     } finally {
         await legacy.stop();
     }
@@ -725,6 +877,86 @@ test('gallery và profile công khai dùng link /show/', async () => {
 
     const prof = await srv.api('GET', '/api/profile/tmaster');
     assert.equal(prof.status, 200);
+});
+
+// Card trong Gallery hiển thị HỌ TÊN (không phải slug) kèm QUYỀN của tác giả, nên hai trường
+// đó phải có trong author của /api/gallery. Tài khoản chưa nhập họ tên vẫn phải có chuỗi để
+// client in "Unknown" thay vì để trống. Họ tên cũng phải tìm được: người xem thấy "Dạ Hợp"
+// trên card mà gõ vào ô tìm không ra bài thì tên đó vô dụng.
+test('gallery trả họ tên và quyền của tác giả cho card', async () => {
+    const own = await startServer();
+    try {
+        const admin = await apiRequest(own.url, 'POST', '/api/auth/login', {
+            body: { username: 'admin', password: own.adminPassword }
+        });
+        own.admin = admin.json.token;
+
+        const reg = await apiRequest(own.url, 'POST', '/api/auth/register', {
+            body: { username: 'cachetinh', password: 'matkhau123' }
+        });
+        assert.equal(reg.status, 200, JSON.stringify(reg.json));
+        const tok = reg.json.token;
+
+        await apiRequest(own.url, 'POST', '/api/files/card.html', {
+            token: tok, body: { content: '<section><h1>Bai mot</h1></section>' }
+        });
+        const pub = await apiRequest(own.url, 'POST', '/api/files/card.html/publish', { token: tok });
+        assert.equal(pub.status, 200);
+        await sleep(400); // hai lần mutateDB liên tiếp, queue ghi gộp trong 250ms
+
+        let gal = await apiRequest(own.url, 'GET', '/api/gallery');
+        let author = gal.json.items.find(p => p.fileName === 'card.html').author;
+        assert.equal(author.role, 'user', 'quyền mặc định phải là user');
+        assert.equal(author.fullName, '', 'chưa nhập họ tên thì API trả chuỗi rỗng để client tự in Unknown');
+        assert.ok(author.urlSlug, 'slug vẫn phải có vì card bấm vào là tới trang cá nhân');
+
+        // Đặt họ tên TRƯỚC khi đổi quyền: route admin bumpTokenVersion() nên token cũ chết ngay
+        await apiRequest(own.url, 'POST', '/api/user/profile', { token: tok, body: { fullName: ' Lê Thị Cà Khịa ' } });
+        await apiRequest(own.url, 'POST', '/api/admin/users/cachetinh/role', {
+            token: own.admin, body: { role: 'designer' }
+        });
+
+        // Tài khoản thứ hai: slug 'hienlanh' không chứa chữ nào của họ tên 'Dạ Hợp', nên
+        // tìm ra bài của nó bằng 'da hop' chứng minh khớp đúng trường fullName chứ không phải slug.
+        const reg2 = await apiRequest(own.url, 'POST', '/api/auth/register', {
+            body: { username: 'hienlanh', password: 'matkhau123', fullName: 'Dạ Hợp' }
+        });
+        assert.equal(reg2.status, 200, JSON.stringify(reg2.json));
+        await apiRequest(own.url, 'POST', '/api/files/lap.html', {
+            token: reg2.json.token, body: { content: '<section><h1>Bai hai</h1></section>' }
+        });
+        assert.equal((await apiRequest(own.url, 'POST', '/api/files/lap.html/publish', { token: reg2.json.token })).status, 200);
+        await sleep(400);
+
+        gal = await apiRequest(own.url, 'GET', '/api/gallery');
+        author = gal.json.items.find(p => p.fileName === 'card.html').author;
+        assert.equal(author.role, 'designer', 'đổi quyền xong là card đổi ngay, không cần publish lại');
+        assert.equal(author.fullName, 'Lê Thị Cà Khịa', 'họ tên phải được cắt khoảng trắng hai đầu');
+
+        // Khung xem (viewer) của Gallery đọc /api/p/… chứ không phải /api/gallery, nên họ tên
+        // phải có ở cả hai — thiếu một chỗ là sidebar hiện slug như trước.
+        const detail = await apiRequest(own.url, 'GET', '/api/p/cachetinh/card.html');
+        assert.equal(detail.json.presentation.author.fullName, 'Lê Thị Cà Khịa');
+        assert.equal(detail.json.presentation.author.role, 'designer');
+        const cmt = await apiRequest(own.url, 'POST', '/api/p/hienlanh/lap.html/comments', {
+            token: own.admin, body: { text: 'bình luận thử' }
+        });
+        assert.equal(cmt.json.comment.author.fullName, '', 'admin chưa nhập họ tên → chuỗi rỗng để client in Unknown');
+        assert.equal(cmt.json.comment.author.role, 'admin');
+
+        const search = async q => {
+            const r = await apiRequest(own.url, 'GET', `/api/gallery?q=${encodeURIComponent(q)}`);
+            return r.json.items.map(i => i.fileName).sort().join(',');
+        };
+        assert.equal(await search('da hop'), 'lap.html', 'gõ họ tên không dấu phải tìm ra bài');
+        assert.equal(await search('DẠ HỢP'), 'lap.html', 'họ tên viết hoa có dấu cũng phải ra');
+        assert.equal(await search('ca khia'), 'card.html', 'tên hiển thị của bài khác cũng tìm được');
+        assert.equal(await search('hienlanh'), 'lap.html', 'slug vẫn tìm được vì người xem có thể nhớ đường dẫn');
+        assert.equal(await search('bai mot'), 'card.html', 'tìm theo tên bài không đổi');
+        assert.equal(await search('khongaitimduoc'), '', 'chuỗi lạ phải trả 0 kết quả');
+    } finally {
+        await own.stop();
+    }
 });
 
 test('không đăng ký được username trùng đường dẫn hệ thống', async () => {

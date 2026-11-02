@@ -160,8 +160,12 @@
       .card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
       .card-meta img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: var(--bg-deep); }
       .card-meta .author { color: var(--text-color); font-weight: 500; overflow-wrap: anywhere; }
-      .card-meta .author-link { display: inline-flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none; color: inherit; }
+      .card-meta .author-link { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; }
       .card-meta .author-link:hover .author { color: var(--accent-color); }
+      /* Quyền đứng cuối hàng, thẳng cột với nhau cho dễ quét mắt */
+      .card-meta .author-role { margin-left: auto; flex-shrink: 0; font-size: 0.72rem;
+        color: var(--muted); background: var(--bg-deep); border: 1px solid var(--border-color);
+        border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
       .card-stats { display: flex; align-items: center; gap: 14px; font-size: 0.8rem; color: var(--muted); }
       .card-stats span { display: inline-flex; align-items: center; gap: 5px; }
       .card-stats .card-date { margin-left: auto; }

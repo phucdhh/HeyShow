@@ -533,6 +533,72 @@ def tinh_tong(n):
   <p>$$\begin{cases} x + y = 5 \\ 2x - y = 1 \end{cases}$$</p>
 </section>`
         }
+    ],
+
+    jsxgraph: [
+        {
+            title: 'Hai điểm động và đường thẳng',
+            note: 'Bên trong <jsxgraph> có sẵn biến board — cứ board.create(...) mà vẽ. Kéo thử các điểm A, B.',
+            code: String.raw`<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Hai điểm động</h2>
+  <jsxgraph data-h="480">
+    const A = board.create('point', [-4, 3], { name: 'A' });
+    const B = board.create('point', [3, -2], { name: 'B' });
+    board.create('line', [A, B], { strokeColor: '#94a3b8' });
+    board.create('segment', [A, B], { strokeColor: '#0ea5e9', strokeWidth: 3 });
+    board.create('text', [-4, -5, () => 'AB = ' + Math.hypot(A.X() - B.X(), A.Y() - B.Y()).toFixed(2)]);
+  </jsxgraph>
+</section>`
+        },
+        {
+            title: 'Tự khởi tạo bảng với BOARDID',
+            note: 'Muốn tự đặt khung nhìn (boundingbox) thì gọi JXG.JSXGraph.initBoard(BOARDID, {...}) — BOARDID là khung HeyShow dựng cho thẻ này.',
+            code: String.raw`<section>
+  <h2>Parabol y = a(x − S)²</h2>
+  <jsxgraph data-h="500">
+    const board = JXG.JSXGraph.initBoard(BOARDID, {
+      boundingbox: [-6, 6, 6, -6], axis: true, grid: true,
+      keepaspectratio: true, showCopyright: false
+    });
+    const a = board.create('slider', [[-5.5, 5.2], [-2, 5.2], [-2, 1, 2]], { name: 'a', stepWidth: 0.1 });
+    const S = board.create('point', [1, -2], { name: 'S', color: '#b45309' });
+    board.create('functiongraph',
+      [(t) => a.Value() * (t - S.X()) * (t - S.X()) + S.Y(), -6, 6],
+      { strokeColor: '#0ea5e9', strokeWidth: 3 });
+    board.create('text', [-5.5, -5,
+      () => 'y = ' + a.Value().toFixed(1) + '(x − ' + S.X().toFixed(1) + ')\u00b2 + ' + S.Y().toFixed(1)]);
+  </jsxgraph>
+</section>`
+        },
+        {
+            title: 'Hai bảng cạnh nhau, khung theo ý muốn',
+            note: 'data-w / data-h quyết định kích thước khung: số px ("420") hoặc % so với chiều ngang slide ("100%").',
+            code: String.raw`<section>
+  <h2>Tam giác và đường tròn</h2>
+  <div style="display: flex; gap: 1em; align-items: flex-start;">
+    <div style="flex: 1;">
+      <jsxgraph data-w="100%" data-h="360">
+        board.create('polygon', [[-3, -2], [3, -2], [0, 3]], { fillOpacity: 0.3 });
+        board.create('point', [0, 0], { name: 'O' });
+      </jsxgraph>
+    </div>
+    <div style="flex: 1;">
+      <jsxgraph data-bg="transparent" data-w="100%" data-h="360">
+        board.create('circle', [[0, 0], 3], { fillOpacity: 0.2, strokeColor: '#0ea5e9' });
+        board.create('point', [0, 0], { name: 'I' });
+      </jsxgraph>
+    </div>
+  </div>
+</section>`
+        }
     ]
 };
 

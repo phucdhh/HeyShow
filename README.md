@@ -15,6 +15,7 @@ Bạn viết slide bằng HTML ngay trên trình duyệt, thấy kết quả hi�
 | Hiệu ứng & tương tác trong slide | hạn chế | rất hạn chế | **đủ tính năng Reveal.js**: chuyển cảnh, fragment, slide dọc, và các mẫu trắc nghiệm/ghép đôi/điền khuyết làm bằng HTML thuần |
 | Đưa bài có sẵn vào | — | — | **Power Point`.pptx`, Markdown `.md`, LaTeX beamer `.tex`** — có báo cáo trước để bạn xem được gì, mất gì |
 | Hình vẽ trong file `.tex` | — | — | **dựng lại thành SVG** bằng bộ vẽ tính toạ độ theo đúng quy tắc pgfplots |
+| Hình vẽ Toán học động | chụp ảnh hoặc vẽ bằng công cụ riêng | vẽ thủ công, không kéo được | **JSXGraph ngay trong slide** — dán code, bảng hình kéo thả được cả khi đang chiếu |
 | Nhờ AI viết nội dung | Copilot (trả phí) | Magic Design (trả phí) | **có, miễn phí**, và bạn có thể chọn các mô hình AI mà hệ thống cung cấp |
 | Link chia sẻ | phải export file | link của họ | **link của bạn**, mở là chiếu |
 | Vài giáo viên dùng chung | bản quyền từng máy | cùng tài khoản, lẫn bài của nhau | **mỗi người một kho riêng**, hạn mức rõ theo bậc quyền |
@@ -26,6 +27,7 @@ Nói ngắn gọn: PowerPoint và Canva bán cho bạn một định dạng và 
 
 - **Soạn slide** trong trình soạn hai khung: bên trái là code, bên phải là bài thật đang chạy. Đặt con trỏ vào slide nào, khung xem nhảy tới slide đó.
 - **Giữ thiết kế chung cho cả bài** bằng `<section-master>` — đặt nền, tiêu đầu, chân trang một lần, áp cho mọi slide.
+- **Vẽ hình Toán học tương tác** bằng thẻ `<jsxgraph>`: dán code JSXGraph vào slide là có bảng hình kéo thả được — chạy trong khung soạn thảo, trên trang đã xuất bản và cả bản in; `board.create(...)` có sẵn bảng, `initBoard(BOARDID, {...})` để tự đặt khung nhìn, `data-w`/`data-h` để chọn kích thước.
 - **Nhờ AI viết giúp**: chọn vị trí chèn (thiết lập dùng chung / slide hiện tại / slide tiếp theo / slide cuối cùng) rồi mô tả bằng tiếng Việt.
 - **Dùng mẫu có sẵn** tại `/templates`: 33 mẫu chia 11 danh mục — giáo án lên lớp theo từng môn, chuyên đề bồi dưỡng, và các slide tương tác (kể cả mẫu Âm thanh & video: âm báo đúng/sai, luyện nghe, video tự dừng để hỏi bài). Bấm "Dùng mẫu này" là có ngay bản nháp trong trình soạn; tìm mẫu không cần gõ dấu (`giao an` vẫn ra "Giáo án").
 - **Đưa bài đã có vào**: import PowerPoint, Markdown hoặc LaTeX beamer; xem báo cáo từng slide rồi mới quyết định import.
@@ -54,7 +56,7 @@ Chưa muốn đăng ký? Vào `/gallery` xem bài của người khác và bấm
 ```bash
 npm install && (cd client && npm install) && (cd server && npm install)
 npm run lint              # ESLint toàn repo
-npm test                  # 107 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
+npm test                  # 111 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
 cd client && npm run dev  # trình soạn + hot reload
 cd server && npm run dev  # backend
 ```

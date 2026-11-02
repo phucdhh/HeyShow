@@ -16,6 +16,7 @@ import { runDiagnostics, countIssues } from "./debug.js";
 import { colorSwatches, closeColorPicker } from "./color-picker.js";
 import { get, post, getToken, setToken, clearToken, tokenPayload, onUnauthorized, ApiError } from "./api.js";
 import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF } from "./reveal-cdn.js";
+import { JSXGRAPH_BOC, JSXGRAPH_STYLE, JSXGRAPH_SCRIPT } from "./jsxgraph-runtime.js";
 
 // Các DOM elements
 const editorContainer = document.getElementById('editor-container');
@@ -85,7 +86,9 @@ const heyshowSnippets = [
     snippetCompletion('<img src="${}" alt="" style="max-height: 420px;">',
         { label: "image", detail: "Chèn ảnh", type: "keyword" }),
     snippetCompletion('<span style="background: #ffd479; color: #11111b; padding: 0 0.2em;">${}</span>',
-        { label: "highlight", detail: "Tô nền cho chữ", type: "keyword" })
+        { label: "highlight", detail: "Tô nền cho chữ", type: "keyword" }),
+    snippetCompletion("<jsxgraph>\n  const board = JXG.JSXGraph.initBoard(BOARDID, { boundingbox: [-8, 8, 8, -8], axis: true });\n  board.create('point', [-3, 2], { name: 'A' });\n  ${}\n</jsxgraph>",
+        { label: "jsxgraph", detail: "Bảng JSXGraph tương tác trong slide", type: "keyword" })
 ];
 
 const editorStatus = document.getElementById('editor-status');
@@ -299,6 +302,8 @@ function updatePreview(fullReload = true) {
     previewStale = false;
 
     const code = editorView.state.doc.toString();
+    // <jsxgraph> phải đổi thành thẻ script raw-text trước khi vào DOM, làm y hệt buildFullHtml
+    const coJsxgraph = /<\s*jsxgraph\b/i.test(code);
     const { h, v } = getSlideIndices(editorView.state.field(slidesField), editorView.state.selection.main.head);
     
     const iframeWindow = previewIframe.contentWindow;
@@ -330,16 +335,18 @@ function updatePreview(fullReload = true) {
                 }
             }
         </style>
+        ${coJsxgraph ? JSXGRAPH_STYLE : ''}
     </head>
     <body>
         <div class="reveal">
             <div class="slides">
-                ${code}
+                ${coJsxgraph ? JSXGRAPH_BOC(code) : code}
             </div>
         </div>
         ${REVEAL_JS}
         <!-- Plugin Math (KaTeX) của Reveal.js -->
         ${REVEAL_MATH_JS}
+        ${coJsxgraph ? JSXGRAPH_SCRIPT : ''}
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 // Xử lý thẻ section-master

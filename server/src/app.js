@@ -10,7 +10,8 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
 const { createJsonStore, atomicWrite } = require('./storage');
-const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS } = require('./slide-parts');
+const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS,
+    SLIDE_JSXGRAPH_STYLE, SLIDE_JSXGRAPH_JS, JSXGRAPH_BOC } = require('./slide-parts');
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
@@ -338,6 +339,7 @@ function authorInfo(loginId, user) {
         username: loginId,
         urlSlug: slugOf(loginId, user),
         fullName: user?.fullName || '',
+        role: access.normalizeRole(user?.role),
         avatar: avatarUrlFor(loginId, user)
     };
 }
@@ -469,7 +471,7 @@ fs.mkdirSync(path.join(defaultUserDir, 'published'), { recursive: true });
 
 // Dọn dữ liệu cũ một lần lúc bật server. role/tokenVersion đã được sanitizeDb và
 // sanitizeSocial vá sẵn trong bộ nhớ; việc còn lại là chuyển avatar base64 khổng lồ
-// trong db.json thành file ảnh.
+// trong db.json thành file ảnh, và gắn ngày đăng ký cho các tài khoản cũ.
 function migrateLegacyData() {
     const db = getDB();
     let moved = 0;
@@ -483,11 +485,25 @@ function migrateLegacyData() {
         moved++;
     }
 
+    // Bảng Users xếp theo ngày đăng ký, nên con số này phải đứng yên. Trước đây nó suy
+    // từ mtime thư mục ngay lúc đọc, nghĩa là mỗi lần user soạn bài là tài khoản đó bị
+    // kéo lên đầu danh sách. Ghi một lần vào db rồi không đụng tới nữa.
+    let stamped = 0;
+    for (const [loginId, rec] of Object.entries(db.users)) {
+        if (Number.isFinite(rec.createdAt)) continue;
+        const dir = userDir(loginId);
+        const first = dir ? earliestDirTime(dir) : null;
+        if (!first) continue;
+        rec.createdAt = first;
+        stamped++;
+    }
+
     // flush(force=true): các thay đổi ở trên ghi thẳng vào object đã cache nên không đi
     // qua mutate(), cờ dirty không bật. Gọi tường minh để cấu trúc đã chuẩn hoá xuống đĩa.
     dbStore.flush(true);
     socialStore.flush(true);
     if (moved) console.log(`[migrate] Đã chuyển ${moved} avatar base64 thành file.`);
+    if (stamped) console.log(`[migrate] Đã gắn ngày đăng ký cho ${stamped} tài khoản cũ.`);
 }
 migrateLegacyData();
 
@@ -877,16 +893,33 @@ function quotaError(loginId) {
     };
 }
 
-// Ngày tạo tài khoản: ưu tiên createdAt trong db; tài khoản cũ lấy mtime thư mục user làm xấp xỉ
+// Dấu vết sớm nhất trong thư mục tài khoản: drafts/published/avatar được tạo đúng lúc
+// đăng ký, còn mọi thao tác sau này (lưu nháp, publish, đổi ảnh) chỉ đẩy mtime về phía
+// sau nên lấy giá trị nhỏ nhất là cách gần đúng nhất với ngày đăng ký.
+function earliestDirTime(dir) {
+    let best = null;
+    const bump = (stats) => {
+        if (Number.isFinite(stats.mtimeMs) && (best === null || stats.mtimeMs < best)) best = stats.mtimeMs;
+    };
+    let root;
+    try { root = fs.statSync(dir); } catch (e) { return null; }
+    bump(root);
+    if (!root.isDirectory()) return best;
+    let names;
+    try { names = fs.readdirSync(dir); } catch (e) { return best; }
+    for (const name of names) {
+        try { bump(fs.statSync(path.join(dir, name))); } catch (e) { /* file vừa bị xóa giữa hai lần đọc */ }
+    }
+    return best;
+}
+
+// Ngày tạo tài khoản: db là nguồn chuẩn; migrateLegacyData đã gắn createdAt cho mọi
+// tài khoản cũ, đường dò trên đĩa chỉ còn là dự phòng cho thư mục chưa kịp vào db.
 function userCreatedAt(loginId, user) {
     if (Number.isFinite(user.createdAt)) return user.createdAt;
     const dir = userDir(loginId);
     if (!dir) return null;
-    try {
-        return fs.statSync(dir).mtimeMs;
-    } catch (e) {
-        return null;
-    }
+    return earliestDirTime(dir);
 }
 
 // Danh sách user + số liệu hoạt động; không bao giờ trả passwordHash ra ngoài
@@ -1495,6 +1528,12 @@ app.delete('/api/files/:name', authenticateToken, (req, res) => {
 
 // Dựng file HTML hoàn chỉnh (Reveal.js) từ nội dung nháp — dùng cho cả publish và export
 function buildFullHtml(fileName, rawHtml) {
+    // Runtime <jsxgraph> nặng ~6.3KB chưa kể JSXGraph 1MB nạp từ CDN, và thẻ <jsxgraph>
+    // phải đổi thành script raw-text trước khi vào DOM (dấu `<` trong code JS sẽ bị trình
+    // duyệt đọc thành thẻ HTML — xem client/src/jsxgraph-runtime.js). Bài không dùng thẻ đó
+    // thì đừng bắt người xem tải oan: gallery mở 12 iframe một lúc.
+    const coJsxgraph = /<\s*jsxgraph\b/i.test(rawHtml);
+    const bai = coJsxgraph ? JSXGRAPH_BOC(rawHtml) : rawHtml;
     return `<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -1510,12 +1549,12 @@ function buildFullHtml(fileName, rawHtml) {
 ${SLIDE_HEAD_GUARD}
     </style>
     <style>${SLIDE_FULLSCREEN_CSS}
-    </style>
+    </style>${coJsxgraph ? `\n    ${SLIDE_JSXGRAPH_STYLE}` : ''}
 </head>
 <body>
     <div class="reveal">
         <div class="slides">
-            ${rawHtml}
+            ${bai}
         </div>
     </div>${SLIDE_STORAGE_SHIM}
     ${REVEAL_JS}
@@ -1553,7 +1592,7 @@ ${SLIDE_HEAD_GUARD}
             });
         });
     </script>
-    ${SLIDE_FULLSCREEN_BUTTON}
+    ${coJsxgraph ? `${SLIDE_JSXGRAPH_JS}\n    ` : ''}${SLIDE_FULLSCREEN_BUTTON}
 ${SLIDE_FULLSCREEN_JS}
 </body>
 </html>`;
@@ -1979,6 +2018,7 @@ app.post('/api/ai/generate', authenticateToken, limitAi, async (req, res) => {
 Cấu trúc một file HeyShow:
 - <section-master>...</section-master> (không bắt buộc, tối đa một thẻ): chứa nội dung dùng chung được hệ thống TỰ ĐỘNG chèn vào đầu MỌI slide khi trình chiếu (header, footer, <style> thiết lập chung...). Bản thân <section-master> KHÔNG phải là một slide.
 - <section>...</section>: mỗi thẻ là một slide. <section> lồng bên trong <section> tạo thành nhóm slide dọc.
+- <jsxgraph>...</jsxgraph>: đặt TRONG một <section>, vẽ hình Toán học tương tác bằng thư viện JSXGraph. Bên trong là JavaScript thuần: dùng biến \`board\` có sẵn (board.create('point', [1, 2])) hoặc tự gọi JXG.JSXGraph.initBoard(BOARDID, {...}); data-w / data-h quy định kích thước khung (px hoặc %). KHÔNG escape dấu < và & bên trong thẻ này — viết \`a < b\` nguyên văn.
 
 Quy tắc chung:
 - CHỈ TRẢ VỀ code HTML thuần (plain text): KHÔNG <html>/<head>/<body>, KHÔNG markdown backticks (\`\`\`html), KHÔNG giải thích.
@@ -2168,8 +2208,12 @@ app.get('/api/gallery', optionalAuth, (req, res) => {
         let matched = items;
         if (q) {
             const needle = foldText(q);
+            // Card hiện Full Name của tác giả nên tên đó phải tìm được; slug vẫn giữ vì nó là
+            // đường dẫn trang cá nhân, người xem có thể nhớ "ndmphuc" hơn là họ tên thật.
             matched = items.filter(it =>
-                foldText(it.title).includes(needle) || foldText(it.author.urlSlug).includes(needle));
+                foldText(it.title).includes(needle)
+                || foldText(it.author.fullName).includes(needle)
+                || foldText(it.author.urlSlug).includes(needle));
         }
 
         const total = matched.length;

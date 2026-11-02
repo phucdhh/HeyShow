@@ -42,6 +42,9 @@ server/*.log
 /tich_phan_dien_tich.tex
 /tich_phan_dien_tich.pdf
 
+# --- Thư viện mẫu JSXGraph tải từ jsxgraph.org về để đối chiếu code, không phải code dự án ---
+/embed-objects-examples/
+
 # --- Tài liệu nội bộ: chỉ README.md ra GitHub ---
 /PLAN.md
 /CHANGELOG.md

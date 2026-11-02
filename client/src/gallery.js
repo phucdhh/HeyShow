@@ -147,6 +147,13 @@ const thumbObserver = new IntersectionObserver((entries) => {
     }
 }, { rootMargin: '300px' });
 
+// Tên người dùng tự đặt trong Profile; chưa nhập thì "Unknown" chứ để trống trông như lỗi dữ liệu.
+// Dùng chung cho card, khung xem và bình luận — lẫn lộn slug với họ tên trong cùng một trang thì
+// người xem không biết đang nhìn cái gì.
+function displayName(author) {
+    return author?.fullName || 'Unknown';
+}
+
 function buildCard(item) {
     const card = document.createElement('article');
     card.className = 'card';
@@ -186,9 +193,15 @@ function buildCard(item) {
     avatar.alt = '';
     const author = document.createElement('span');
     author.className = 'author';
-    author.textContent = item.author.urlSlug;
+    // Card hiện họ tên người dùng tự đặt trong Profile — slug chỉ là địa chỉ URL, người xem
+    // không nhớ nó.
+    author.textContent = displayName(item.author);
     authorLink.append(avatar, author);
-    meta.append(authorLink);
+    const role = document.createElement('span');
+    role.className = 'author-role';
+    role.textContent = item.author.role;
+    role.title = `Quyền tài khoản: ${item.author.role}`;
+    meta.append(authorLink, role);
 
     const stats = document.createElement('div');
     stats.className = 'card-stats';
@@ -388,7 +401,7 @@ function renderComment(comment, { isReply = false } = {}) {
     const name = document.createElement('a');
     name.className = 'name';
     name.href = profileHref;
-    name.textContent = comment.author.urlSlug;
+    name.textContent = displayName(comment.author);
     const text = document.createElement('div');
     text.className = 'text';
     text.textContent = comment.text;
@@ -482,7 +495,7 @@ function openReplyBox(comment, row) {
     const box = document.createElement('div');
     box.className = 'reply-box';
     const ta = document.createElement('textarea');
-    ta.placeholder = `Trả lời ${comment.author.urlSlug}…`;
+    ta.placeholder = `Trả lời ${displayName(comment.author)}…`;
     ta.maxLength = 2000;
     ta.rows = 2;
     const btns = document.createElement('div');
@@ -598,7 +611,7 @@ function renderThreads(threads) {
 function applyPresentationMeta(p) {
     viewerTitle.textContent = p.title;
     viewerAvatar.src = p.author.avatar;
-    viewerAuthorName.textContent = p.author.urlSlug;
+    viewerAuthorName.textContent = displayName(p.author);
     viewerAuthorLink.href = `/${encodeURIComponent(p.author.urlSlug)}/`;
     viewerDate.textContent = `Đăng ngày ${fmtDate(p.createdAt)}`;
     statViews.textContent = p.views;

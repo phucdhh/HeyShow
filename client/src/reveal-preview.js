@@ -1,8 +1,12 @@
 // Giống hệt template publish của server (server/src/app.js - buildFullHtml)
 // để preview trong Help/Templates trùng khớp thứ người xem nhận được.
 import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF } from './reveal-cdn.js';
+import { JSXGRAPH_BOC, JSXGRAPH_STYLE, JSXGRAPH_SCRIPT } from './jsxgraph-runtime.js';
 
 export function previewHtml(code) {
+    // <jsxgraph> phải đổi thành script raw-text trước khi vào DOM, và runtime chỉ được nạp
+    // khi mẫu thật sự có hình — đúng điều kiện buildFullHtml của bản publish.
+    const coJsxgraph = /<\s*jsxgraph\b/i.test(code);
     const template = `<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -24,7 +28,7 @@ export function previewHtml(code) {
         .reveal .slides section .fragment {
             opacity: 1 !important; visibility: visible !important; transform: none !important;
         }
-    </style>
+    </style>${coJsxgraph ? `\n    ${JSXGRAPH_STYLE}` : ''}
 </head>
 <body>
     <div class="reveal">
@@ -33,7 +37,7 @@ export function previewHtml(code) {
         </div>
     </div>
     ${REVEAL_JS}
-    ${REVEAL_MATH_JS}
+    ${REVEAL_MATH_JS}${coJsxgraph ? `\n    ${JSXGRAPH_SCRIPT}` : ''}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const masters = document.querySelectorAll('section-master');
@@ -65,5 +69,5 @@ export function previewHtml(code) {
 </body>
 </html>`;
     // split/join thay vì replace: code mẫu chứa "$$" của KaTeX sẽ bị hiểu nhầm là mẫu thay thế
-    return template.split('__HEYSHOW_CODE__').join(code);
+    return template.split('__HEYSHOW_CODE__').join(coJsxgraph ? JSXGRAPH_BOC(code) : code);
 }

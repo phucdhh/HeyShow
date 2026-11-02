@@ -194,15 +194,19 @@ function renderUsers(users) {
             ava.title = `Mở Dashboard của ${u.username} để hỗ trợ`;
             ava.addEventListener('click', () => supportUser(u.username));
         }
+        // Tên thật là cách gọi chính; tài khoản chưa khai hồ sơ thì dòng đậm rơi về tên đăng nhập
         const name = document.createElement('span');
         name.className = 'u-name';
-        name.textContent = u.username;
+        name.textContent = u.fullName || u.username;
         tdAva.append(ava, name);
-        if (u.email) {
-            const sub = document.createElement('div');
-            sub.className = 'u-sub';
-            sub.textContent = u.email;
-            tdAva.appendChild(sub);
+
+        // Dòng dưới chỉ có slug trên URL — nhiều tài khoản lấy email làm loginId,
+        // in thêm email nữa là hiện trùng hai lần. Trùng với chữ đã in đậm thì bỏ.
+        if (u.urlSlug && u.urlSlug !== name.textContent) {
+            const slugLine = document.createElement('div');
+            slugLine.className = 'u-sub';
+            slugLine.textContent = u.urlSlug;
+            tdAva.appendChild(slugLine);
         }
 
         const tdRole = makeCell(tr, null, '');

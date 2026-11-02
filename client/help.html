@@ -197,7 +197,9 @@
         <a class="sub" href="#tpl-chart">4.5 Biểu đồ (Chart)</a>
         <a class="sub" href="#tpl-smartart">4.6 SmartArt</a>
         <a class="sub" href="#tpl-extras">4.7 Code, nút, trích dẫn</a>
-        <a href="#math">5. Công thức Toán</a>
+        <a href="#math">5. Công thức Toán &amp; hình động</a>
+        <a class="sub" href="#math-katex">5.1 Công thức KaTeX</a>
+        <a class="sub" href="#math-jsxgraph">5.2 Hình động JSXGraph</a>
         <a href="#dashboard">6. Quản lý trong Dashboard</a>
         <a href="#gallery">7. Sử dụng Gallery</a>
         <a href="#design">8. Tính năng Design</a>
@@ -310,13 +312,46 @@
 
         <!-- ============ 5. MATH ============ -->
         <section class="block" id="math">
-          <h1><span class="num">5</span> Công thức Toán</h1>
-          <p class="lead">KaTeX có sẵn: <code>$...$</code> cho công thức trong dòng, <code>$$...$$</code> cho công thức khối.</p>
+          <h1><span class="num">5</span> Công thức Toán &amp; hình động</h1>
+
+          <h2 id="math-katex">5.1 Công thức KaTeX</h2>
+          <p class="lead"><code>$...$</code> cho công thức trong dòng, <code>$$...$$</code> cho công thức khối.</p>
           <p>
             Gõ trực tiếp cú pháp LaTeX trong slide. Công thức cũng render trong bình luận ở Gallery, và editor có
             tooltip xem trước ngay khi bạn đang gõ.
           </p>
           <div data-examples="math"></div>
+
+          <h2 id="math-jsxgraph">5.2 Hình động JSXGraph</h2>
+          <p class="lead">
+            Thẻ <code>&lt;jsxgraph&gt;</code> dựng một bảng hình học tương tác ngay trong slide: kéo được điểm,
+            thanh trượt chạy được — cả ở khung Preview, trang đã xuất bản lẫn khi in.
+          </p>
+          <ul>
+            <li><b>Bên trong thẻ là JavaScript thuần.</b> Có sẵn biến <code>board</code> (bảng HeyShow tạo hộ,
+              khung nhìn <code>[-10, 10]</code> có trục) — chỉ cần <code>board.create('point', [1, 2])</code>.</li>
+            <li><b>Muốn tự đặt khung nhìn?</b> Gọi <code>JXG.JSXGraph.initBoard(BOARDID, {...})</code>;
+              <code>BOARDID</code> là id khung của chính thẻ này.</li>
+            <li><b>Code dán nguyên văn</b> từ jsxgraph.org/sandbox hay các mẫu HeyGeo đều chạy, kể cả bản
+              <code>initBoard('jxgbox', ...)</code> — HeyShow tự trỏ về khung của thẻ.</li>
+            <li><b>Kích thước:</b> <code>data-w</code> / <code>data-h</code> nhận số px (<code>420</code>) hoặc %
+              so với chiều ngang slide (<code>100%</code>). Mặc định: trọn chiều ngang slide, cao 420px.</li>
+            <li><b>Nền và viền:</b> mặc định bảng có nền trắng và viền xanh (theo jsxgraph.css). Đặt
+              <code>data-bg="transparent"</code> để bảng hoà vào nền slide, <code>data-border="none"</code> để bỏ viền;
+              cả hai cũng nhận mã màu / kiểu viền CSS (<code>data-bg="#eef2ff"</code>,
+              <code>data-border="2px dashed #6366f1"</code>).</li>
+            <li><b>Nhãn Toán học:</b> đặt <code>board.options.text.useKatex = true</code> để mã LaTeX trong nhãn
+              (<code>'\\text{Góc}\\, \\alpha'</code>) hiện ra như công thức.</li>
+            <li><b>Khối 3D (<code>view3d</code>):</b> kéo một ngón trên điện thoại là xoay được cảnh —
+              HeyShow tự tắt thao tác pan cho bảng 3D để cú kéo tới được khối. Muốn giữ pan thì tự đặt
+              <code>pan: { enabled: true }</code> trong <code>initBoard</code>.</li>
+            <li><b>Một slide đặt được nhiều thẻ</b>, mỗi thẻ một bảng riêng.</li>
+          </ul>
+          <div class="callout">
+            <b>Cần có mạng khi trình chiếu:</b> thư viện JSXGraph được tải lúc mở bài, chỉ với bài có thẻ
+            <code>&lt;jsxgraph&gt;</code>. Code có lỗi cú pháp sẽ hiện ngay trong khung hình thay vì làm hỏng slide.
+          </div>
+          <div data-examples="jsxgraph"></div>
         </section>
 
         <!-- ============ 6. DASHBOARD ============ -->
@@ -375,9 +410,10 @@
           <h1><span class="num">7</span> Sử dụng Gallery</h1>
           <p class="lead"><a href="/gallery">/gallery</a> là thư viện công khai các bài đã xuất bản.</p>
           <ul>
-            <li><b>Tìm kiếm:</b> ô tìm đầu trang lọc theo tên bài hoặc tên tác giả; phân trang 12 bài/trang.</li>
+            <li><b>Tìm kiếm:</b> ô tìm đầu trang lọc theo tên bài hoặc <b>tên tác giả</b> — khớp cả họ tên hiển thị lẫn slug, không cần gõ dấu ("da hop" vẫn ra "Dạ Hợp"); phân trang 24 bài/trang.</li>
             <li><b>Xem nhanh:</b> bấm vào card để mở viewer hai khung — trái là bài trình chiếu chạy được, phải là thông tin và bình luận.</li>
             <li><b>Thích:</b> nút ♡ để thích / bỏ thích (cần đăng nhập); mỗi người một lượt.</li>
+            <li><b>Tên tác giả:</b> ở card, ở thanh bên khi mở bài và ở đầu mỗi bình luận đều là <b>Full Name</b> người đó nhập trong Profile — chưa nhập thì hiện <b>Unknown</b>; riêng card có thêm nhãn quyền <b>user · designer · master · admin</b> ở cuối hàng. Bấm vào tên để mở trang cá nhân của tác giả.</li>
             <li><b>Bình luận:</b> viết tối đa 2000 ký tự, hỗ trợ công thức KaTeX; mỗi bình luận (và mỗi phản hồi) có nút <b>♥ thích</b> — bấm lần hai để bỏ, chưa đăng nhập thì chỉ thấy số lượt thích. Bình luận của chính mình có nút Sửa, muốn trả lời thì bấm <b>Trả lời</b>.</li>
             <li><b>Trang tác giả:</b> bấm tên hoặc avatar tác giả để xem toàn bộ bài công khai của người đó.</li>
             <li><b>Chia sẻ:</b> nút Share mở hộp thoại "Share to" để đăng lên Gan Jing World, Facebook hoặc X, kèm link bài và nút Copy link; mỗi lượt bấm được tính vào số liệu của bài.</li>
@@ -397,7 +433,7 @@
           <h3>Nhãn slide &amp; thu gọn</h3>
           <p>Gutter bên trái gắn nhãn <code>★</code> (master), <code>S1</code>, <code>S2</code>, <code>S2.1</code>… Bấm nhãn để gập/mở code slide đó; hai nút “Thu gọn” / “Mở hết” trên thanh tiêu đề làm toàn bộ. Thanh tiêu đề cũng báo vị trí con trỏ và trạng thái chưa lưu.</p>
           <h3>Snippets</h3>
-          <p>Gõ <code>section</code>, <code>fragment</code>, <code>math</code>, <code>columns</code>, <code>image</code>, <code>highlight</code>… rồi chọn trong danh sách autocomplete (<code>Ctrl+Space</code>) để chèn khung HTML sẵn.</p>
+          <p>Gõ <code>section</code>, <code>fragment</code>, <code>math</code>, <code>columns</code>, <code>image</code>, <code>highlight</code>, <code>jsxgraph</code>… rồi chọn trong danh sách autocomplete (<code>Ctrl+Space</code>) để chèn khung HTML sẵn.</p>
           <h3>Tab Preview</h3>
           <p>Bài chạy thật bằng Reveal.js ngay trong khung. Con trỏ đang ở slide nào thì preview nhảy tới slide đó; sửa code xong là khung tự vẽ lại. Tên bản nháp đang mở hiển thị ở thanh tiêu đề khung trái (nút <b>Select</b> trên Header chỉ để đổi file).</p>
           <h3>Tab Debug</h3>
@@ -445,6 +481,10 @@
 
           <h2>Changelog</h2>
           <ul>
+            <li><b>11/2026 — v3.2:</b> Gallery đổi từ <b>slug</b> sang <b>Full Name</b> của tác giả ở mọi chỗ hiển thị tên — card, <b>thanh bên khi bấm vào xem bài</b>, và tên trên mỗi <b>bình luận</b> (chưa nhập trong Profile thì hiện <b>Unknown</b>) — kèm <b>nhãn quyền</b> user · designer · master · admin ở cuối hàng card. Bấm vào tên vẫn mở trang cá nhân như cũ, và ô tìm kiếm nay khớp cả <b>họ tên</b> lẫn slug — gõ "da hop" là ra bài của "Dạ Hợp" dù không bật bộ gõ tiếng Việt.</li>
+            <li><b>10/2026 — v3.1:</b> bảng <code>&lt;jsxgraph&gt;</code> thôi làm "tấm thẻ trắng" giữa slide: <code>data-bg="transparent"</code> cho nền trong suốt (hoặc một mã màu bất kỳ) và <code>data-border="none"</code> bỏ viền xanh mặc định, nên mô hình nằm liền trên nền bài như khi tự viết HTML. Mặc định vẫn là nền trắng cho bài nền tối. Xem <a href="#math-jsxgraph">mục 5.2</a>.</li>
+            <li><b>10/2026 — v3.0.1:</b> bản vá cho v3.0 — trên trang đã xuất bản, bảng <code>&lt;jsxgraph&gt;</code> nay <b>cao đúng như trong khung Preview</b> (trước đây bị ép dẹp, hình vẽ nhỏ xíu và thanh trượt tràn ra ngoài), và nhãn Toán học trong bảng (<code>\text{...}</code>, <code>z_0</code>) được dựng thành công thức thay vì hiện nguyên mã LaTeX. Trên <b>điện thoại</b>, khối 3D (<code>view3d</code>) <b>xoay được bằng một ngón</b> — trước đây cú chạm bị hiểu là pan nên khối đứng yên, chỉ kéo được thanh trượt.</li>
+            <li><b>10/2026 — v3.0:</b> slide nay vẽ được <b>hình Toán học tương tác</b> bằng thẻ <code>&lt;jsxgraph&gt;</code>: dán thẳng code JSXGraph — kể cả code copy từ jsxgraph.org/sandbox hay các mẫu HeyGeo — vào slide, bảng hình hiện ra và <b>kéo thả được ngay trong khung Preview, trên trang đã xuất bản và cả khi in</b>. Không cần khởi tạo gì: <code>board.create('point', [1, 2])</code> là có hình, muốn tự đặt khung nhìn thì gọi <code>initBoard(BOARDID, {...})</code>; <code>data-w</code> / <code>data-h</code> chọn kích thước theo px hoặc % chiều ngang slide, một slide đặt được nhiều bảng. Thư viện chỉ được tải với bài thật sự có hình — bài chỉ có chữ giữ nguyên tốc độ. Code có lỗi hiện ngay trong khung hình thay vì làm hỏng slide, và tab <b>Debug</b> báo thẻ <code>&lt;jsxgraph&gt;</code> quên đóng hoặc để trống. Xem chi tiết ở <a href="#math-jsxgraph">mục 5.2</a>.</li>
             <li><b>10/2026 — v2.19:</b> bình luận trong Gallery thích được rồi: mỗi bình luận và mỗi phản hồi có nút <b>♡/♥</b> kèm số lượt thích ngay dưới dòng thời gian, bấm để thích, bấm lần hai để bỏ. Chưa đăng nhập vẫn nhìn thấy số lượt thích; muốn bấm thì cần tài khoản.</li>
             <li><b>10/2026 — v2.18:</b> khung phải của Design thành ba tab <b>Preview · Debug · AI</b>: bỏ nút ✨ nổi, khung chat AI nằm trong tab AI; tab <b>Debug</b> liệt kê những lỗi Reveal.js vẫn âm thầm bỏ qua — dán lẫn thẻ <code>&lt;html&gt;</code>/<code>&lt;body&gt;</code>, thiếu thẻ đóng <code>&lt;section&gt;</code>, chữ rơi ngoài slide, slide lồng quá 2 cấp, công thức viết <code>&lt;</code> trần, nhúng YouTube hay link chia sẻ Google Drive — bấm một dòng là nhảy tới đúng chỗ trong code. Header <b>thôi đếm số bài</b> cho gọn: chỉ khi tạo vượt hạn mức mới có thông báo, kèm nút nhắn Admin trên <b>Signal</b> và link giải thích ở <a href="#quota">Help</a>. Dropdown chọn file thu lại thành nút <b>Select</b>, tên bài đang mở hiện ở đầu khung soạn thảo.</li>
             <li><b>10/2026 — v2.17:</b> sửa lỗi hiển thị trên <b>điện thoại</b>: một số slide của bài mở bằng trình duyệt điện thoại hiện trên <b>nền tối</b>, chữ đậm đè nền đậm không đọc được, giữa hai slide là khoảng trống lớn. Nguyên nhân từ chế độ cuộn tự động của Reveal 6 trên màn hình hẹp; nay mọi bài — kể cả những bài đã xuất bản trước đây — giữ <b>một nền sáng suốt bài</b> và <b>vuốt từng slide</b> vừa màn hình như trên máy tính.</li>

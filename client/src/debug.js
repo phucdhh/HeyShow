@@ -7,6 +7,10 @@ const SECTION_TAG_RE = /<\s*(\/?)\s*(section-master|section)\b[^>]*>/gi;
 const DOC_TAG_RE = /<(\/?)\s*(!doctype|html|head|body)\b[^>]*>/gi;
 const MATH_RE = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$/g;
 const SRC_ATTR_RE = /\bsrc\s*=\s*["']([^"']+)["']/i;
+// Hai khuôn mà JSXGRAPH_BOC (client/src/jsxgraph-runtime.js) nhận: thiếu một phía thì
+// mảng thẻ không cân, code để nguyên văn trong slide và không có bảng nào được dựng.
+const JSXGRAPH_OPEN_RE = /<\s*jsxgraph\b[^>]*>/gi;
+const JSXGRAPH_BLOCK_RE = /<\s*jsxgraph\b[^>]*>([\s\S]*?)<\s*\/\s*jsxgraph\s*>/gi;
 
 // Đổi một loại khối thành khoảng trắng. Giữ nguyên độ dài và ký tự xuống dòng nên
 // vị trí vẫn tra được số dòng trong CodeMirror.
@@ -140,7 +144,30 @@ export function runDiagnostics(doc, scan) {
             + 'Trình duyệt đọc thành thẻ HTML và làm hỏng slide — hãy dùng \\lt, \\gt.');
     }
 
-    // 5. Link nhúng mà trang xuất bản không chạy được
+    // 5. Thẻ <jsxgraph>: mở/đóng phải cân cặp và bên trong phải có code. Một thẻ quên
+    // thẻ đóng khiến JSXGRAPH_BOC để nguyên văn — slide hiện code thô chứ không có bảng.
+    const soMoJsx = (text.match(JSXGRAPH_OPEN_RE) || []).length;
+    if (soMoJsx > 0) {
+        const soDongJsx = (text.match(/<\s*\/\s*jsxgraph\s*>/gi) || []).length;
+        if (soDongJsx !== soMoJsx) {
+            const mo = [];
+            JSXGRAPH_OPEN_RE.lastIndex = 0;
+            while ((m = JSXGRAPH_OPEN_RE.exec(text)) !== null) mo.push(m.index);
+            push('error', mo[Math.min(soDongJsx, mo.length - 1)],
+                `Thẻ <jsxgraph> không cân: ${mo.length} thẻ mở, ${soDongJsx} thẻ đóng — `
+                + 'phần thiếu sẽ hiện ra là code thô, không dựng được bảng.');
+        }
+        JSXGRAPH_BLOCK_RE.lastIndex = 0;
+        let soKhoTrong = 0;
+        while ((m = JSXGRAPH_BLOCK_RE.exec(text)) !== null && soKhoTrong < 3) {
+            if (m[1].trim()) continue;
+            soKhoTrong++;
+            push('warning', m.index,
+                'Thẻ <jsxgraph> trống — bên trong phải là code JSXGraph, ví dụ board.create(\'point\', [1, 2]).');
+        }
+    }
+
+    // 6. Link nhúng mà trang xuất bản không chạy được
     for (const check of [
         {
             tag: 'iframe',

@@ -3,6 +3,9 @@
 // repair-published-slides.cjs (bài đã publish từ trước) và test dùng chung một bản,
 // không chỗ nào tự viết lại rồi lệch nhau.
 
+const fs = require('fs');
+const path = require('path');
+
 // Phiên bản Reveal nạp từ CDN. Nâng cấp là sửa REVEAL_VERSION ở đây và ở
 // client/src/reveal-cdn.js — test so hai bản phải khớp nhau.
 // Từ 6.0 plugin math dời từ plugin/math/math.js sang plugin/math.js, nên đổi phiên
@@ -14,6 +17,58 @@ const REVEAL_CSS = [`<link rel="stylesheet" href="${REVEAL_CDN}/reset.min.css">`
     `<link rel="stylesheet" href="${REVEAL_CDN}/theme/black.min.css">`].join('\n    ');
 const REVEAL_JS = `<script src="${REVEAL_CDN}/reveal.js"></script>`;
 const REVEAL_MATH_JS = `<script src="${REVEAL_CDN}/plugin/math.js"></script>`;
+
+// --- Thẻ <jsxgraph> ---
+// Runtime chỉ có MỘT bản, nằm ở client/src/jsxgraph-runtime.js: editor cần hàm thật để
+// khung Preview chạy, còn file slide cần đúng chuỗi đó nằm trong HTML. Server không import
+// file ESM của client (Node chạy module này bằng CommonJS) nên cắt nguyên văn: từ dòng
+// 'export function <TÊN>(' tới dấu '}' nằm ở cột 0. Cắt chứ không viết lại nghĩa là preview
+// của giáo viên và bản người xem nhận được không thể lệch nhau.
+// File nguồn đổi khuôn mà quên sửa ở đây là ném ngay lúc khởi động, thà vậy còn hơn hỏng
+// im lặng một nửa số bài trên đĩa.
+const JSXGRAPH_SOURCE_FILE = path.join(__dirname, '../../client/src/jsxgraph-runtime.js');
+const JSXGRAPH_SOURCE = fs.readFileSync(JSXGRAPH_SOURCE_FILE, 'utf-8');
+
+function catHamJsxgraph(ten) {
+    const mo = JSXGRAPH_SOURCE.indexOf(`export function ${ten}(`);
+    if (mo < 0) throw new Error(`${JSXGRAPH_SOURCE_FILE} thiếu 'export function ${ten}('`);
+    const cuoi = JSXGRAPH_SOURCE.indexOf('\n}', mo);
+    if (cuoi < 0) throw new Error(`${JSXGRAPH_SOURCE_FILE}: dấu '}' đóng ${ten} phải nằm ở cột 0`);
+    // 'export ' -> '': bỏ vào thẻ <script> và chạy trong Node đều cần khai báo hàm thuần
+    return JSXGRAPH_SOURCE.slice(JSXGRAPH_SOURCE.lastIndexOf('\n', mo) + 1, cuoi + 2).replace(/^export /, '');
+}
+
+function catChuJsxgraph(ten) {
+    const giaTri = (JSXGRAPH_SOURCE.match(new RegExp(`${ten} = '([^']*)'`)) || [])[1];
+    if (giaTri === undefined) throw new Error(`${JSXGRAPH_SOURCE_FILE} thiếu dòng khai báo ${ten}`);
+    return giaTri;
+}
+
+const JSXGRAPH_VERSION = catChuJsxgraph('JSXGRAPH_VERSION');
+const JSXGRAPH_CDN = `https://cdnjs.cloudflare.com/ajax/libs/jsxgraph/${JSXGRAPH_VERSION}`;
+const JSXGRAPH_MARKER = catChuJsxgraph('JSXGRAPH_MARKER');
+const JSXGRAPH_TYPE = catChuJsxgraph('JSXGRAPH_TYPE');
+
+const JSXGRAPH_MOUNT_SRC = catHamJsxgraph('JSXGRAPH_MOUNT');
+if (JSXGRAPH_MOUNT_SRC.toLowerCase().includes('</scr')) {
+    throw new Error(`${JSXGRAPH_SOURCE_FILE}: JSXGRAPH_MOUNT chứa chuỗi đóng thẻ script, nội tuyến vào bài publish sẽ hỏng`);
+}
+
+// Thẻ <jsxgraph> đổi sang script raw-text trước khi vào DOM (xem lời dẫn trong file nguồn).
+const JSXGRAPH_BOC = new Function(`return (${catHamJsxgraph('JSXGRAPH_BOC')})`)();
+
+// CSS lấy theo khuôn `export const JSXGRAPH_CSS = \`…\`;`
+const JSXGRAPH_CSS_MO = JSXGRAPH_SOURCE.indexOf('export const JSXGRAPH_CSS = `');
+if (JSXGRAPH_CSS_MO < 0) throw new Error(`${JSXGRAPH_SOURCE_FILE} thiếu 'export const JSXGRAPH_CSS = …'`);
+const JSXGRAPH_CSS_START = JSXGRAPH_SOURCE.indexOf('`', JSXGRAPH_CSS_MO) + 1;
+const SLIDE_JSXGRAPH_CSS = JSXGRAPH_SOURCE.slice(JSXGRAPH_CSS_START, JSXGRAPH_SOURCE.indexOf('`', JSXGRAPH_CSS_START));
+
+// Mảnh ghép vào <head> và mảnh ghép cuối <body>, đã kèm thẻ bọc giống cách
+// SLIDE_FULLSCREEN_CSS/Button/JS của nút toàn màn hình.
+const SLIDE_JSXGRAPH_STYLE = `<style>${SLIDE_JSXGRAPH_CSS}
+    </style>`;
+const SLIDE_JSXGRAPH_JS = `<script ${JSXGRAPH_MARKER}="runtime">(${JSXGRAPH_MOUNT_SRC})(${JSON.stringify(JSXGRAPH_CDN)})</script>`;
+
 
 // Cấu hình nạp cho plugin math của Reveal. Reveal 6 đọc khoá "katex" ở cấp cao nhất của
 // Reveal.initialize rồi truyền thẳng xuống KaTeX (xem plugin/math.js: getConfig().katex).
@@ -381,6 +436,8 @@ function bumpRevealVersion(html, { from, to }) {
 module.exports = {
     REVEAL_VERSION, REVEAL_CDN, REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS,
     REVEAL_SCROLL_MODE_OFF, addRevealOption,
+    JSXGRAPH_VERSION, JSXGRAPH_CDN, JSXGRAPH_MARKER, JSXGRAPH_TYPE, JSXGRAPH_BOC,
+    SLIDE_JSXGRAPH_STYLE, SLIDE_JSXGRAPH_JS,
     SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER,
     SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS, FULLSCREEN_MARKER,
     FS_LABEL, FS_LABEL_EXIT, LEGACY_FULLSCREEN_LABELS,

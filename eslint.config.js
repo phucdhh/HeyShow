@@ -24,7 +24,10 @@ export default [
             'client/dist/**',
             '**/node_modules/**',
             'data/**',
-            'scripts/**'
+            'scripts/**',
+            // Thư viện mẫu của bên thứ ba (JSXGraph, GeoGebra…), chỉ để tham khảo cú pháp
+            // khi viết thẻ <jsxgraph> — không phải code của HeyShow.
+            'embed-objects-examples/**'
         ]
     },
     {
