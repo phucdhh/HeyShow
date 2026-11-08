@@ -11,6 +11,16 @@ const SRC_ATTR_RE = /\bsrc\s*=\s*["']([^"']+)["']/i;
 // mảng thẻ không cân, code để nguyên văn trong slide và không có bảng nào được dựng.
 const JSXGRAPH_OPEN_RE = /<\s*jsxgraph\b[^>]*>/gi;
 const JSXGRAPH_BLOCK_RE = /<\s*jsxgraph\b[^>]*>([\s\S]*?)<\s*\/\s*jsxgraph\s*>/gi;
+// Thẻ <wsp> cùng khuôn với <jsxgraph>, chỉ khác bên trong là JSON của một sketch Web
+// Sketchpad — dán sót một dấu ngoặc là cả mô hình không dựng được.
+const WSP_OPEN_RE = /<\s*wsp\b[^>]*>/gi;
+const WSP_BLOCK_RE = /<\s*wsp\b[^>]*>([\s\S]*?)<\s*\/\s*wsp\s*>/gi;
+// Thẻ <tts> cùng khuôn đổi sang script raw-text (chữ có thể chứa dấu `<`). Chữ rỗng thì
+// không có gì để đọc, còn dài quá giới hạn của HeyTTS thì server không nhận.
+const TTS_OPEN_RE = /<\s*tts\b[^>]*>/gi;
+const TTS_BLOCK_RE = /<\s*tts\b[^>]*>([\s\S]*?)<\s*\/\s*tts\s*>/gi;
+const TTS_MAX_CHARS = 5000;
+const TTS_SPEED_RE = /\bdata-speed\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 
 // Đổi một loại khối thành khoảng trắng. Giữ nguyên độ dài và ký tự xuống dòng nên
 // vị trí vẫn tra được số dòng trong CodeMirror.
@@ -164,6 +174,86 @@ export function runDiagnostics(doc, scan) {
             soKhoTrong++;
             push('warning', m.index,
                 'Thẻ <jsxgraph> trống — bên trong phải là code JSXGraph, ví dụ board.create(\'point\', [1, 2]).');
+        }
+    }
+
+    // 5b. Thẻ <wsp>: cân cặp, có nội dung và nội dung phải đọc được thành JSON. Người dùng
+    // copy nguyên file .json (vài trăm KB) nên sót dấu ngoặc là chuyện thường gặp — Web
+    // Sketchpad không dựng gì cả và trên slide chỉ còn một khoảng trống.
+    const soMoWsp = (text.match(WSP_OPEN_RE) || []).length;
+    if (soMoWsp > 0) {
+        const soDongWsp = (text.match(/<\s*\/\s*wsp\s*>/gi) || []).length;
+        if (soDongWsp !== soMoWsp) {
+            const mo = [];
+            WSP_OPEN_RE.lastIndex = 0;
+            while ((m = WSP_OPEN_RE.exec(text)) !== null) mo.push(m.index);
+            push('error', mo[Math.min(soDongWsp, mo.length - 1)],
+                `Thẻ <wsp> không cân: ${mo.length} thẻ mở, ${soDongWsp} thẻ đóng — `
+                + 'phần thiếu sẽ hiện ra là code thô, không dựng được mô hình.');
+        }
+        WSP_BLOCK_RE.lastIndex = 0;
+        let soKhoWsp = 0;
+        while ((m = WSP_BLOCK_RE.exec(text)) !== null && soKhoWsp < 3) {
+            const noi = m[1].replace(/^\uFEFF/, '').trim();
+            if (!noi) {
+                push('warning', m.index,
+                    'Thẻ <wsp> trống — bên trong phải là toàn bộ nội dung một file sketch .json của Web Sketchpad.');
+                continue;
+            }
+            // JSON.parse một file 1MB chỉ mất vài ms nhưng dán nhầm HTML vào thì có thể rất
+            // dài; bỏ qua khối quá khổ để tab Debug không chặn tay khi gõ.
+            if (noi.length > 3000000) continue;
+            try {
+                const cua = JSON.parse(noi);
+                if (!cua || !Array.isArray(cua.pages) || !cua.pages.length) {
+                    push('error', m.index,
+                        'Thẻ <wsp>: JSON không có "pages" — đây không phải một file sketch Web Sketchpad.');
+                }
+            } catch (loi) {
+                push('error', m.index,
+                    `Thẻ <wsp>: JSON không hợp lệ (${loi.message}) — hãy copy TOÀN BỘ file .json, kể cả hai dấu { }.`);
+            }
+            soKhoWsp++;
+        }
+    }
+
+    // 5c. Thẻ <tts>: cân cặp, có chữ, không vượt giới hạn của HeyTTS, tốc độ trong khoảng.
+    const soMoTts = (text.match(TTS_OPEN_RE) || []).length;
+    if (soMoTts > 0) {
+        const soDongTts = (text.match(/<\s*\/\s*tts\s*>/gi) || []).length;
+        if (soDongTts !== soMoTts) {
+            const mo = [];
+            TTS_OPEN_RE.lastIndex = 0;
+            while ((m = TTS_OPEN_RE.exec(text)) !== null) mo.push(m.index);
+            push('error', mo[Math.min(soDongTts, mo.length - 1)],
+                `Thẻ <tts> không cân: ${mo.length} thẻ mở, ${soDongTts} thẻ đóng — `
+                + 'phần thiếu sẽ hiện ra là chữ thô, không có nút nghe.');
+        }
+
+        TTS_OPEN_RE.lastIndex = 0;
+        let soTocDoSai = 0;
+        while ((m = TTS_OPEN_RE.exec(text)) !== null && soTocDoSai < 3) {
+            const speed = TTS_SPEED_RE.exec(m[0]);
+            if (!speed) continue;
+            const giaTri = Number((speed[1] ?? speed[2] ?? speed[3] ?? '').replace(',', '.'));
+            if (!Number.isFinite(giaTri) || giaTri < 0.5 || giaTri > 2) {
+                soTocDoSai++;
+                push('warning', m.index,
+                    'Tốc độ đọc của thẻ <tts> ngoài khoảng 0.5–2 — HeyShow sẽ đưa về sát biên.');
+            }
+        }
+
+        TTS_BLOCK_RE.lastIndex = 0;
+        let soKhoTts = 0;
+        while ((m = TTS_BLOCK_RE.exec(text)) !== null && soKhoTts < 3) {
+            const noi = m[1].replace(/\s+/g, ' ').trim();
+            if (!noi) {
+                push('warning', m.index, 'Thẻ <tts> trống — bên trong phải là đoạn chữ cần đọc.');
+            } else if (noi.length > TTS_MAX_CHARS) {
+                push('error', m.index,
+                    `Thẻ <tts> dài ${noi.length} ký tự, vượt giới hạn ${TTS_MAX_CHARS} của HeyTTS — hãy chia thành nhiều thẻ.`);
+            }
+            soKhoTts++;
         }
     }
 

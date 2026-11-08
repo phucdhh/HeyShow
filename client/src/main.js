@@ -11,12 +11,14 @@ import {
     autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, snippetCompletion
 } from "@codemirror/autocomplete";
 import { lintGutter } from "@codemirror/lint";
-import { slideGutter, slidesField, sectionLinter, slideStatus, slideAt, topSectionAt } from "./slides.js";
+import { slideGutter, slidesField, sectionLinter, slideStatus, slideAt, topSectionAt, nhungFold } from "./slides.js";
 import { runDiagnostics, countIssues } from "./debug.js";
 import { colorSwatches, closeColorPicker } from "./color-picker.js";
 import { get, post, getToken, setToken, clearToken, tokenPayload, onUnauthorized, ApiError } from "./api.js";
 import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF } from "./reveal-cdn.js";
 import { JSXGRAPH_BOC, JSXGRAPH_STYLE, JSXGRAPH_SCRIPT } from "./jsxgraph-runtime.js";
+import { WSP_BOC, WSP_STYLE, WSP_SCRIPT, WSP_DIR } from "./wsp-runtime.js";
+import { TTS_BOC, TTS_STYLE, TTS_SCRIPT } from "./tts-runtime.js";
 
 // Các DOM elements
 const editorContainer = document.getElementById('editor-container');
@@ -88,7 +90,13 @@ const heyshowSnippets = [
     snippetCompletion('<span style="background: #ffd479; color: #11111b; padding: 0 0.2em;">${}</span>',
         { label: "highlight", detail: "Tô nền cho chữ", type: "keyword" }),
     snippetCompletion("<jsxgraph>\n  const board = JXG.JSXGraph.initBoard(BOARDID, { boundingbox: [-8, 8, 8, -8], axis: true });\n  board.create('point', [-3, 2], { name: 'A' });\n  ${}\n</jsxgraph>",
-        { label: "jsxgraph", detail: "Bảng JSXGraph tương tác trong slide", type: "keyword" })
+        { label: "jsxgraph", detail: "Bảng JSXGraph tương tác trong slide", type: "keyword" }),
+    // JSON của Web Sketchpad dài hàng chục nghìn ký tự, không ai gõ tay: mẫu này chỉ để mở
+    // đúng cặp thẻ, giáo viên dán nguyên nội dung file .json vào giữa.
+    snippetCompletion("<wsp>\n  ${}\n</wsp>",
+        { label: "wsp", detail: "Mô hình Web Sketchpad (dán nguyên JSON của sketch)", type: "keyword" }),
+    snippetCompletion('<tts data-voice="diem_trinh" data-speed="1">\n  ${}\n</tts>',
+        { label: "tts", detail: "Đọc đoạn văn bằng giọng HeyTTS (tạo âm thanh ở lần nghe đầu)", type: "keyword" })
 ];
 
 const editorStatus = document.getElementById('editor-status');
@@ -150,6 +158,7 @@ function initEditor() {
             lineNumbers(),
             highlightActiveLineGutter(),
             foldGutter({ openText: '▾', closedText: '▸' }),
+            nhungFold,
             lintGutter(),
             history(),
             htmlLang,
@@ -304,6 +313,11 @@ function updatePreview(fullReload = true) {
     const code = editorView.state.doc.toString();
     // <jsxgraph> phải đổi thành thẻ script raw-text trước khi vào DOM, làm y hệt buildFullHtml
     const coJsxgraph = /<\s*jsxgraph\b/i.test(code);
+    const coWsp = /<\s*wsp\b/i.test(code);
+    const coTts = /<\s*tts\b/i.test(code);
+    const bai1 = coJsxgraph ? JSXGRAPH_BOC(code) : code;
+    const bai2 = coWsp ? WSP_BOC(bai1) : bai1;
+    const bai = coTts ? TTS_BOC(bai2) : bai2;
     const { h, v } = getSlideIndices(editorView.state.field(slidesField), editorView.state.selection.main.head);
     
     const iframeWindow = previewIframe.contentWindow;
@@ -336,17 +350,21 @@ function updatePreview(fullReload = true) {
             }
         </style>
         ${coJsxgraph ? JSXGRAPH_STYLE : ''}
+        ${coWsp ? WSP_STYLE : ''}
+        ${coTts ? TTS_STYLE : ''}
     </head>
     <body>
         <div class="reveal">
             <div class="slides">
-                ${coJsxgraph ? JSXGRAPH_BOC(code) : code}
+                ${bai}
             </div>
         </div>
         ${REVEAL_JS}
         <!-- Plugin Math (KaTeX) của Reveal.js -->
         ${REVEAL_MATH_JS}
         ${coJsxgraph ? JSXGRAPH_SCRIPT : ''}
+        ${coWsp ? WSP_SCRIPT(window.location.origin + WSP_DIR) : ''}
+        ${coTts ? TTS_SCRIPT(window.location.origin) : ''}
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 // Xử lý thẻ section-master
@@ -401,6 +419,7 @@ const authUserLabel = document.getElementById('auth-user-label');
 const authPass = document.getElementById('auth-pass');
 const btnAuthSubmit = document.getElementById('btn-auth-submit');
 const authMsg = document.getElementById('auth-msg');
+const authForgot = document.getElementById('auth-forgot');
 
 // Các trường riêng cho tab Đăng ký
 const regFields = Array.from(authOverlay.querySelectorAll('.reg-only'));
@@ -467,11 +486,39 @@ function setAuthMode(login) {
     authUser.placeholder = login ? 'VD: user123 hoặc user@truong.edu.vn' : 'VD: user123';
     authPass.placeholder = login ? '••••••••' : 'Tối thiểu 8 ký tự';
     regFields.forEach(el => el.classList.toggle('hidden', login));
+    closeEyes();
+    if (authForgot) authForgot.classList.toggle('hidden', !login);
     if (!login) syncSlug();
 }
 
 tabLogin.addEventListener('click', () => setAuthMode(true));
 tabRegister.addEventListener('click', () => setAuthMode(false));
+
+// Con mắt hiện/ẩn mật khẩu: hai ký tự khác hẳn hình nhau (mắt / khỉ bịt mắt)
+// để trạng thái đọc được ngay, màu đậm hơn khi mật khẩu đang hiện.
+function setEye(btn, show) {
+    const input = document.getElementById(btn.dataset.eyeTarget);
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';
+    btn.classList.toggle('shown', show);
+    const word = show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu';
+    btn.setAttribute('aria-label', word);
+    btn.title = word;
+}
+
+authOverlay.querySelectorAll('.pw-eye').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.eyeTarget);
+        setEye(btn, input.type !== 'text');
+        input.focus();
+    });
+});
+
+// Đang hiện mật khẩu mà đổi tab thì giấu lại: đừng để mật khẩu hiển thị
+// khi người dùng chuyển ngữ cảnh (đặc biệt sau khi đăng ký xong).
+function closeEyes() {
+    authOverlay.querySelectorAll('.pw-eye.shown').forEach(btn => setEye(btn, false));
+}
 
 authUser.addEventListener('input', syncSlug);
 regFullName.addEventListener('input', syncSlug);

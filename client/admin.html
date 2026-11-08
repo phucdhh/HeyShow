@@ -69,6 +69,8 @@
       .hidden { display: none; }
       .error-msg { color: #dc2626; font-size: 0.9rem; margin-top: 5px; }
       .success-msg { color: #16a34a; font-size: 0.9rem; margin-top: 5px; }
+      .login-forgot { margin-top: 8px; font-size: 0.82rem; }
+      .login-forgot a { color: var(--muted); }
 
       /* Bảng người dùng */
       table.users { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
@@ -138,6 +140,7 @@
             <input type="password" id="login-pass" placeholder="Nhập mật khẩu..." />
         </div>
         <button id="btn-login">Đăng nhập</button>
+        <div class="login-forgot"><a href="/reset_password">Quên mật khẩu?</a></div>
         <div id="login-msg"></div>
     </div>
 

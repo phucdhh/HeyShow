@@ -151,6 +151,29 @@
         padding: 2px 8px; border-radius: 999px; pointer-events: none;
       }
 
+      /* Ví dụ Web Sketchpad: một dòng hai cột — mô hình | hướng dẫn khảo sát.
+         JSON của sketch dài hàng chục nghìn ký tự nên khối code cuộn riêng, không để
+         trang kéo dài xuống mãi. */
+      .example.example-wsp .example-body {
+        display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      }
+      .example.example-wsp .preview { border-top: 0; height: 100%; }
+      .example.example-wsp .preview iframe { height: 100%; min-height: 380px; }
+      .example.example-wsp .example-guide {
+        display: flex; flex-direction: column; min-width: 0;
+        border-left: 1px solid var(--border-color);
+      }
+      .example.example-wsp .example-guide .note { border-top: 0; border-bottom: 1px solid var(--border-color); }
+      .example.example-wsp .example-guide pre {
+        flex: 1; min-height: 120px; max-height: 300px; overflow: auto;
+      }
+      @media (max-width: 900px) {
+        .example.example-wsp .example-body { grid-template-columns: 1fr; }
+        .example.example-wsp .preview iframe { min-height: 320px; }
+        .example.example-wsp .example-guide { border-left: 0; border-top: 1px solid var(--border-color); }
+        .example.example-wsp .example-guide pre { max-height: 220px; }
+      }
+
       .author-card {
         display: flex; gap: 14px; align-items: center;
         background: var(--bg-deep); border: 1px solid var(--border-color);
@@ -197,9 +220,12 @@
         <a class="sub" href="#tpl-chart">4.5 Biểu đồ (Chart)</a>
         <a class="sub" href="#tpl-smartart">4.6 SmartArt</a>
         <a class="sub" href="#tpl-extras">4.7 Code, nút, trích dẫn</a>
+        <a class="sub" href="#tpl-tts">4.8 Âm thanh đọc (TTS)</a>
+        <a class="sub" href="#tts-dialogue">4.9 Hội thoại nhiều giọng</a>
         <a href="#math">5. Công thức Toán &amp; hình động</a>
         <a class="sub" href="#math-katex">5.1 Công thức KaTeX</a>
         <a class="sub" href="#math-jsxgraph">5.2 Hình động JSXGraph</a>
+        <a class="sub" href="#math-wsp">5.3 Hình động Web Sketchpad</a>
         <a href="#dashboard">6. Quản lý trong Dashboard</a>
         <a href="#gallery">7. Sử dụng Gallery</a>
         <a href="#design">8. Tính năng Design</a>
@@ -308,6 +334,74 @@
           <h2 id="tpl-extras">4.7 Code, nút, trích dẫn</h2>
           <p>Khối code, nút bấm kiểu link, câu trích dẫn nổi bật.</p>
           <div data-examples="tpl-extras"></div>
+
+          <h2 id="tpl-tts">4.8 Âm thanh đọc (TTS)</h2>
+          <p class="lead">
+            Thẻ <code>&lt;tts&gt;</code> biến một đoạn chữ thành nút <b>Nghe</b>: bấm lần đầu HeyShow gọi
+            HeyTTS tạo tệp Opus, các lần sau phát ngay từ bộ nhớ đệm. Nút bấm cũng là nút phát/tạm dừng.
+          </p>
+          <ul>
+            <li><b>Bên trong thẻ là chữ thuần</b> — nội dung cần đọc, không đặt thẻ HTML hay code. Chữ có thể
+              xuống dòng; HeyShow gom khoảng trắng thành một câu liền mạch.</li>
+            <li><b><code>data-voice</code> chọn giọng.</b> Giọng Việt: <code>diem_trinh</code> (mặc định),
+              <code>duc_duy</code>, <code>mai_linh</code>, <code>manh_dung</code>, <code>ngoc_huyen</code>,
+              <code>phat_tai</code>, <code>thuc_trinh</code>. Giọng Anh: <code>af_heart</code>,
+              <code>af_sarah</code>, <code>am_adam</code>, <code>bf_emma</code>… (26 giọng Anh–Mỹ và Anh–Anh).</li>
+            <li><b><code>data-speed</code> chỉnh tốc độ</b> từ <code>0.5</code> đến <code>2</code>; mặc định
+              <code>1</code>. Ngoài khoảng đó HeyShow tự đưa về sát biên.</li>
+            <li><b>Mặc định chỉ có nút, không có thanh audio.</b> Thêm <code>data-controls="true"</code> để hiện
+              thanh phát của trình duyệt (tua, xem thời lượng). Khi ẩn thanh, nút vẫn phát/tạm dừng bình thường;
+              trên điện thoại cách này dễ bấm hơn vì nút co giãn theo chữ của slide.</li>
+            <li><b>Nút hoà vào thiết kế slide:</b>
+              <code>data-icon-only</code> bỏ chữ, chỉ còn biểu tượng phát/tạm dừng;
+              <code>data-label="Nghe câu hỏi"</code> đổi chữ (và tên đọc cho trình đọc màn hình);
+              <code>data-color="#0f766e"</code> đổi màu chữ/viền/biểu tượng;
+              <code>data-bg="#ecfeff"</code> tô nền nút;
+              <code>data-size="small|normal|large"</code> đổi cỡ (hoặc một cỡ CSS như <code>0.8em</code>);
+              <code>data-caption="false"</code> ẩn dòng <i>Giọng … · 1×</i> (icon-only tự ẩn dòng này).</li>
+            <li><b>Tạo một lần, dùng lại nhiều lần.</b> Âm thanh chỉ được tạo khi người xem bấm Nghe lần đầu
+              (vài giây cho một đoạn ngắn). Cùng một đoạn chữ, cùng giọng và tốc độ thì mọi bài, mọi người xem
+              dùng chung một tệp — lần thứ hai trở đi phát gần như tức thì.</li>
+            <li><b>Một slide đặt được nhiều thẻ</b>, mỗi thẻ một nút riêng. Trong Gallery, nút Nghe được ẩn ở
+              ảnh thu nhỏ để lưới bài gọn mắt; mở bài ra là dùng được bình thường.</li>
+            <li><b>Hội thoại nhiều giọng:</b> mỗi lượt mở đầu bằng <code>[giọng]</code> — xem
+              <a href="#tts-dialogue">mục 4.9</a>.</li>
+          </ul>
+          <div class="callout">
+            <b>Bản tải HTML về máy vẫn dùng được:</b> bài export gọi HeyTTS qua máy chủ HeyShow, nên cần mạng.
+            Bài đã publish trước khi có thẻ này giữ nguyên; muốn dùng âm thanh thì <b>Xuất bản lại</b> bài.
+            Tab <b>Debug</b> báo thẻ <code>&lt;tts&gt;</code> quên đóng, để trống hoặc dài quá 5000 ký tự.
+          </div>
+          <div data-examples="tts"></div>
+
+          <h2 id="tts-dialogue">4.9 Hội thoại nhiều giọng</h2>
+          <p class="lead">
+            Một thẻ <code>&lt;tts&gt;</code> có thể đọc <b>hội thoại nhiều giọng</b>: mỗi lượt mở đầu bằng
+            <code>[giọng]</code>; cả hội thoại gộp thành <b>một nút</b> và một file Opus, có khoảng lặng
+            <b>180ms</b> giữa các lượt.
+          </p>
+          <ul>
+            <li><b>Cú pháp:</b> <code>[am_adam] Good morning, class. [af_heart] Good morning, sir.</code>
+              — chữ sau marker thuộc lượt đó; marker đứng ở đầu mỗi lượt.</li>
+            <li><b>Trộn Anh – Việt:</b> mỗi lượt dùng giọng trong marker; HeyTTS tự chọn MLX (giọng Anh) hoặc
+              PyTorch MPS (giọng Việt), không cần đặt <code>language</code>.</li>
+            <li><b>Chữ trước marker đầu tiên</b> (nếu có) đọc bằng <code>data-voice</code>, hoặc giọng mặc định
+              <code>diem_trinh</code>; vì vậy nên mở đầu bằng marker nếu muốn kiểm soát hoàn toàn.</li>
+            <li><b><code>data-speed</code> áp cho mọi lượt.</b> Tổng chữ (không tính marker) không quá 5000 ký tự;
+              khoảng lặng mặc định 180ms. API HeyTTS có <code>segments</code> để đặt tốc độ riêng từng lượt,
+              còn thẻ <code>&lt;tts&gt;</code> chỉ có một <code>data-speed</code> chung.</li>
+            <li><b>Một nút, một file.</b> Caption hiện <i>Hội thoại · 1×</i>; mọi tuỳ chọn hiển thị của mục 4.8
+              (<code>data-icon-only</code>, <code>data-controls</code>, <code>data-label</code>,
+              <code>data-color</code>, <code>data-bg</code>, <code>data-size</code>, <code>data-caption</code>)
+              dùng y như cũ.</li>
+            <li><b>Lưu ý:</b> một từ chữ thường trong ngoặc vuông, ví dụ <code>[abc]</code>, bị hiểu là marker
+              giọng — tránh dùng trong câu.</li>
+          </ul>
+          <div class="callout">
+            <b>Cả hội thoại là một tệp:</b> sửa một lời thoại là tạo một tệp mới; bản cũ vẫn nằm trong kho cache
+            và không ảnh hưởng bài khác. Nên nghe thử toàn bộ hội thoại một lần trước khi lên lớp.
+          </div>
+          <div data-examples="tts-dialogue"></div>
         </section>
 
         <!-- ============ 5. MATH ============ -->
@@ -352,12 +446,46 @@
             <code>&lt;jsxgraph&gt;</code>. Code có lỗi cú pháp sẽ hiện ngay trong khung hình thay vì làm hỏng slide.
           </div>
           <div data-examples="jsxgraph"></div>
+
+          <h2 id="math-wsp">5.3 Hình động Web Sketchpad</h2>
+          <p class="lead">
+            Thẻ <code>&lt;wsp&gt;</code> dựng một mô hình <b>Web Sketchpad</b> ngay trong slide: kéo được điểm,
+            bấm được nút — cả ở khung Preview lẫn trên trang đã xuất bản.
+          </p>
+          <ul>
+            <li><b>Bên trong thẻ là JSON của một sketch.</b> Mở file <code>.json</code> (sketch lưu từ Web
+              Sketchpad) bằng trình soạn text, copy <b>toàn bộ</b> nội dung — kể hai dấu <code>{</code>
+              <code>}</code> — dán vào giữa <code>&lt;wsp&gt;</code> và <code>&lt;/wsp&gt;</code>.</li>
+            <li><b>Không phải sửa gì cả.</b> HeyShow đọc đúng sketch đó, nên mô hình giữ nguyên mọi tương tác
+              vốn có: điểm tự do kéo được, nút <i>Animate</i> chạy được, sketch nhiều trang thì bấm sang
+              trang kế tiếp được.</li>
+            <li><b>Mô hình hiện đúng 100%</b> khung vẽ mà bạn thiết kế trong Web Sketchpad — không thu nhỏ,
+              không kéo dãn, nên điểm và nhãn giữ đúng cỡ dễ nhìn, dễ kéo. Hãy chọn khung vẽ trong
+              Web Sketchpad sao cho vừa slide; chỉ khi thật sự cần ép vừa một khung mới dùng
+              <code>data-w</code> / <code>data-h</code> (số px như <code>420</code>, hoặc % so với khung
+              mặc định như <code>100%</code>).</li>
+            <li><b>Nền và viền:</b> mặc định nền trắng, <b>không viền</b> để mô hình hoà vào slide.
+              <code>data-bg="transparent"</code> cho nền trong suốt (hoặc một mã màu bất kỳ);
+              <code>data-border="1px solid #cbd5e1"</code> (hoặc một giá trị CSS bất kỳ) khi cần đóng khung.</li>
+            <li><b>Thanh dưới và cột công cụ mặc định ẩn</b> cho gọn slide:
+              <code>data-bar="true"</code> hiện thanh ngang phía dưới (undo/redo, Reset, Widgets, nút chuyển
+              trang — cần cho sketch nhiều trang), <code>data-style-widget="true"</code> hiện cột nút
+              Style/Trace/Label cạnh mô hình.</li>
+            <li><b>Một slide đặt được nhiều thẻ</b>, mỗi thẻ một sketch riêng; thanh nút công cụ thuộc về
+              sketch đang được bấm tới.</li>
+          </ul>
+          <div class="callout">
+            <b>Cần có mạng khi trình chiếu:</b> thư viện Web Sketchpad (khoảng 1,3 MB) chỉ được tải với bài
+            thật sự có thẻ <code>&lt;wsp&gt;</code>. Dán thiếu JSON — ví dụ thiếu dấu <code>{</code> đầu file —
+            thì khung hình hiện ngay dòng lỗi, và tab <b>Debug</b> báo trước khi bạn publish.
+          </div>
+          <div data-examples="wsp"></div>
         </section>
 
         <!-- ============ 6. DASHBOARD ============ -->
         <section class="block" id="dashboard">
           <h1><span class="num">6</span> Quản lý trong Dashboard</h1>
-          <p class="lead"><a href="/dashboard">/dashboard</a> là nơi quản lý toàn bộ bài của bạn, chia thành 4 tab: <b>Presentations</b>, <b>Activities</b>, <b>Profile</b> và <b>Import</b>.</p>
+          <p class="lead"><a href="/dashboard">/dashboard</a> là nơi quản lý toàn bộ bài của bạn, chia thành 6 tab: <b>Presentations</b>, <b>Activities</b>, <b>Profile</b>, <b>Import</b>, <b>Sync</b> và <b>Backup</b>.</p>
           <p>Ở tab <b>Presentations</b>, bấm vào <b>tên file xám</b> (có phần mở rộng <code>.html</code>) để mở thẳng bài đã xuất bản ở tab mới; bài nháp chưa publish thì tên file chỉ hiển thị chữ xám. Mọi thao tác khác nằm trong dropdown <b>⋮</b> đặt cùng hàng tên file:</p>
           <table class="doc">
             <tr><th style="width:24%">Mục trong ⋮</th><th>Tác dụng</th></tr>
@@ -403,6 +531,26 @@
             <code>https://lh3.googleusercontent.com/d/&lt;ID&gt;</code>; video thành <code>&lt;video src=""&gt;</code> — dán link
             trực tiếp tới file .mp4 hoặc .m3u8. HeyShow không hỗ trợ chèn video từ YouTube. File không được lưu trên server nếu bạn không bấm Import.
           </p>
+          <p>
+            Tab <b>Sync</b> giữ một bản sao mã nguồn <b>toàn bộ bài nháp của bạn ngay trong IndexedDB</b> — vùng lưu trữ riêng mà
+            trình duyệt cấp cho HeyShow trên chính máy đang dùng. <b>⬇️ Tải từ server về trình duyệt</b> cất bản sao (không chiếm hạn mức bài,
+            không phải giữ file); <b>⬆️ Đẩy từ trình duyệt lên server</b> đưa bản sao trở lại thành bài trên server khi bài đó bị xoá hoặc bị sửa hỏng.
+            Bảng bên dưới so sánh từng bài và gắn nhãn <b>đã đồng bộ</b> · <b>server mới hơn — tải lại</b> · <b>chưa có trong trình duyệt</b> ·
+            <b>chỉ có trong trình duyệt</b> (server không còn bài đó nữa nhưng bản sao vẫn nằm đây). Bài trùng tên khi đẩy lên mặc định được
+            <b>giữ cả hai</b> — bản của trình duyệt cất thành tên <code>-2</code> để không che mất bản đang có; tích <b>ghi đè</b> nếu muốn thay hẳn,
+            bản bị ghi đè vẫn được cất vào lịch sử phiên bản nên quay lại được. Lưu ý bản sao chỉ sống trên <b>đúng máy và đúng trình duyệt này</b>:
+            nó biến mất khi bạn xoá dữ liệu duyệt web, dùng chế độ ẩn danh hoặc chuyển sang máy khác — muốn mang theo thì dùng tab <b>Backup</b>.
+          </p>
+          <p>
+            Tab <b>Backup</b> đóng gói <b>toàn bộ bản nháp</b> thành một file <code>.zip</code> để bạn tự cất trên máy tính, USB hay ổ đám mây,
+            phòng khi máy chủ gặp sự cố. Tên file theo khuôn <code>heyshow.pedu.vn-backup-&lt;url slug&gt;-năm-tháng-ngày-giờ-phút.zip</code> nên cất
+            nhiều bản vẫn biết bản nào mới nhất; bên trong có <code>manifest.json</code> (danh sách bài kèm ngày giờ) và thư mục <code>drafts/</code> —
+            mỗi bài là một file <code>.html</code>, <b>giải nén ra là mở bằng trình duyệt đọc được ngay</b>, không cần HeyShow. Phần
+            <b>Phục hồi từ file backup</b> nhận lại chính file .zip đó (kéo/thả hoặc bấm <b>chọn file</b>, tối đa 60MB): mọi bài được đưa về dưới dạng
+            <b>bản nháp</b> — server không tự publish lại, bạn kiểm tra trong Design rồi hãy xuất bản; trùng tên xử lý giống hệt tab Sync
+            (mặc định giữ cả hai, tích <b>Ghi đè bài trùng tên trên server</b> nếu muốn thay). File .zip chỉ chứa bản nháp, mà bản đã publish
+            luôn dựng lại được từ bản nháp, nên một lần tải là đủ cho toàn bộ bài của bạn.
+          </p>
         </section>
 
         <!-- ============ 7. GALLERY ============ -->
@@ -433,7 +581,7 @@
           <h3>Nhãn slide &amp; thu gọn</h3>
           <p>Gutter bên trái gắn nhãn <code>★</code> (master), <code>S1</code>, <code>S2</code>, <code>S2.1</code>… Bấm nhãn để gập/mở code slide đó; hai nút “Thu gọn” / “Mở hết” trên thanh tiêu đề làm toàn bộ. Thanh tiêu đề cũng báo vị trí con trỏ và trạng thái chưa lưu.</p>
           <h3>Snippets</h3>
-          <p>Gõ <code>section</code>, <code>fragment</code>, <code>math</code>, <code>columns</code>, <code>image</code>, <code>highlight</code>, <code>jsxgraph</code>… rồi chọn trong danh sách autocomplete (<code>Ctrl+Space</code>) để chèn khung HTML sẵn.</p>
+          <p>Gõ <code>section</code>, <code>fragment</code>, <code>math</code>, <code>columns</code>, <code>image</code>, <code>highlight</code>, <code>jsxgraph</code>, <code>wsp</code>… rồi chọn trong danh sách autocomplete (<code>Ctrl+Space</code>) để chèn khung HTML sẵn.</p>
           <h3>Tab Preview</h3>
           <p>Bài chạy thật bằng Reveal.js ngay trong khung. Con trỏ đang ở slide nào thì preview nhảy tới slide đó; sửa code xong là khung tự vẽ lại. Tên bản nháp đang mở hiển thị ở thanh tiêu đề khung trái (nút <b>Select</b> trên Header chỉ để đổi file).</p>
           <h3>Tab Debug</h3>
@@ -481,6 +629,15 @@
 
           <h2>Changelog</h2>
           <ul>
+            <li><b>11/2026 — v4.8:</b> thẻ <code>&lt;tts&gt;</code> đọc được <b>hội thoại nhiều giọng</b>: mỗi lượt mở đầu bằng <code>[giọng]</code> (kể cả trộn Anh–Việt), cả hội thoại gộp thành một nút và một file Opus với khoảng lặng 180ms. Thêm mục Help <a href="#tts-dialogue">4.9</a> và hai mẫu trong <b>Âm thanh &amp; video</b>: hội thoại giáo viên–học sinh (Anh) và hội thoại Toán song ngữ.</li>
+            <li><b>11/2026 — v4.7:</b> thẻ <code>&lt;tts&gt;</code> gọn hơn và hợp với thiết kế slide: <b>thanh audio mặc định ẩn</b>, nút là nút phát/tạm dừng; <code>data-controls="true"</code> hiện thanh tua, <code>data-icon-only</code> chỉ để biểu tượng, <code>data-label</code> đổi chữ, <code>data-color</code> / <code>data-bg</code> / <code>data-size</code> đổi màu và cỡ, <code>data-caption="false"</code> ẩn dòng giọng đọc. Thư viện mẫu <b>Âm thanh &amp; video</b> có thêm mẫu luyện nghe hai tốc độ và câu hỏi luyện nghe có nút loa icon-only. Xem <a href="#tpl-tts">mục 4.8</a>.</li>
+            <li><b>11/2026 — v4.6:</b> slide nay <b>đọc được văn bản bằng giọng nói</b> qua thẻ <code>&lt;tts&gt;</code>: dán đoạn chữ cần đọc, đặt <code>data-voice</code> (7 giọng Việt, 26 giọng Anh) và <code>data-speed</code> (0.5–2), bấm <b>Nghe</b> là phát. Âm thanh chỉ được <b>tạo ở lần nghe đầu</b> rồi lưu trên máy chủ, nên lần thứ hai trở đi phát ngay; cùng một đoạn chữ với cùng giọng và tốc độ thì mọi bài dùng chung một tệp. Thẻ chạy trong Preview, trên trang đã xuất bản và cả bản tải HTML về (cần mạng); tab <b>Debug</b> báo thẻ quên đóng, để trống hoặc dài quá 5000 ký tự. Xem <a href="#tpl-tts">mục 4.8</a>.</li>
+            <li><b>11/2026 — v4.5:</b> Dashboard có thêm hai tab <b>Sync</b> và <b>Backup</b> — hai đường về nhà cho mã nguồn bài của bạn. <b>Sync</b> cất toàn bộ bản nháp vào <b>IndexedDB của trình duyệt</b> trên máy đang dùng (nút <b>Tải từ server về</b> / <b>Đẩy lên server</b>, bảng so sánh cho biết bài nào đã đồng bộ, bài nào server mới hơn, bài nào chỉ còn trong trình duyệt); <b>Backup</b> tải về một file <code>.zip</code> tên <code>heyshow.pedu.vn-backup-&lt;url slug&gt;-năm-tháng-ngày-giờ-phút.zip</code>, bên trong là <code>manifest.json</code> và thư mục <code>drafts/</code> — giải nén ra là đọc được từng bài bằng trình duyệt, và cùng tab này cho phép <b>phục hồi</b> từ chính file đó. Trùng tên mặc định <b>giữ cả hai</b> (bản phục hồi thành tên <code>-2</code>), muốn ghi đè thì tích chọn — bản bị ghi đè vẫn nằm trong lịch sử phiên bản. Xem <a href="#dashboard">mục 6</a>.</li>
+            <li><b>11/2026 — v4.4:</b> gập thẻ <code>&lt;wsp&gt;</code> trong Editor (bấm mũi tên ở lề hoặc <b>Thu gọn</b>) không còn "nuốt" luôn <code>&lt;/wsp&gt;</code> và <code>&lt;/section&gt;</code> — trước đây JSON chứa chuỗi như <code>"&lt;T'Điểm'&gt;"</code> làm trình soạn hiểu nhầm là thẻ HTML và gập tới hết bài. Nay vùng gập dừng đúng ở <code>&lt;/wsp&gt;</code>; <code>&lt;jsxgraph&gt;</code> cũng vậy.</li>
+            <li><b>11/2026 — v4.3:</b> khi chọn một <b>công cụ</b> của Web Sketchpad (Point, Compass, Segment, Line…), mô hình không còn hiện <b>khung viền xanh</b> quanh khung vẽ và <b>thanh trợ giúp</b> ở đáy — bảng công cụ bên trái vẫn hiện và tô sáng công cụ đang dùng như bình thường.</li>
+            <li><b>11/2026 — v4.2:</b> khung <b>Preview</b> của trang Design nay dựng <code>&lt;wsp&gt;</code> giống hệt bản publish, kể cả với mô hình nhiều nút và hộp tham số — trước đây mô hình có thể hiện trắng khung, nút bấm xếp hàng ngang, hộp nhập tham số vỡ, và sửa code xong Preview vẫn đứng ở mô hình cũ. Ví dụ <b>nền trong suốt</b> ở mục 5.3 nay dùng nền gradient sáng để thấy rõ mô hình. Xem <a href="#math-wsp">mục 5.3</a>.</li>
+            <li><b>11/2026 — v4.1:</b> bảng <code>&lt;wsp&gt;</code> gọn lại đúng cách một slide khảo sát cần: mô hình hiện <b>đúng 100%</b> khung vẽ đã thiết kế trong Web Sketchpad — không thu nhỏ, không kéo dãn — nên điểm và nhãn giữ nguyên cỡ dễ nhìn, dễ kéo; người thiết kế chọn khung vẽ vừa slide. <b>Thanh ngang phía dưới</b> (undo/redo, Reset, Widgets, chuyển trang) và <b>cột nút Style/Trace/Label</b> mặc định <b>ẩn</b> — thêm <code>data-bar="true"</code> / <code>data-style-widget="true"</code> khi mô hình cần. <b>Nền trắng, không viền</b> là mặc định để mô hình hoà vào slide; <code>data-bg="transparent"</code> cho nền trong suốt và <code>data-border="1px solid #cbd5e1"</code> khi cần đóng khung. Trang Help mục 5.3 nay xếp mỗi ví dụ thành <b>một dòng hai cột</b> — mô hình bên trái, hướng dẫn khảo sát bên phải — và khối code của sketch cuộn trong khung riêng. Bài đã publish trước bản này giữ runtime cũ, <b>Xuất bản lại</b> để nhận thay đổi; sketch nhiều trang nhớ thêm <code>data-bar="true"</code> nếu vẫn cần nút chuyển trang. Xem <a href="#math-wsp">mục 5.3</a>.</li>
+            <li><b>11/2026 — v4.0:</b> slide nay <b>chạy được một mô hình Web Sketchpad có sẵn</b> bằng thẻ <code>&lt;wsp&gt;</code>: mở file <code>.json</code> của một sketch, copy <b>toàn bộ</b> nội dung file rồi dán vào giữa thẻ, mô hình hiện ra đúng như trong Web Sketchpad — <b>kéo được các điểm</b>, <b>bấm được nút</b> mà sketch đã lập trình, sketch <b>nhiều trang</b> chuyển trang bằng các nút phía dưới, ảnh sketch nhúng sẵn cũng hiển thị đủ. Không cần dán link, không cần tài khoản Web Sketchpad: dữ liệu nằm trong chính bài nên mô hình chạy cả khi <b>đang soạn</b>, trên <b>trang đã xuất bản</b>, trong <b>bản in</b>, và cả khi bài được <b>tải HTML về</b> mở ở máy khác. Một slide đặt được nhiều sketch, <code>data-w</code>/<code>data-h</code> chọn kích thước; thư viện chỉ nạp với bài thật sự có thẻ. JSON dán thiếu (ví dụ thiếu dấu <code>{</code> đầu file) được tab <b>Debug</b> báo ngay thay vì để lại một khung trống. Xem chi tiết ở <a href="#math-wsp">mục 5.3</a>.</li>
             <li><b>11/2026 — v3.2:</b> Gallery đổi từ <b>slug</b> sang <b>Full Name</b> của tác giả ở mọi chỗ hiển thị tên — card, <b>thanh bên khi bấm vào xem bài</b>, và tên trên mỗi <b>bình luận</b> (chưa nhập trong Profile thì hiện <b>Unknown</b>) — kèm <b>nhãn quyền</b> user · designer · master · admin ở cuối hàng card. Bấm vào tên vẫn mở trang cá nhân như cũ, và ô tìm kiếm nay khớp cả <b>họ tên</b> lẫn slug — gõ "da hop" là ra bài của "Dạ Hợp" dù không bật bộ gõ tiếng Việt.</li>
             <li><b>10/2026 — v3.1:</b> bảng <code>&lt;jsxgraph&gt;</code> thôi làm "tấm thẻ trắng" giữa slide: <code>data-bg="transparent"</code> cho nền trong suốt (hoặc một mã màu bất kỳ) và <code>data-border="none"</code> bỏ viền xanh mặc định, nên mô hình nằm liền trên nền bài như khi tự viết HTML. Mặc định vẫn là nền trắng cho bài nền tối. Xem <a href="#math-jsxgraph">mục 5.2</a>.</li>
             <li><b>10/2026 — v3.0.1:</b> bản vá cho v3.0 — trên trang đã xuất bản, bảng <code>&lt;jsxgraph&gt;</code> nay <b>cao đúng như trong khung Preview</b> (trước đây bị ép dẹp, hình vẽ nhỏ xíu và thanh trượt tràn ra ngoài), và nhãn Toán học trong bảng (<code>\text{...}</code>, <code>z_0</code>) được dựng thành công thức thay vì hiện nguyên mã LaTeX. Trên <b>điện thoại</b>, khối 3D (<code>view3d</code>) <b>xoay được bằng một ngón</b> — trước đây cú chạm bị hiểu là pan nên khối đứng yên, chỉ kéo được thanh trượt.</li>

@@ -53,10 +53,12 @@ OUT="${BACKUP_DIR}/heyshow-data-$(date +%Y%m%d-%H%M%S).tar.gz"
 echo "==> Tạo bản sao ($MODE) tại $OUT"
 # Server vẫn đang chạy khi ta sao lưu: tầng lưu trữ ghi theo kiểu file tạm + rename,
 # nên tar luôn bắt được các file hoàn chỉnh.
+# data/tts/*.opus là âm thanh của thẻ <tts> — tạo lại được từ HeyTTS nên bỏ khỏi bản sao
+# (file .json đi kèm vẫn giữ: đó là danh sách việc đọc, rất nhẹ).
 if [[ "$MODE" == remote ]]; then
-    ssh -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "cd ${REMOTE_DIR} && tar -czf - data" > "$OUT"
+    ssh -p "$DEPLOY_PORT" "$DEPLOY_TARGET" "cd ${REMOTE_DIR} && tar -czf - --exclude='data/tts/*.opus' data" > "$OUT"
 else
-    tar -czf "$OUT" -C "$ROOT_DIR" data
+    tar -czf "$OUT" --exclude='data/tts/*.opus' -C "$ROOT_DIR" data
 fi
 
 echo "==> Kiểm tra tính nguyên vẹn"

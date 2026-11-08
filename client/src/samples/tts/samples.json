@@ -1,0 +1,37 @@
+[
+    {
+        "voice": "diem_trinh",
+        "speed": 1,
+        "text": "Xin chào các em. Hôm nay chúng ta cùng tìm hiểu định lí Pythagore: trong một tam giác vuông, bình phương cạnh huyền bằng tổng bình phương hai cạnh góc vuông."
+    },
+    {
+        "voice": "af_heart",
+        "speed": 0.85,
+        "text": "Listen carefully. The derivative of a function at a point is the slope of the tangent line to its graph at that point."
+    },
+    {
+        "voice": "duc_duy",
+        "speed": 1,
+        "text": "Quan sát hình vẽ và cho biết cạnh nào là cạnh huyền của tam giác ABC."
+    },
+    {
+        "voice": "af_heart",
+        "speed": 1,
+        "text": "Listen carefully. The derivative of a function at a point is the slope of the tangent line to its graph at that point."
+    },
+    {
+        "voice": "af_heart",
+        "speed": 0.6,
+        "text": "Listen carefully. The derivative of a function at a point is the slope of the tangent line to its graph at that point."
+    },
+    {
+        "voice": "af_heart",
+        "speed": 1,
+        "text": "[am_adam] Good morning, class. Today we will review the Pythagorean theorem. [af_heart] Excuse me, sir. Is the hypotenuse always the longest side? [am_adam] Yes, it is. The hypotenuse is opposite the right angle."
+    },
+    {
+        "voice": "bf_emma",
+        "speed": 1,
+        "text": "[bf_emma] What is the area of a circle? [duc_duy] Diện tích bằng pi nhân bán kính bình phương. [bf_emma] Excellent. And what is the circumference? [mai_linh] Chu vi bằng hai pi r."
+    }
+]

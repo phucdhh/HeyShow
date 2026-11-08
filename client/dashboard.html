@@ -180,16 +180,27 @@
       #btn-save-profile:disabled { opacity: 0.6; cursor: wait; }
       #profile-msg { font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
 
-      /* Import PPTX */
-      #import-drop {
+      /* Import PPTX — khung kéo thả và dòng trạng thái dùng chung cho tab Backup */
+      #import-drop, #backup-drop {
         background: var(--bg-panel); border: 2px dashed var(--border-color); border-radius: 12px;
         padding: 26px; text-align: center; color: var(--muted); font-size: 0.92rem; cursor: pointer;
       }
-      #import-drop.drag { border-color: var(--accent-color); background: #fffbeb; }
-      #import-drop p { margin: 4px 0; }
+      #import-drop.drag, #backup-drop.drag { border-color: var(--accent-color); background: #fffbeb; }
+      #import-drop p, #backup-drop p { margin: 4px 0; }
       .linklike { background: none; border: 0; color: var(--accent-strong); font-weight: 700; cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
-      #import-status { font-size: 0.88rem; margin: 12px 0; color: var(--muted); }
-      #import-status.error { color: var(--danger); }
+      #import-status, #backup-status, #sync-status { font-size: 0.88rem; margin: 12px 0; color: var(--muted); }
+      #import-status.error, #backup-status.error, #sync-status.error { color: var(--danger); }
+
+      /* Tab Sync & Backup */
+      .sync-opt { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); margin: 12px 0 0; cursor: pointer; }
+      .sync-note { font-size: 0.85rem; color: var(--muted); margin: 12px 0; }
+      #sync-table { margin-top: 10px; }
+      #sync-summary { margin-bottom: 4px; }
+      .state { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+      .state.synced { background: rgba(22, 163, 74, 0.12); color: var(--success); }
+      .state.server-new { background: rgba(245, 158, 11, 0.16); color: var(--accent-strong); }
+      .state.local-only { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; }
+      .state.none { background: var(--bg-deep); color: var(--muted); }
       /* Progress import pptx */
       .import-progress { margin: 14px 0; }
       .import-progress .label { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
@@ -310,6 +321,8 @@
         <button type="button" class="tab" data-tab="activities">🔔 Activities</button>
         <button type="button" class="tab" data-tab="profile">👤 Profile</button>
         <button type="button" class="tab" data-tab="import">📥 Import</button>
+        <button type="button" class="tab" data-tab="sync">🔄 Sync</button>
+        <button type="button" class="tab" data-tab="backup">📦 Backup</button>
       </div>
 
       <!-- TAB: Presentations -->
@@ -365,6 +378,57 @@
         <input type="file" id="import-file" accept=".pptx,.md,.markdown,.tex,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/markdown,text/plain" class="hidden" />
         <div id="import-status"></div>
         <div id="import-report"></div>
+      </section>
+
+      <!-- TAB: Sync (IndexedDB) -->
+      <section id="tab-sync" class="hidden">
+        <p class="tab-lead">Giữ một bản sao toàn bộ bài của bạn ngay trong <b>IndexedDB</b> của trình duyệt này. Bản sao không chiếm hạn mức bài trên server và vẫn đọc được khi server gặp sự cố.</p>
+        <div class="import-actions">
+          <button type="button" class="primary" id="btn-sync-pull">⬇️ Tải từ server về trình duyệt</button>
+          <button type="button" class="primary" id="btn-sync-push">⬆️ Đẩy từ trình duyệt lên server</button>
+          <button type="button" class="cancel" id="btn-sync-clear">🗑 Xoá bản sao trong trình duyệt</button>
+        </div>
+        <label class="sync-opt"><input type="checkbox" id="sync-overwrite" /> Khi đẩy lên, ghi đè bài trùng tên trên server (mặc định: giữ cả hai)</label>
+        <p id="sync-status"></p>
+        <p id="sync-summary" class="sync-note"></p>
+        <table class="import-report" id="sync-table">
+          <thead><tr><th>Bài trình chiếu</th><th>Trên server</th><th>Trong trình duyệt</th><th>Trạng thái</th></tr></thead>
+          <tbody id="sync-rows"></tbody>
+        </table>
+        <p class="sync-note">
+          Bản sao chỉ tồn tại trên <b>máy và trình duyệt bạn đang dùng</b>. Nó biến mất nếu bạn xoá dữ liệu duyệt web, dùng chế độ ẩn danh,
+          hoặc chuyển sang máy khác — lúc đó hãy bấm <b>Tải từ server về trình duyệt</b> một lần để dựng lại.
+          Muốn mang theo được sang máy khác, dùng tab <b>Backup</b> để lấy file <code>.zip</code>.
+        </p>
+      </section>
+
+      <!-- TAB: Backup (.zip) -->
+      <section id="tab-backup" class="hidden">
+        <p class="tab-lead">Tải về một file <b>.zip</b> chứa toàn bộ bản nháp của bạn để cất trên máy tính, USB hay ổ đám mây — phòng khi server gặp sự cố.</p>
+        <div class="import-actions">
+          <button type="button" class="primary" id="btn-backup-export">📦 Tải file .zip</button>
+        </div>
+        <p id="backup-status"></p>
+        <p class="sync-note">
+            Tên file theo khuôn <code>heyshow.pedu.vn-backup-&lt;url slug&gt;-năm-tháng-ngày-giờ-phút.zip</code>, nên cất nhiều bản mà vẫn biết bản nào mới nhất.
+            Bên trong gồm <code>manifest.json</code> (danh sách bài kèm ngày giờ) và thư mục <code>drafts/</code>: mỗi bài là một file
+            <code>.html</code> — giải nén rồi mở file đó bằng trình duyệt là xem được, không cần HeyShow.
+        </p>
+
+        <h3>Phục hồi từ file backup</h3>
+        <p class="sync-note">Chọn lại file <code>.zip</code> HeyShow đã xuất ra. Mọi bài được đưa về dưới dạng <b>bản nháp</b> — server không tự publish lại,
+          bạn xem và sửa trong Design rồi hãy xuất bản. Bài trùng tên mặc định được giữ cả hai (bản phục hồi thành tên <code>-2</code>);
+          bật ghi đè sẽ cất bản đang có thành một phiên bản trong lịch sử, vẫn quay lại được.</p>
+        <div id="backup-drop">
+          <p>📎 Kéo thả file <b>.zip</b> vào đây, hoặc <button type="button" id="btn-pick-zip" class="linklike">chọn file</button></p>
+          <p id="backup-zip-name" class="avatar-hint"></p>
+        </div>
+        <input type="file" id="backup-file" accept=".zip,application/zip" class="hidden" />
+        <label class="sync-opt"><input type="checkbox" id="backup-overwrite" /> Ghi đè bài trùng tên trên server</label>
+        <div class="import-actions">
+          <button type="button" class="primary" id="btn-backup-restore" disabled>📥 Phục hồi từ file đã chọn</button>
+        </div>
+        <div id="backup-report"></div>
       </section>
     </main>
 

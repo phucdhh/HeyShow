@@ -51,7 +51,30 @@
       .auth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       .auth-row .auth-form-group { min-width: 0; margin-bottom: 15px; }
       .auth-hint { font-size: 0.72rem; color: var(--muted); overflow-wrap: anywhere; }
+
+      /* Dấu * báo ô bắt buộc. Ô tên đăng nhập và ô mật khẩu dùng chung cho cả hai tab
+         nên chỉ nhận dấu * khi đang ở tab Đăng ký. */
+      .auth-box label.req::after,
+      .auth-box.is-register label.req-register::after { content: ' *'; color: var(--danger); font-weight: 700; }
+
+      /* Ô mật khẩu + con mắt. Rule padding phải đặc hiệu hơn .auth-box.is-register
+         .auth-form-group input (đang đặt padding shorthand), nếu không chữ mật khẩu
+         dài sẽ nằm lọt dưới con mắt ở tab Đăng ký. */
+      .pw-wrap { position: relative; }
+      .auth-box .auth-form-group .pw-wrap input { width: 100%; box-sizing: border-box; padding-right: 42px; }
+      .pw-eye {
+        position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+        margin: 0; padding: 4px 8px; min-width: 0;
+        background-color: transparent; border: 0; border-radius: 6px;
+        color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer;
+      }
+      .pw-eye:hover { background-color: transparent; border: 0; color: var(--text-color); }
+      .pw-eye.shown { color: var(--accent-deep); }
+      .pw-eye:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 1px; }
       #auth-msg { margin-top: 15px; font-size: 0.9rem; text-align: center; color: var(--danger); }
+      .auth-forgot { margin-top: 10px; text-align: center; font-size: 0.82rem; }
+      .auth-forgot a { color: var(--muted); text-decoration: underline; }
+      .auth-forgot a:hover { color: var(--accent-strong); }
 
       header {
         height: var(--header-height);
@@ -466,18 +489,18 @@
             </div>
 
             <div class="auth-form-group">
-                <label id="auth-user-label">Tên đăng nhập hoặc Email</label>
+                <label id="auth-user-label" class="req-register">Tên đăng nhập hoặc Email</label>
                 <input type="text" id="auth-user" placeholder="VD: user123 hoặc user@truong.edu.vn" autocomplete="username" />
             </div>
 
             <div class="auth-form-group reg-only hidden">
-                <label>Họ và tên</label>
+                <label class="req">Họ và tên</label>
                 <input type="text" id="reg-full-name" placeholder="VD: Nguyễn Đăng Minh Phúc" autocomplete="name" />
             </div>
 
             <div class="auth-row reg-only hidden">
                 <div class="auth-form-group">
-                    <label>Email</label>
+                    <label class="req">Email</label>
                     <input type="email" id="reg-email" placeholder="VD: phuc@example.edu.vn" autocomplete="email" />
                 </div>
                 <div class="auth-form-group">
@@ -487,22 +510,29 @@
             </div>
 
             <div class="auth-form-group reg-only hidden">
-                <label>Username URL</label>
+                <label class="req">Username URL</label>
                 <input type="text" id="reg-slug" placeholder="VD: ndmphuc" spellcheck="false" />
                 <span class="auth-hint" id="reg-slug-hint">Link trang của bạn: /username-url</span>
             </div>
 
             <div class="auth-form-group">
-                <label>Mật khẩu</label>
-                <input type="password" id="auth-pass" placeholder="***" autocomplete="current-password" />
+                <label class="req-register">Mật khẩu</label>
+                <div class="pw-wrap">
+                    <input type="password" id="auth-pass" placeholder="***" autocomplete="current-password" />
+                    <button type="button" class="pw-eye" data-eye-target="auth-pass" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
+                </div>
             </div>
 
             <div class="auth-form-group reg-only hidden">
-                <label>Nhập lại mật khẩu</label>
-                <input type="password" id="reg-pass-confirm" placeholder="••••••••" autocomplete="new-password" />
+                <label class="req">Nhập lại mật khẩu</label>
+                <div class="pw-wrap">
+                    <input type="password" id="reg-pass-confirm" placeholder="••••••••" autocomplete="new-password" />
+                    <button type="button" class="pw-eye" data-eye-target="reg-pass-confirm" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
+                </div>
             </div>
 
             <button id="btn-auth-submit" class="auth-btn">Đăng nhập</button>
+            <div id="auth-forgot" class="auth-forgot"><a href="/reset_password">Quên mật khẩu?</a></div>
             <div id="auth-msg"></div>
         </div>
     </div>

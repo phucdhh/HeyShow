@@ -1,0 +1,658 @@
+<section-master>
+  <style>
+    .reveal { background:#f0fdf4 linear-gradient(135deg,#ecfdf5,#f0f9ff) !important; }
+    .reveal .slides section { box-sizing:border-box; color:#1f2937; border-radius:14px; padding:22px 30px; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color:#047857 !important; }
+    .reveal .nhan { display:inline-block; background:#0f766e; color:#ecfeff; padding:3px 14px;
+                    border-radius:999px; font-size:0.32em; font-weight:bold; letter-spacing:.4px; }
+    .reveal .phu { font-size:0.44em; color:#475569; }
+    .reveal ul { font-size:0.46em; text-align:left; }
+    .reveal .card { box-sizing:border-box; width:730px; margin:8px auto; padding:10px 16px;
+                    background:#ffffff; border:1px solid #99f6e4; border-radius:12px; text-align:left; }
+    .reveal .card.amber { border-color:#fcd34d; }
+    .reveal .card.violet { border-color:#c4b5fd; }
+    .reveal .card .nho { font-size:0.38em; color:#64748b; }
+    .reveal .audio-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+                         gap:8px 14px; margin:8px 0; }
+    .reveal .audio-row .nhan-nho { font-size:0.36em; font-weight:bold; color:#0f766e; }
+    .reveal .quiz, .reveal .tf, .reveal .drag, .reveal .rows { width:730px; margin:0 auto; }
+    .reveal .opt { display:block; box-sizing:border-box; width:100%; margin:5px 0; padding:7px 14px;
+                   text-align:left; border:2px solid #cbd5e1; border-radius:10px; background:#ffffff;
+                   color:#1f2937; cursor:pointer; font-family:inherit; font-size:0.41em; }
+    .reveal .opt:hover { border-color:#f59e0b; }
+    .reveal .opt.ok { border-color:#16a34a; background:#dcfce7; color:#14532d; }
+    .reveal .opt.no { border-color:#dc2626; background:#fee2e2; color:#7f1d1d; }
+    .reveal .opt:disabled { cursor:default; }
+    .reveal .status { min-height:1.2em; margin:4px 0 0; font-size:0.37em; color:#64748b; text-align:center; }
+    .reveal .explain { display:none; box-sizing:border-box; width:730px; margin:8px auto 0; padding:8px 14px;
+                       border-left:4px solid #f59e0b; background:#fffbeb; border-radius:8px;
+                       font-size:0.39em; color:#78350f; text-align:left; }
+    .reveal .explain.show { display:block; }
+    .reveal .blank { display:inline-block; box-sizing:border-box; width:128px; margin:0 2px; padding:3px 8px;
+                     border:2px solid #94a3b8; border-radius:8px; background:#ffffff;
+                     font-family:inherit; font-size:0.95em; text-align:center; color:#0f172a; }
+    .reveal .blank.ok { border-color:#16a34a; background:#dcfce7; }
+    .reveal .blank.no { border-color:#dc2626; background:#fee2e2; }
+    .reveal .check { margin-top:6px; padding:6px 18px; border:2px solid #0f766e; border-radius:10px;
+                     background:#0f766e; color:#ffffff; cursor:pointer; font-family:inherit; font-size:0.4em; }
+    .reveal .check:hover { background:#115e59; }
+    .reveal .match-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:780px; margin:0 auto; }
+    .reveal .match-col { display:flex; flex-direction:column; gap:7px; }
+    .reveal .m-left, .reveal .m-right { display:flex; align-items:center; gap:8px; box-sizing:border-box;
+                     width:100%; min-height:44px; padding:7px 12px; border:2px solid #cbd5e1; border-radius:10px;
+                     background:#ffffff; color:#1f2937; cursor:pointer; font-family:inherit;
+                     font-size:0.38em; text-align:left; }
+    .reveal .m-left { justify-content:space-between; }
+    .reveal .m-left:hover, .reveal .m-right:hover { border-color:#0d9488; }
+    .reveal .m-left.sel, .reveal .m-right.sel { border-color:#f59e0b; box-shadow:0 0 0 3px #fde68a; }
+    .reveal .m-left.ok, .reveal .m-right.ok { border-color:#16a34a; }
+    .reveal .m-left.no, .reveal .m-right.no { border-color:#dc2626; background:#fee2e2; }
+    .reveal .p-a { background:#ecfdf5; } .reveal .p-b { background:#fffbeb; }
+    .reveal .p-c { background:#f5f3ff; } .reveal .p-d { background:#eff6ff; }
+    .reveal .tf-item { display:grid; grid-template-columns:1fr 86px 86px; align-items:center; gap:8px;
+                       margin:6px 0; padding:8px 12px; background:#ffffff; border:1px solid #c4b5fd;
+                       border-radius:10px; text-align:left; }
+    .reveal .tf-item .stmt { font-size:0.39em; }
+    .reveal .tf-btn { padding:5px 10px; border:2px solid #cbd5e1; border-radius:8px; background:#ffffff;
+                      cursor:pointer; font-family:inherit; font-size:0.36em; }
+    .reveal .tf-btn.ok { border-color:#16a34a; background:#dcfce7; color:#14532d; }
+    .reveal .tf-btn.no { border-color:#dc2626; background:#fee2e2; color:#7f1d1d; }
+    .reveal .tf-btn:disabled { cursor:default; }
+    .reveal .tf-item .explain { grid-column:1 / -1; width:100%; margin:2px 0 0; }
+    .reveal .pool { display:flex; flex-wrap:wrap; gap:8px; min-height:64px; padding:9px;
+                    border:2px dashed #fcd34d; border-radius:12px; background:#fffbeb; }
+    .reveal .step { display:flex; align-items:center; padding:7px 12px; border:2px solid #cbd5e1;
+                    border-radius:10px; background:#ffffff; color:#1f2937; cursor:grab;
+                    font-family:inherit; font-size:0.37em; text-align:left; }
+    .reveal .step.sel { border-color:#f59e0b; box-shadow:0 0 0 3px #fde68a; }
+    .reveal .step.dang-keo { opacity:.5; }
+    .reveal .slots { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:9px; }
+    .reveal .slot { display:flex; align-items:center; gap:8px; box-sizing:border-box; min-height:46px;
+                    padding:7px 10px; border:2px dashed #99f6e4; border-radius:10px; background:#f0fdfa; }
+    .reveal .slot .so { display:flex; align-items:center; justify-content:center; flex:0 0 24px;
+                        width:24px; height:24px; border-radius:50%; background:#0f766e; color:#ecfeff;
+                        font-size:0.34em; font-weight:bold; }
+    .reveal .slot.ok { border-color:#16a34a; background:#dcfce7; }
+    .reveal .slot.no { border-color:#dc2626; background:#fee2e2; }
+    .reveal .slot .step { flex:1; }
+    .reveal .hint { margin-top:6px; font-size:0.35em; color:#64748b; text-align:center; }
+  </style>
+</section-master>
+
+<section data-background-gradient="linear-gradient(135deg,#d1fae5,#e0f2fe)">
+  <span class="nhan">HEYSHOW · TTS LISTENING TEST</span>
+  <h1 style="font-size:1.25em; margin:0.25em 0 0.1em;">LISTENING TEST<br>MATHEMATICS</h1>
+  <p class="phu">Kiểm tra khả năng nghe tiếng Anh qua nội dung Toán · 5 phần · 13 câu</p>
+  <div class="audio-row" style="margin-top:12px;">
+    <span class="nhan-nho">Instructions</span>
+    <tts data-voice="af_heart" data-speed="0.95" data-label="Play the instructions" data-color="#0f766e" data-size="small" data-caption="false">
+      Welcome to the mathematics listening test. There are five parts: multiple choice, fill in the blanks, matching, true or false, and ordering. Listen carefully, answer the questions, and check your answers after each part.
+    </tts>
+  </div>
+  <ul style="width:730px; margin:10px auto 0;">
+    <li>Part 1 — Multiple choice: the Pythagorean theorem (3 questions)</li>
+    <li>Part 2 — Fill in the blanks: a rectangle problem (5 gaps)</li>
+    <li>Part 3 — Matching: four mathematical terms</li>
+    <li>Part 4 — True or false: four statements</li>
+    <li>Part 5 — Drag and drop: order the steps of an equation</li>
+  </ul>
+  <p class="hint">Every audio prompt is made with the HeyShow <code>&lt;tts&gt;</code> tag: lazy first play, then cached.</p>
+
+  <script>
+    // BỘ MÁY DÙNG CHUNG CHO CẢ BÀI. Đặt trong section đầu tiên, KHÔNG đặt trong
+    // section-master: nội dung master được chèn bằng insertAdjacentHTML nên <script>
+    // trong đó không được thực thi.
+    (function () {
+      if (window.ET) return;
+      var ctx = null;
+
+      // Tiếng báo đúng/sai nhẹ, tổng hợp bằng Web Audio nên không cần file.
+      function beep(ok) {
+        try {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          if (!ctx) ctx = new AC();
+          if (ctx.state === 'suspended') ctx.resume();
+          var notes = ok
+            ? [[523.25, 0, 0.12, 'sine'], [659.25, 0.11, 0.12, 'sine'], [784, 0.22, 0.22, 'sine']]
+            : [[311.13, 0, 0.14, 'square'], [233.08, 0.13, 0.24, 'square']];
+          notes.forEach(function (n) {
+            var t = ctx.currentTime + n[1];
+            var o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = n[3];
+            o.frequency.setValueAtTime(n[0], t);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + n[2]);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(t); o.stop(t + n[2] + 0.05);
+          });
+        } catch (e) { /* trình duyệt chặn audio thì bỏ qua */ }
+      }
+
+      function norm(s) {
+        return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.,;]$/, '');
+      }
+
+      // Trắc nghiệm: .opt, đáp án đúng có data-ok="1".
+      function quiz(sec) {
+        var box = sec.querySelector('.quiz');
+        if (!box) return;
+        var status = sec.querySelector('.status');
+        var explain = sec.querySelector('.explain');
+        var done = false;
+        box.querySelectorAll('.opt').forEach(function (b) {
+          b.addEventListener('click', function () {
+            if (done) return;
+            var ok = b.getAttribute('data-ok') === '1';
+            beep(ok);
+            if (ok) {
+              done = true;
+              b.classList.add('ok');
+              if (explain) explain.classList.add('show');
+              if (status) status.textContent = 'Correct! Read the explanation.';
+              box.querySelectorAll('.opt').forEach(function (x) { x.disabled = true; });
+            } else {
+              b.classList.add('no');
+              if (status) status.textContent = 'Not yet — listen again and try another option.';
+              setTimeout(function () { b.classList.remove('no'); }, 1000);
+            }
+          });
+        });
+      }
+
+      // Điền khuyết: .blank[data-answer="đáp án|biến thể"], nút .check.
+      function fill(sec) {
+        var inputs = Array.prototype.slice.call(sec.querySelectorAll('.blank'));
+        var btn = sec.querySelector('.check');
+        var status = sec.querySelector('.status');
+        var explain = sec.querySelector('.explain');
+        if (!inputs.length || !btn) return;
+        function check() {
+          var ok = 0;
+          inputs.forEach(function (inp) {
+            var answers = (inp.getAttribute('data-answer') || '').split('|').map(norm);
+            var good = answers.indexOf(norm(inp.value)) >= 0;
+            inp.classList.toggle('ok', good);
+            inp.classList.toggle('no', !good);
+            if (good) ok++;
+          });
+          var all = ok === inputs.length;
+          beep(all);
+          if (status) status.textContent = all
+            ? 'All correct!'
+            : ok + '/' + inputs.length + ' correct — the red blanks need another listen.';
+          if (all) {
+            if (explain) explain.classList.add('show');
+            inputs.forEach(function (i) { i.disabled = true; });
+            btn.disabled = true;
+          }
+        }
+        inputs.forEach(function (inp) {
+          inp.addEventListener('input', function () { inp.classList.remove('ok', 'no'); });
+          inp.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); check(); }
+          });
+        });
+        btn.addEventListener('click', check);
+      }
+
+      // Ghép đôi: .m-left / .m-right, cặp đúng cùng data-key. Bấm trái rồi phải
+      // (hoặc phải rồi trái). Bấm nút loa của thẻ TTS bên trong không chọn thẻ.
+      function match(sec) {
+        var items = Array.prototype.slice.call(sec.querySelectorAll('.m-left, .m-right'));
+        if (!items.length) return;
+        var status = sec.querySelector('.status');
+        var explain = sec.querySelector('.explain');
+        var total = sec.querySelectorAll('.m-left').length;
+        var selected = null, done = 0;
+
+        function side(el) { return el.classList.contains('m-left') ? 'l' : 'r'; }
+        function clearSel() { if (selected) selected.el.classList.remove('sel'); selected = null; }
+        function pick(el) {
+          if (el.getAttribute('data-done') === '1') return;
+          if (selected && selected.el === el) { clearSel(); return; }
+          if (!selected) {
+            selected = { el: el, side: side(el) };
+            el.classList.add('sel');
+            if (status) status.textContent = side(el) === 'l'
+              ? 'Now choose the matching definition on the right.'
+              : 'Now choose the matching term on the left.';
+            return;
+          }
+          if (selected.side === side(el)) { clearSel(); selected = { el: el, side: side(el) }; el.classList.add('sel'); return; }
+          var a = selected.el, b = el, ok = a.getAttribute('data-key') === b.getAttribute('data-key');
+          beep(ok);
+          if (ok) {
+            a.setAttribute('data-done', '1'); b.setAttribute('data-done', '1');
+            a.classList.add('ok', 'p-' + a.getAttribute('data-key'));
+            b.classList.add('ok', 'p-' + b.getAttribute('data-key'));
+            a.classList.remove('sel'); b.classList.remove('sel');
+            selected = null; done++;
+            if (status) status.textContent = done + '/' + total + ' pairs matched.';
+            if (done === total) {
+              if (explain) explain.classList.add('show');
+              if (status) status.textContent = 'All pairs matched!';
+            }
+          } else {
+            a.classList.add('no'); b.classList.add('no');
+            if (status) status.textContent = 'Not a match — try again.';
+            setTimeout(function () { a.classList.remove('no'); b.classList.remove('no'); }, 900);
+            a.classList.remove('sel'); selected = null;
+          }
+        }
+        items.forEach(function (el) {
+          el.addEventListener('click', function (e) {
+            if (e.target.closest('.heyshow-tts')) return;
+            pick(el);
+          });
+          el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+          });
+        });
+      }
+
+      // Đúng / sai: mỗi .tf-item có hai .tf-btn, đáp án đúng data-ok="1".
+      function tf(sec) {
+        sec.querySelectorAll('.tf-item').forEach(function (item) {
+          var explain = item.querySelector('.explain');
+          var done = false;
+          item.querySelectorAll('.tf-btn').forEach(function (b) {
+            b.addEventListener('click', function () {
+              if (done) return;
+              var ok = b.getAttribute('data-ok') === '1';
+              beep(ok);
+              if (ok) {
+                done = true;
+                b.classList.add('ok');
+                item.querySelectorAll('.tf-btn').forEach(function (x) { x.disabled = true; });
+                if (explain) explain.classList.add('show');
+              } else {
+                b.classList.add('no');
+                setTimeout(function () { b.classList.remove('no'); }, 900);
+              }
+            });
+          });
+        });
+      }
+
+      // Kéo thả xếp thứ tự: .step (data-order) trong .pool, thả vào .slot (data-order).
+      // Có cả đường bấm: bấm bước rồi bấm ô số — dùng được trên điện thoại.
+      function drag(sec) {
+        var pool = sec.querySelector('.pool');
+        var slots = Array.prototype.slice.call(sec.querySelectorAll('.slot'));
+        var steps = Array.prototype.slice.call(sec.querySelectorAll('.step'));
+        var btn = sec.querySelector('.check');
+        var status = sec.querySelector('.status');
+        var explain = sec.querySelector('.explain');
+        if (!pool || !slots.length || !steps.length) return;
+        var selected = null;
+
+        function select(el) {
+          if (selected === el) { el.classList.remove('sel'); selected = null; return; }
+          if (selected) selected.classList.remove('sel');
+          selected = el; el.classList.add('sel');
+          if (status) status.textContent = 'Now click a numbered slot, or drag the step there.';
+        }
+        function place(el, slot) {
+          var occupant = slot.querySelector('.step');
+          if (occupant && occupant !== el) pool.appendChild(occupant);
+          slot.appendChild(el);
+          el.classList.remove('sel');
+          selected = null;
+          slot.classList.remove('ok', 'no');
+          if (status) status.textContent = '';
+        }
+        steps.forEach(function (el) {
+          el.addEventListener('dragstart', function (e) {
+            selected = el;
+            el.classList.add('dang-keo');
+            if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'step'); }
+          });
+          el.addEventListener('dragend', function () { el.classList.remove('dang-keo'); });
+          el.addEventListener('click', function (e) {
+            if (e.target.closest('.heyshow-tts')) return;
+            if (el.parentElement && el.parentElement.classList.contains('slot')) {
+              pool.appendChild(el);
+              el.classList.remove('sel');
+              selected = null;
+              if (status) status.textContent = 'Step returned to the pool.';
+              return;
+            }
+            select(el);
+          });
+          el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+          });
+        });
+        slots.concat([pool]).forEach(function (target) {
+          target.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          });
+          target.addEventListener('drop', function (e) {
+            e.preventDefault();
+            if (!selected) return;
+            if (target === pool) {
+              pool.appendChild(selected);
+              selected.classList.remove('sel');
+              selected = null;
+              if (status) status.textContent = '';
+              return;
+            }
+            place(selected, target);
+          });
+        });
+        slots.forEach(function (slot) {
+          slot.addEventListener('click', function (e) {
+            if (!selected) return;
+            if (e.target.closest('.step')) return;
+            place(selected, slot);
+          });
+        });
+        if (btn) btn.addEventListener('click', function () {
+          if (slots.some(function (s) { return !s.querySelector('.step'); })) {
+            beep(false);
+            if (status) status.textContent = 'Place all four steps first.';
+            return;
+          }
+          var ok = 0;
+          slots.forEach(function (slot) {
+            var el = slot.querySelector('.step');
+            var good = el && el.getAttribute('data-order') === slot.getAttribute('data-order');
+            slot.classList.toggle('ok', !!good);
+            slot.classList.toggle('no', !good);
+            if (good) ok++;
+          });
+          var all = ok === slots.length;
+          beep(all);
+          if (status) status.textContent = all
+            ? 'Correct order!'
+            : ok + '/4 slots correct — adjust the red ones.';
+          if (all) {
+            if (explain) explain.classList.add('show');
+            slots.forEach(function (s) { var el = s.querySelector('.step'); if (el) el.setAttribute('draggable', 'false'); });
+            btn.disabled = true;
+          }
+        });
+      }
+
+      window.ET = { beep: beep, quiz: quiz, fill: fill, match: match, tf: tf, drag: drag };
+    })();
+  </script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#ecfeff,#f0fdf4)">
+  <span class="nhan">TTS SHOWCASE</span>
+  <h2 style="font-size:0.72em; margin:0.2em 0 0.3em;">One tag, five ways to fit your slide</h2>
+  <div class="card">
+    <div class="nho">1 · Default — button + caption, no audio bar</div>
+    <tts data-voice="af_heart" data-speed="1">The square root of sixty-four is eight.</tts>
+  </div>
+  <div class="card">
+    <div class="nho">2 · Icon only, slow replay, custom colour and size</div>
+    <tts data-voice="af_heart" data-speed="0.65" data-icon-only data-color="#0f766e" data-size="large" data-label="Slow replay">The square root of sixty-four is eight.</tts>
+  </div>
+  <div class="card">
+    <div class="nho">3 · Native audio bar for seeking</div>
+    <tts data-voice="am_adam" data-speed="1" data-controls="true" data-caption="false">A right angle measures ninety degrees.</tts>
+  </div>
+  <div class="card">
+    <div class="nho">4 · Custom label, colour, background and size</div>
+    <tts data-voice="bf_emma" data-speed="0.9" data-label="Listen" data-color="#b45309" data-bg="#fffbeb" data-size="small">The area of a circle is pi r squared.</tts>
+  </div>
+  <p class="hint">Defaults: audio bar hidden, label “Nghe”, caption shown. Options: data-controls, data-icon-only, data-label, data-color, data-bg, data-size, data-caption.</p>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#eef2ff,#f0f9ff)">
+  <span class="nhan">PART 1 · LISTENING PASSAGE</span>
+  <h2 style="font-size:0.74em; margin:0.2em 0 0.3em;">The Pythagorean theorem</h2>
+  <p class="phu">Listen to the teacher. You will answer three questions on the next slides.</p>
+  <div class="audio-row">
+    <span class="nhan-nho">Teacher · Adam</span>
+    <tts data-voice="am_adam" data-speed="0.95" data-controls="true" data-caption="false" data-label="Listen to the passage">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+    <tts data-voice="am_adam" data-speed="0.7" data-icon-only data-color="#b45309" data-size="large" data-label="Slow replay">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+  </div>
+  <div class="card fragment">
+    <b style="font-size:0.42em; color:#0f766e;">Transcript</b>
+    <p style="font-size:0.39em; color:#475569; margin:4px 0 0;">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle,
+      the square of the hypotenuse is equal to the sum of the squares of the other two sides.
+      For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </p>
+  </div>
+  <p class="hint">Press the right arrow to reveal the transcript after you have listened.</p>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#eff6ff,#f5f3ff)">
+  <span class="nhan">PART 1 · QUESTION 1 / 3</span>
+  <h2 style="font-size:0.72em; margin:0.2em 0 0.25em;">What is the passage mainly about?</h2>
+  <div class="audio-row">
+    <span class="nhan-nho">Replay</span>
+    <tts data-voice="am_adam" data-speed="0.95" data-icon-only data-color="#0f766e" data-size="normal" data-label="Replay the passage">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+    <span class="nhan-nho">Slow</span>
+    <tts data-voice="am_adam" data-speed="0.7" data-icon-only data-color="#b45309" data-size="normal" data-label="Replay slowly">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+  </div>
+  <div class="quiz">
+    <button type="button" class="opt">A. The area of a circle</button>
+    <button type="button" class="opt" data-ok="1">B. Right triangles and the Pythagorean theorem</button>
+    <button type="button" class="opt">C. Prime numbers and factors</button>
+    <button type="button" class="opt">D. Linear functions and graphs</button>
+    <p class="status">Choose the best answer.</p>
+    <p class="explain">The teacher reviews the Pythagorean theorem and gives an example with a right triangle whose shorter sides are 3 and 4.</p>
+  </div>
+  <script>if (window.ET) ET.quiz(document.currentScript.closest('section'));</script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#f5f3ff,#ecfeff)">
+  <span class="nhan">PART 1 · QUESTION 2 / 3</span>
+  <h2 style="font-size:0.72em; margin:0.2em 0 0.25em;">If the shorter sides are 3 and 4, what is the hypotenuse?</h2>
+  <div class="audio-row">
+    <span class="nhan-nho">Replay</span>
+    <tts data-voice="am_adam" data-speed="0.95" data-icon-only data-color="#0f766e" data-size="normal" data-label="Replay the passage">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+    <span class="nhan-nho">Slow</span>
+    <tts data-voice="am_adam" data-speed="0.7" data-icon-only data-color="#b45309" data-size="normal" data-label="Replay slowly">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+  </div>
+  <div class="quiz">
+    <button type="button" class="opt" data-ok="1">A. 5</button>
+    <button type="button" class="opt">B. 6</button>
+    <button type="button" class="opt">C. 7</button>
+    <button type="button" class="opt">D. 12</button>
+    <p class="status">Choose the number you heard.</p>
+    <p class="explain">$3^2 + 4^2 = 9 + 16 = 25$, and $\sqrt{25} = 5$. The hypotenuse is 5.</p>
+  </div>
+  <script>if (window.ET) ET.quiz(document.currentScript.closest('section'));</script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#ecfeff,#fefce8)">
+  <span class="nhan">PART 1 · QUESTION 3 / 3</span>
+  <h2 style="font-size:0.72em; margin:0.2em 0 0.25em;">Which side is the hypotenuse?</h2>
+  <div class="audio-row">
+    <span class="nhan-nho">Replay</span>
+    <tts data-voice="am_adam" data-speed="0.95" data-icon-only data-color="#0f766e" data-size="normal" data-label="Replay the passage">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+    <span class="nhan-nho">Slow</span>
+    <tts data-voice="am_adam" data-speed="0.7" data-icon-only data-color="#b45309" data-size="normal" data-label="Replay slowly">
+      Good morning, class. Today we will review the Pythagorean theorem. In a right triangle, the square of the hypotenuse is equal to the sum of the squares of the other two sides. For example, if the two shorter sides are three and four, the hypotenuse is five.
+    </tts>
+  </div>
+  <div class="quiz">
+    <button type="button" class="opt">A. The shortest side</button>
+    <button type="button" class="opt" data-ok="1">B. The side opposite the right angle</button>
+    <button type="button" class="opt">C. Any side of the triangle</button>
+    <button type="button" class="opt">D. The side next to the right angle</button>
+    <p class="status">Choose the definition you heard.</p>
+    <p class="explain">The hypotenuse is the longest side and it is always opposite the right angle.</p>
+  </div>
+  <script>if (window.ET) ET.quiz(document.currentScript.closest('section'));</script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#fefce8,#f0fdf4)">
+  <span class="nhan">PART 2 · FILL IN THE BLANKS</span>
+  <h2 style="font-size:0.72em; margin:0.2em 0 0.25em;">A rectangle problem</h2>
+  <p class="phu">Listen and complete the sentences. You may replay the audio or use the slow version.</p>
+  <div class="audio-row">
+    <tts data-voice="bf_emma" data-speed="0.9" data-controls="true" data-caption="false" data-label="Listen to the problem">
+      A rectangle has a length of twelve centimetres and a width of five centimetres. Find its area and its perimeter. The area is length times width, so it is sixty square centimetres. The perimeter is two times the sum of the length and the width, so it is thirty-four centimetres.
+    </tts>
+    <tts data-voice="bf_emma" data-speed="0.65" data-icon-only data-color="#7c3aed" data-size="large" data-label="Slow replay">
+      A rectangle has a length of twelve centimetres and a width of five centimetres. Find its area and its perimeter. The area is length times width, so it is sixty square centimetres. The perimeter is two times the sum of the length and the width, so it is thirty-four centimetres.
+    </tts>
+  </div>
+  <div class="card amber">
+    <p style="font-size:0.42em; line-height:1.9; margin:0;">
+      The rectangle is <input class="blank" data-answer="12|twelve" aria-label="length in centimetres"> cm long
+      and <input class="blank" data-answer="5|five" aria-label="width in centimetres"> cm wide.<br>
+      Its area is <input class="blank" data-answer="60|sixty" aria-label="area"> square centimetres.<br>
+      Its perimeter is <input class="blank" data-answer="34|thirty-four|thirty four" aria-label="perimeter"> centimetres.<br>
+      Area equals length times <input class="blank" data-answer="width|the width" aria-label="missing word">.
+    </p>
+    <div style="text-align:center;"><button type="button" class="check">Check answers</button></div>
+    <p class="status">Fill in all five gaps.</p>
+    <p class="explain">Area $= 12 \times 5 = 60$ square centimetres. Perimeter $= 2 \times (12 + 5) = 34$ centimetres. Area $=$ length $\times$ width.</p>
+  </div>
+  <script>if (window.ET) ET.fill(document.currentScript.closest('section'));</script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#f5f3ff,#eff6ff)">
+  <span class="nhan">PART 3 · MATCHING</span>
+  <h2 style="font-size:0.72em; margin:0.2em 0 0.25em;">Match each term with its meaning</h2>
+  <div class="audio-row">
+    <tts data-voice="af_heart" data-speed="0.9" data-label="Hear the four terms" data-color="#0f766e" data-caption="false">
+      Listen and repeat the four mathematical terms: hypotenuse, right angle, area, perimeter.
+    </tts>
+  </div>
+  <div class="match-grid">
+    <div class="match-col">
+      <div class="m-left" role="button" tabindex="0" data-key="a">
+        <span>Hypotenuse</span>
+        <tts data-voice="af_heart" data-speed="1" data-icon-only data-size="small" data-label="Pronounce hypotenuse">hypotenuse</tts>
+      </div>
+      <div class="m-left" role="button" tabindex="0" data-key="b">
+        <span>Right angle</span>
+        <tts data-voice="af_heart" data-speed="1" data-icon-only data-size="small" data-label="Pronounce right angle">right angle</tts>
+      </div>
+      <div class="m-left" role="button" tabindex="0" data-key="c">
+        <span>Area</span>
+        <tts data-voice="af_heart" data-speed="1" data-icon-only data-size="small" data-label="Pronounce area">area</tts>
+      </div>
+      <div class="m-left" role="button" tabindex="0" data-key="d">
+        <span>Perimeter</span>
+        <tts data-voice="af_heart" data-speed="1" data-icon-only data-size="small" data-label="Pronounce perimeter">perimeter</tts>
+      </div>
+    </div>
+    <div class="match-col">
+      <button type="button" class="m-right" data-key="c">The amount of space inside a flat shape</button>
+      <button type="button" class="m-right" data-key="a">The side opposite the right angle</button>
+      <button type="button" class="m-right" data-key="d">The total distance around a shape</button>
+      <button type="button" class="m-right" data-key="b">An angle of 90 degrees</button>
+    </div>
+  </div>
+  <p class="status" style="margin-top:8px;">Click a term, then click its meaning. Click a small speaker to hear the term.</p>
+  <p class="explain">Hypotenuse ↔ side opposite the right angle · Right angle ↔ 90 degrees · Area ↔ space inside · Perimeter ↔ distance around.</p>
+  <script>if (window.ET) ET.match(document.currentScript.closest('section'));</script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#eef2ff,#fefce8)">
+  <span class="nhan">PART 4 · TRUE OR FALSE</span>
+  <h2 style="font-size:0.72em; margin:0.2em 0 0.25em;">Listen and decide: true or false?</h2>
+  <div class="audio-row">
+    <span class="nhan-nho">Teacher</span>
+    <tts data-voice="am_adam" data-speed="0.95" data-label="Listen to statements 1 and 2" data-caption="false">
+      Listen to four statements. Statement one: A triangle with sides three, four and five is a right triangle. Statement two: The area of a circle is two pi r.
+    </tts>
+    <span class="nhan-nho">Student</span>
+    <tts data-voice="bf_emma" data-speed="0.9" data-icon-only data-color="#7c3aed" data-size="large" data-label="Play statements 3 and 4">
+      Statement three: Parallel lines never meet. Statement four: The sum of the angles in a triangle is one hundred and eighty degrees.
+    </tts>
+  </div>
+  <div class="tf">
+    <div class="tf-item">
+      <div class="stmt">1. A triangle with sides 3, 4 and 5 is a right triangle.</div>
+      <button type="button" class="tf-btn" data-ok="1">True</button>
+      <button type="button" class="tf-btn">False</button>
+      <p class="explain">$3^2 + 4^2 = 9 + 16 = 25 = 5^2$, so it is a right triangle.</p>
+    </div>
+    <div class="tf-item">
+      <div class="stmt">2. The area of a circle is two pi r.</div>
+      <button type="button" class="tf-btn">True</button>
+      <button type="button" class="tf-btn" data-ok="1">False</button>
+      <p class="explain">The area is $\pi r^2$. $2\pi r$ is the circumference.</p>
+    </div>
+    <div class="tf-item">
+      <div class="stmt">3. Parallel lines never meet.</div>
+      <button type="button" class="tf-btn" data-ok="1">True</button>
+      <button type="button" class="tf-btn">False</button>
+      <p class="explain">In a plane, parallel lines stay the same distance apart and never meet.</p>
+    </div>
+    <div class="tf-item">
+      <div class="stmt">4. The sum of the angles in a triangle is 180 degrees.</div>
+      <button type="button" class="tf-btn" data-ok="1">True</button>
+      <button type="button" class="tf-btn">False</button>
+      <p class="explain">The three interior angles of any triangle add up to $180^\circ$.</p>
+    </div>
+  </div>
+  <script>if (window.ET) ET.tf(document.currentScript.closest('section'));</script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#fefce8,#ecfeff)">
+  <span class="nhan">PART 5 · DRAG AND DROP</span>
+  <h2 style="font-size:0.70em; margin:0.2em 0 0.2em;">Put the steps in the correct order</h2>
+  <div class="audio-row">
+    <tts data-voice="af_heart" data-speed="0.9" data-icon-only data-color="#b45309" data-size="large" data-label="Listen to the instructions">
+      Put the steps for solving the equation two x plus five equals seventeen in the correct order. Drag each step to a numbered slot, or click a step and then click a slot.
+    </tts>
+  </div>
+  <div class="drag">
+    <div class="nhan-nho" style="text-align:left; margin:0 0 5px;">Steps — drag a step to a slot, or click a step then click a slot.</div>
+    <div class="pool">
+      <div class="step" draggable="true" role="button" tabindex="0" data-order="3">Divide both sides by 2:&nbsp;$x = 6$.</div>
+      <div class="step" draggable="true" role="button" tabindex="0" data-order="1">Write the equation:&nbsp;$2x + 5 = 17$.</div>
+      <div class="step" draggable="true" role="button" tabindex="0" data-order="4">Check:&nbsp;$2(6) + 5 = 17$.</div>
+      <div class="step" draggable="true" role="button" tabindex="0" data-order="2">Subtract 5 from both sides:&nbsp;$2x = 12$.</div>
+    </div>
+    <div class="slots">
+      <div class="slot" data-order="1"><span class="so">1</span></div>
+      <div class="slot" data-order="2"><span class="so">2</span></div>
+      <div class="slot" data-order="3"><span class="so">3</span></div>
+      <div class="slot" data-order="4"><span class="so">4</span></div>
+    </div>
+    <div style="text-align:center;"><button type="button" class="check">Check the order</button></div>
+    <p class="status">Drag a step to a slot, or click a step and then click a slot.</p>
+    <p class="explain">Write the equation → subtract 5 → divide by 2 → substitute back to check.</p>
+  </div>
+  <p class="hint">Clicking a step inside a slot returns it to the pool.</p>
+  <script>if (window.ET) ET.drag(document.currentScript.closest('section'));</script>
+</section>
+
+<section data-background-gradient="linear-gradient(135deg,#d1fae5,#eff6ff)">
+  <span class="nhan">WELL DONE</span>
+  <h1 style="font-size:1.05em; margin:0.25em 0 0.1em;">You completed the listening test!</h1>
+  <div class="audio-row">
+    <tts data-voice="bf_emma" data-speed="1" data-icon-only data-color="#16a34a" data-size="large" data-label="Play a final message">
+      Well done! You have completed the mathematics listening test. Review the explanations, replay the audio, and try again to improve your score.
+    </tts>
+  </div>
+  <div class="card">
+    <p style="font-size:0.42em; margin:0;">
+      <b>Five parts:</b> multiple choice · fill in the blanks · matching · true or false · ordering.
+    </p>
+    <p style="font-size:0.42em; margin:6px 0 0;">
+      <b>Listening tip:</b> play the normal version once, then the slow version; read the explanation aloud.
+    </p>
+  </div>
+  <p class="hint">Made with the HeyShow <code>&lt;tts&gt;</code> tag — lazy audio, cached on the server for the next class.</p>
+</section>

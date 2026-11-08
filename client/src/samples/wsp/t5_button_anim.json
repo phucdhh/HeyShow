@@ -1,0 +1,208 @@
+{
+  "metadata" : {
+    "width" : 780,
+    "height" : 540,
+    "wsp-version" : "4.8.0",
+    "exporter-version" : "5.11",
+    "exporter-build" : "3060",
+    "exporter-debug" : false,
+    "original-document-name" : "t5_button_anim.gsp",
+    "start-page" : "1"
+    },
+  "resources" : {
+    "fontList" : [
+      "\"Times New Roman\", serif",
+      "\"Arial\", sans-serif"
+      ]
+    },
+  "pages" : [
+    {
+      "metadata" : {
+        "title" : "1",
+        "id" : "1",
+        "sketchRect" : {
+          "top" : 0,
+          "left" : 0,
+          "bottom" : 540,
+          "right" : 780
+          }
+        },
+      "preferences" : {
+        "units" : {
+          "length" : "cm",
+          "angle" : "deg"
+          },
+        "precision" : {
+          "length" : 2,
+          "angle" : 2,
+          "scalar" : 2
+          },
+        "colorableComponents" : {
+          "ActionButton" : {
+            "color" : "rgb(255,128,0)"
+            }
+          },
+        "text" : {
+          "mathItalicization" : true,
+          "textTypes" : {
+            "Label" : {
+              "font-family" : "\"Times New Roman\", serif",
+              "font-size" : 18
+              },
+            "Caption" : {
+              "font-family" : "\"Times New Roman\", serif",
+              "font-weight" : "bold",
+              "color" : "blue"
+              },
+            "Measurement" : {
+              "font-family" : "\"Times New Roman\", serif"
+              },
+            "Action" : {
+              "label" : {
+                "font-family" : "\"Arial\", sans-serif"
+                }
+              },
+            "Table" : {
+              "font-family" : "\"Arial\", sans-serif"
+              },
+            "AxisTicksAndOptionalLabel" : {
+              "font-family" : "\"Arial\", sans-serif"
+              }
+            }
+          }
+        },
+      "objects" : {
+        "1" : {
+          "kind" : "Point",
+          "genus" : "Point",
+          "constraint" : "Free",
+          "geom" : {
+            "loc" : {
+              "x" : 174,
+              "y" : 139
+              }
+            }
+          },
+        "2" : {
+          "kind" : "Point",
+          "genus" : "Point",
+          "constraint" : "Free",
+          "geom" : {
+            "loc" : {
+              "x" : 399,
+              "y" : 138
+              }
+            }
+          },
+        "3" : {
+          "kind" : "Straight",
+          "genus" : "Segment",
+          "parents" : {
+            "p0" : "1",
+            "p1" : "2"
+            },
+          "constraint" : "Segment"
+          },
+        "4" : {
+          "kind" : "Point",
+          "genus" : "PointOnPath",
+          "parents" : {
+            "path" : "3"
+            },
+          "value" : 0.30670011456563823,
+          "constraint" : "PointOnPath",
+          "latentVisibility" : true
+          },
+        "5" : {
+          "kind" : "Button",
+          "genus" : "Action",
+          "parents" : {
+            "0" : "4"
+            },
+          "geom" : {
+            "loc" : {
+              "x" : 10,
+              "y" : 5
+              }
+            },
+          "label" : "Animate Point",
+          "constraint" : "ActionButtonAnimate",
+          "messages" : [
+            "Animate Point"
+            ],
+          "animationStates" : [
+            {
+              "rate" : 3,
+              "timeInterval" : 0,
+              "repeat" : true,
+              "motionType" : "both"
+              }
+            ]
+          },
+        "6" : {
+          "kind" : "Button",
+          "genus" : "Action",
+          "parents" : {
+            "0" : "1",
+            "1" : "4"
+            },
+          "geom" : {
+            "loc" : {
+              "x" : 10,
+              "y" : 28
+              }
+            },
+          "label" : "Move Point",
+          "constraint" : "ActionButtonMove",
+          "messages" : [
+            "Move Point"
+            ],
+          "shouldAutogenerateLabel" : true,
+          "rate" : 3,
+          "shouldAutogenerateLabel" : true
+          },
+        "7" : {
+          "kind" : "Button",
+          "genus" : "Action",
+          "parents" : {
+            "0" : "4"
+            },
+          "geom" : {
+            "loc" : {
+              "x" : 10,
+              "y" : 51
+              }
+            },
+          "label" : "Hide Point",
+          "constraint" : "ActionButtonToggleHideShow",
+          "messages" : [
+            "Hide Point",
+            "Show Point"
+            ],
+          "shouldAutogenerateLabel" : true,
+          "fade" : true
+          },
+        "8" : {
+          "kind" : "Button",
+          "genus" : "Action",
+          "parents" : {
+            "0" : "6",
+            "1" : "5"
+            },
+          "geom" : {
+            "loc" : {
+              "x" : 10,
+              "y" : 74
+              }
+            },
+          "label" : "Present 2 Actions",
+          "constraint" : "ActionButtonPresentSimultaneously",
+          "messages" : [
+            "Present 2 Actions"
+            ],
+          "shouldAutogenerateLabel" : true
+          }
+        }
+      }
+    ]
+  }

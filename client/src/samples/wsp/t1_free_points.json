@@ -1,0 +1,134 @@
+{
+  "metadata" : {
+    "width" : 780,
+    "height" : 540,
+    "wsp-version" : "4.8.0",
+    "exporter-version" : "5.11",
+    "exporter-build" : "3060",
+    "exporter-debug" : false,
+    "original-document-name" : "t1_free_points.gsp",
+    "start-page" : "1"
+    },
+  "resources" : {
+    "fontList" : [
+      "\"Times New Roman\", serif"
+      ]
+    },
+  "pages" : [
+    {
+      "metadata" : {
+        "title" : "1",
+        "id" : "1",
+        "sketchRect" : {
+          "top" : 0,
+          "left" : 0,
+          "bottom" : 540,
+          "right" : 780
+          }
+        },
+      "preferences" : {
+        "units" : {
+          "length" : "cm",
+          "angle" : "deg"
+          },
+        "precision" : {
+          "length" : 2,
+          "angle" : 2,
+          "scalar" : 2
+          },
+        "colorableComponents" : {
+          "ActionButton" : {
+            "color" : "rgb(255,128,0)"
+            }
+          },
+        "text" : {
+          "mathItalicization" : true,
+          "textTypes" : {
+            "Label" : {
+              "font-family" : "\"Times New Roman\", serif",
+              "font-size" : 18
+              },
+            "Caption" : {
+              "font-family" : "\"Times New Roman\", serif",
+              "font-weight" : "bold",
+              "color" : "blue"
+              },
+            "Measurement" : {
+              "font-family" : "\"Times New Roman\", serif"
+              },
+            "Action" : {
+              "label" : {
+                "font-family" : "\"Arial\", sans-serif"
+                }
+              },
+            "Table" : {
+              "font-family" : "\"Arial\", sans-serif"
+              },
+            "AxisTicksAndOptionalLabel" : {
+              "font-family" : "\"Arial\", sans-serif"
+              }
+            }
+          }
+        },
+      "objects" : {
+        "1" : {
+          "kind" : "Point",
+          "genus" : "Point",
+          "constraint" : "Free",
+          "geom" : {
+            "loc" : {
+              "x" : 119,
+              "y" : 54
+              }
+            },
+          "label" : "A",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 8,
+              "labelOffsetY" : 5
+              }
+            }
+          },
+        "2" : {
+          "kind" : "Point",
+          "genus" : "Point",
+          "constraint" : "Free",
+          "geom" : {
+            "loc" : {
+              "x" : 106,
+              "y" : 139
+              }
+            },
+          "label" : "B",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 8,
+              "labelOffsetY" : 5
+              }
+            }
+          },
+        "3" : {
+          "kind" : "Point",
+          "genus" : "Point",
+          "constraint" : "Free",
+          "geom" : {
+            "loc" : {
+              "x" : 217,
+              "y" : 127
+              }
+            },
+          "label" : "C",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 8,
+              "labelOffsetY" : 5
+              }
+            }
+          }
+        }
+      }
+    ]
+  }

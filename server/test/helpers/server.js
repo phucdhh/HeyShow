@@ -33,14 +33,32 @@ function mkdtemp() {
 // mà API hiện tại không tạo được (ví dụ tên đăng nhập có dấu cách và dấu câu).
 // prepare: dựng sẵn cây thư mục users/ trong kho tạm trước khi boot, cần cho các test
 // phụ thuộc thời điểm tạo tài khoản vì server chỉ tự tạo thư mục cho admin.
-async function startServer({ dbSeed, prepare } = {}) {
+// env: biến môi trường riêng cho instance này (MAIL_TRANSPORT, PUBLIC_BASE_URL...).
+//
+// Mọi instance test đều bị khóa chặt đường gửi thư: app.js đọc server/.env, mà .env của
+// máy phát triển có thể chứa SMTP thật. Không khóa thì một test tình cờ sẽ gửi email
+// thật bằng hộp thư của người lập trình. dotenv không ghi đè biến đã tồn tại (kể cả
+// chuỗi rỗng), nên đặt sẵn ở đây là chặn được. Test cần bắt mail thì tự bật
+// MAIL_TRANSPORT=capture, thư khi đó chỉ đi vào data/mail-outbox.jsonl của thư mục tạm.
+const NO_MAIL_ENV = {
+    MAIL_TRANSPORT: 'off',
+    SMTP_HOST: '', SMTP_PORT: '', SMTP_USER: '', SMTP_PASS: '', MAIL_FROM: ''
+};
+
+// Cùng lý do với thư: server/.env của máy phát triển có thể trỏ tới HeyTTS thật. Mọi test
+// mặc định tắt nhánh TTS; test nào cần thì tự truyền HEYTTS_URL của mock qua tham số env.
+const NO_TTS_ENV = {
+    HEYTTS_URL: '', HEYTTS_API_KEY: ''
+};
+
+async function startServer({ dbSeed, prepare, env = {} } = {}) {
     const port = await freePort();
     const dataDir = mkdtemp();
     if (prepare) prepare(dataDir);
     if (dbSeed) fs.writeFileSync(path.join(dataDir, 'db.json'), JSON.stringify(dbSeed), { mode: 0o600 });
     const child = spawn(process.execPath, [APP], {
         cwd: SERVER_ROOT,
-        env: { ...process.env, PORT: String(port), HEYSHOW_DATA_DIR: dataDir }
+        env: { ...process.env, ...NO_MAIL_ENV, ...NO_TTS_ENV, ...env, PORT: String(port), HEYSHOW_DATA_DIR: dataDir }
     });
 
     let log = '';

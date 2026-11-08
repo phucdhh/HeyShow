@@ -15,7 +15,7 @@ Bạn viết slide bằng HTML ngay trên trình duyệt, thấy kết quả hi�
 | Hiệu ứng & tương tác trong slide | hạn chế | rất hạn chế | **đủ tính năng Reveal.js**: chuyển cảnh, fragment, slide dọc, và các mẫu trắc nghiệm/ghép đôi/điền khuyết làm bằng HTML thuần |
 | Đưa bài có sẵn vào | — | — | **Power Point`.pptx`, Markdown `.md`, LaTeX beamer `.tex`** — có báo cáo trước để bạn xem được gì, mất gì |
 | Hình vẽ trong file `.tex` | — | — | **dựng lại thành SVG** bằng bộ vẽ tính toạ độ theo đúng quy tắc pgfplots |
-| Hình vẽ Toán học động | chụp ảnh hoặc vẽ bằng công cụ riêng | vẽ thủ công, không kéo được | **JSXGraph ngay trong slide** — dán code, bảng hình kéo thả được cả khi đang chiếu |
+| Hình vẽ Toán học động | chụp ảnh hoặc vẽ bằng công cụ riêng | vẽ thủ công, không kéo được | **JSXGraph và Web Sketchpad ngay trong slide** — dán code hoặc dán file sketch, mô hình kéo thả được cả khi đang chiếu |
 | Nhờ AI viết nội dung | Copilot (trả phí) | Magic Design (trả phí) | **có, miễn phí**, và bạn có thể chọn các mô hình AI mà hệ thống cung cấp |
 | Link chia sẻ | phải export file | link của họ | **link của bạn**, mở là chiếu |
 | Vài giáo viên dùng chung | bản quyền từng máy | cùng tài khoản, lẫn bài của nhau | **mỗi người một kho riêng**, hạn mức rõ theo bậc quyền |
@@ -28,8 +28,11 @@ Nói ngắn gọn: PowerPoint và Canva bán cho bạn một định dạng và 
 - **Soạn slide** trong trình soạn hai khung: bên trái là code, bên phải là bài thật đang chạy. Đặt con trỏ vào slide nào, khung xem nhảy tới slide đó.
 - **Giữ thiết kế chung cho cả bài** bằng `<section-master>` — đặt nền, tiêu đầu, chân trang một lần, áp cho mọi slide.
 - **Vẽ hình Toán học tương tác** bằng thẻ `<jsxgraph>`: dán code JSXGraph vào slide là có bảng hình kéo thả được — chạy trong khung soạn thảo, trên trang đã xuất bản và cả bản in; `board.create(...)` có sẵn bảng, `initBoard(BOARDID, {...})` để tự đặt khung nhìn, `data-w`/`data-h` để chọn kích thước.
+- **Chạy một sketch Web Sketchpad có sẵn** bằng thẻ `<wsp>`: copy toàn bộ nội dung file `.json` của sketch dán vào thẻ, mô hình hiện **đúng 100%** khung vẽ đã thiết kế — điểm kéo được, nút bấm chạy, sketch nhiều trang chuyển trang được. Mặc định nền trắng, không viền, ẩn thanh điều khiển và cột công cụ cho gọn slide; `data-bg="transparent"`, `data-border="…"`, `data-bar="true"`, `data-style-widget="true"` khi cần.
+- **Đọc văn bản bằng giọng nói** bằng thẻ `<tts>`: dán đoạn chữ cần đọc, chọn giọng Việt hoặc Anh qua `data-voice` và tốc độ qua `data-speed` (0.5–2), bấm **Nghe** là phát. Âm thanh chỉ được tạo ở lần nghe đầu rồi lưu trên máy chủ; cùng một đoạn chữ với cùng giọng và tốc độ thì mọi bài dùng chung một tệp, nên lần thứ hai trở đi phát ngay. Nút bấm hoà được vào thiết kế slide: mặc định chỉ có nút (không có thanh audio), `data-controls="true"` hiện thanh tua, `data-icon-only` chỉ để biểu tượng, `data-label` đổi chữ, `data-color` / `data-bg` / `data-size` đổi màu và cỡ, `data-caption="false"` ẩn dòng giọng đọc.
+- **Hội thoại nhiều giọng** cũng nằm trong thẻ `<tts>`: mỗi lượt mở đầu bằng `[giọng]`, ví dụ `[am_adam] Good morning. [af_heart] Good morning, sir.` — cả hội thoại gộp thành một nút và một file Opus, có khoảng lặng 180ms giữa các lượt, trộn giọng Anh–Việt được.
 - **Nhờ AI viết giúp**: chọn vị trí chèn (thiết lập dùng chung / slide hiện tại / slide tiếp theo / slide cuối cùng) rồi mô tả bằng tiếng Việt.
-- **Dùng mẫu có sẵn** tại `/templates`: 33 mẫu chia 11 danh mục — giáo án lên lớp theo từng môn, chuyên đề bồi dưỡng, và các slide tương tác (kể cả mẫu Âm thanh & video: âm báo đúng/sai, luyện nghe, video tự dừng để hỏi bài). Bấm "Dùng mẫu này" là có ngay bản nháp trong trình soạn; tìm mẫu không cần gõ dấu (`giao an` vẫn ra "Giáo án").
+- **Dùng mẫu có sẵn** tại `/templates`: 38 mẫu chia 11 danh mục — giáo án lên lớp theo từng môn, chuyên đề bồi dưỡng, và các slide tương tác (kể cả mẫu Âm thanh & video: âm báo đúng/sai, chuông lớp học, đọc văn bản bằng HeyTTS, luyện nghe hai tốc độ, câu hỏi có nút loa icon-only, hội thoại giáo viên–học sinh và hội thoại Toán song ngữ, video tự dừng để hỏi bài). Bấm "Dùng mẫu này" là có ngay bản nháp trong trình soạn; tìm mẫu không cần gõ dấu (`giao an` vẫn ra "Giáo án").
 - **Đưa bài đã có vào**: import PowerPoint, Markdown hoặc LaTeX beamer; xem báo cáo từng slide rồi mới quyết định import.
 - **Quản lý bài** tại `/dashboard`: publish, xuất bản lại, in ra PDF, về nháp, tải HTML, đổi tên, xoá; xem ai vừa thích và bình luận bài của mình; sửa hồ sơ, ảnh đại diện, link cá nhân.
 - **Quay lại bản cũ**: mỗi lần lưu, bản trước được cất lại — xem thử và khôi phục ~3 bản gần nhất.
@@ -56,14 +59,23 @@ Chưa muốn đăng ký? Vào `/gallery` xem bài của người khác và bấm
 ```bash
 npm install && (cd client && npm install) && (cd server && npm install)
 npm run lint              # ESLint toàn repo
-npm test                  # 111 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
+npm test                  # 148 test, chạy trên kho dữ liệu tạm, không đụng bài của ai
 cd client && npm run dev  # trình soạn + hot reload
 cd server && npm run dev  # backend
 ```
 
+Thẻ `<tts>` cần một máy chủ HeyTTS (Kokoro) để chuyển văn bản thành Opus. Đặt trong `server/.env` (file này không đi theo git và không bị deploy đè):
+
+```bash
+HEYTTS_URL=http://dia-chi-may-heytts:8787
+HEYTTS_API_KEY=khoa-bi-mat
+```
+
+Thiếu hai biến này thì mọi thứ khác vẫn chạy bình thường, chỉ nút nghe của `<tts>` báo lỗi. Âm thanh đã tạo nằm trong `data/tts/` và có thể tạo lại, nên bản sao lưu dữ liệu bỏ qua các file `.opus`.
+
 Deploy sang máy chủ của riêng bạn: copy `sync2fold4.example.sh` thành `sync2fold4.sh`, điền địa chỉ máy, chạy `./sync2fold4.sh` (test → build → rsync → reload → kiểm tra `/health`). Sao lưu dữ liệu: `./scripts/backup-data.sh`.
 
-Công nghệ: Node.js + Express 5, Vite + Vanilla JS, CodeMirror 6, Reveal.js 6.0.2 + KaTeX, PM2, Cloudflare Tunnel; lưu trữ bằng file, không dùng database.
+Công nghệ: Node.js + Express 5, Vite + Vanilla JS, CodeMirror 6, Reveal.js 6.0.2 + KaTeX, PM2, Cloudflare Tunnel, HeyTTS (Kokoro) cho thẻ `<tts>`; lưu trữ bằng file, không dùng database.
 
 ## Tài liệu
 

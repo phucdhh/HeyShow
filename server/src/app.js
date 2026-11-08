@@ -11,18 +11,31 @@ const axios = require('axios');
 
 const { createJsonStore, atomicWrite } = require('./storage');
 const { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF, SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS,
-    SLIDE_JSXGRAPH_STYLE, SLIDE_JSXGRAPH_JS, JSXGRAPH_BOC } = require('./slide-parts');
+    SLIDE_JSXGRAPH_STYLE, SLIDE_JSXGRAPH_JS, JSXGRAPH_BOC,
+    SLIDE_WSP_STYLE, SLIDE_WSP_JS, WSP_BOC,
+    SLIDE_TTS_STYLE, SLIDE_TTS_JS, TTS_BOC } = require('./slide-parts');
 const access = require('./access');
 const history = require('./history');
 const avatars = require('./avatars');
 const { cleanSvg } = require('./svgclean');
 const { renderTikz } = require('./tikzrender');
+const { createMailer } = require('./mailer');
+const { createTts } = require('./tts');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
+// Trang slide chạy CSP sandbox nên origin của nó là "null" khi gọi /api/tts/*. Nhánh này
+// có CORS riêng trả Access-Control-Allow-Origin: * cho cả preflight lẫn response thật;
+// cors chung phải bỏ qua nó, nếu không nó sẽ đổi header thành "null" (đúng lý thuyết
+// nhưng có trình duyệt xử lý opaque origin theo kiểu khác).
+const appCors = cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true });
+app.use((req, res, next) => {
+    if (req.path === '/api/tts' || req.path.startsWith('/api/tts/')) return next();
+    return appCors(req, res, next);
+});
+app.use('/api/tts', cors({ origin: '*' }));
 app.use(express.json({ limit: '5mb' }));
 
 // Header bảo mật chung cho MỌI response, kể cả JSON của API. Đặt ở đây (trước mọi
@@ -49,6 +62,19 @@ const SOCIAL_FILE = path.join(DATA_DIR, 'social.json');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(USERS_DIR, { recursive: true });
 
+// Kho âm thanh của thẻ <tts>. Nằm trong data/ (không commit, không rsync) và dùng chung
+// cho mọi người: cùng một câu + giọng + tốc độ thì cùng một file, không phụ thuộc ai soạn.
+const tts = createTts({
+    dir: path.join(DATA_DIR, 'tts'),
+    url: process.env.HEYTTS_URL,
+    apiKey: process.env.HEYTTS_API_KEY,
+    timeoutMs: process.env.HEYTTS_TIMEOUT_MS,
+    maxChars: process.env.HEYTTS_MAX_TEXT_CHARS
+});
+// Đoạn mẫu công khai ở /help và /templates được đăng ký sẵn để người chưa đăng nhập vẫn
+// nghe thử được; bài của người dùng chỉ được đăng ký lúc publish/export.
+tts.registerSamples(path.join(__dirname, '../../client/src/samples/tts/samples.json'));
+
 // Slug nằm trực tiếp trong đường dẫn URL công khai nên phải kiểm soát chặt
 const SLUG_RE = /^[a-zA-Z0-9_-]{3,40}$/;
 const USERNAME_RE = /^[a-zA-Z0-9@._-]{3,64}$/;
@@ -58,7 +84,7 @@ const FORBIDDEN_USERNAMES = ['__proto__', 'constructor', 'prototype'];
 // route cấp một; chốt chặn ở cuối file kiểm lại điều này lúc khởi động. So sánh không
 // phân biệt hoa/thường vì Express khớp đường dẫn không phân biệt hoa/thường: user tên
 // "Gallery" cũng che mất trang gallery y như "gallery".
-const RESERVED_SLUGS = ['api', 'admin_panel', 'assets', 'src', 'gallery', 'dashboard', 'design', 'help', 'templates', 'show', 'health', 'favicon.svg', 'icons.svg'];
+const RESERVED_SLUGS = ['api', 'admin_panel', 'assets', 'src', 'gallery', 'dashboard', 'design', 'help', 'templates', 'show', 'health', 'reset_password', 'favicon.svg', 'icons.svg'];
 
 function isReservedName(name) {
     if (typeof name !== 'string') return false;
@@ -543,7 +569,7 @@ function createCounter(windowMs, maxCount) {
     }
     setInterval(sweep, windowMs).unref();
 
-    return function limiter(req, res, next, keyPrefix = '') {
+    function allow(req, keyPrefix = '') {
         const now = Date.now();
         const key = `${keyPrefix}|${clientIp(req) || 'unknown'}|${req.user?.username || '-'}`;
         let entry = hits.get(key);
@@ -552,15 +578,26 @@ function createCounter(windowMs, maxCount) {
             entry = { count: 0, resetAt: now + windowMs };
             hits.set(key, entry);
         }
-        if (entry.count >= maxCount) {
-            return res.status(429).json({
-                success: false,
-                error: `Thao tác quá thường xuyên (tối đa ${maxCount} lần/${Math.round(windowMs / 1000)} giây). Vui lòng thử lại sau.`
-            });
-        }
+        if (entry.count >= maxCount) return false;
         entry.count++;
+        return true;
+    }
+
+    function message() {
+        return `Thao tác quá thường xuyên (tối đa ${maxCount} lần/${Math.round(windowMs / 1000)} giây). Vui lòng thử lại sau.`;
+    }
+
+    function limiter(req, res, next, keyPrefix = '') {
+        if (!allow(req, keyPrefix)) {
+            return res.status(429).json({ success: false, error: message() });
+        }
         next();
-    };
+    }
+    // Nhánh <tts> chỉ đếm lần THẬT SỰ gọi HeyTTS: cache hit không tính, và một lớp học
+    // cùng bấm vào một đoạn mới chỉ tốn một lượt (những request sau chờ chung promise).
+    limiter.allow = allow;
+    limiter.message = message;
+    return limiter;
 }
 
 // Bộ đếm chỉ tính lần THẤT BẠI: người gõ đúng mật khẩu không bao giờ bị khoá.
@@ -1214,6 +1251,193 @@ app.post('/api/auth/register', rateLimitAuth, async (req, res) => {
     res.json({ success: true, token: issueToken(username, record), me: { username, role: record.role, ...authorInfo(username, record) } });
 });
 
+// --- ĐẶT LẠI MẬT KHẨU QUA EMAIL ---
+// Người dùng khai tên đăng nhập hoặc email -> server ghi một token ngẫu nhiên vào db
+// (chỉ lưu băm, không bao giờ lưu token) rồi gửi link chứa token. Link dùng một lần, hết
+// hạn sau 30 phút. Băm tính cả tokenVersion nên mọi thay đổi mật khẩu/đổi quyền (vốn tăng
+// tokenVersion) tự làm các link đang chờ vô hiệu mà không cần dọn dẹp thêm.
+
+const RESET_TTL_MS = Number(process.env.PASSWORD_RESET_TTL_MINUTES || 30) * 60 * 1000;
+const RESET_RESEND_MS = Number(process.env.PASSWORD_RESET_RESEND_SECONDS || 60) * 1000;
+const RESET_MAX_PER_IP = Number(process.env.PASSWORD_RESET_MAX_PER_IP || 30);
+// Một lớp học 300 người dùng chung một IP thoát NAT của trường, nên trần tính theo IP chỉ
+// là chống bots; trần toàn cục mới là thứ bảo vệ hộp thư quản trị (Gmail chặn gửi khi
+// vượt khoảng 2.000 thư/ngày và đánh dấu spam nếu bị phàn nàn hàng loạt).
+const MAIL_MAX_PER_HOUR = Number(process.env.PASSWORD_RESET_MAX_PER_HOUR || 120);
+const mailer = createMailer({ dataDir: DATA_DIR });
+console.log(`[mail] Chế độ gửi thư: ${mailer.describe()}`);
+const limitReset = createCounter(15 * 60 * 1000, RESET_MAX_PER_IP);
+const mailSendTimes = [];
+
+function mailBudgetLeft() {
+    const cutoff = Date.now() - 3600 * 1000;
+    while (mailSendTimes.length && mailSendTimes[0] < cutoff) mailSendTimes.shift();
+    return MAIL_MAX_PER_HOUR - mailSendTimes.length;
+}
+
+// Địa chỉ công khai dùng trong link. req.headers.host đi qua Cloudflare Tunnel nên mạo
+// danh được, vì thế chỉ tin biến môi trường.
+function publicBaseUrl() {
+    return String(process.env.PUBLIC_BASE_URL || 'https://heyshow.pedu.vn').replace(/\/+$/, '');
+}
+
+// Hộp thư để gửi link về: ưu tiên email trong hồ sơ, nếu không thì chính tên đăng nhập
+// khi nó đã là một địa chỉ email (31 tài khoản đời đầu đăng ký bằng email).
+function recoveryEmailFor(loginId, user) {
+    const profile = String(user?.email || '').trim();
+    if (EMAIL_RE.test(profile)) return profile;
+    const asName = String(loginId || '').trim();
+    return EMAIL_RE.test(asName) ? asName : '';
+}
+
+function resetTokenHash(token, loginId, tokenVersion) {
+    return crypto.createHash('sha256').update(`${token}|${loginId}|${tokenVersion}`).digest('hex');
+}
+
+function resetEmailBody({ name, loginId, email, link, minutes }) {
+    const greeting = name ? `Chào ${name},` : 'Chào bạn,';
+    const text = [
+        greeting,
+        '',
+        `Có người vừa yêu cầu đặt lại mật khẩu cho tài khoản HeyShow "${loginId}" (email ${email}).`,
+        '',
+        `Bấm vào đường link dưới đây để tự đặt mật khẩu mới. Link chỉ dùng được một lần và hết hạn sau ${minutes} phút:`,
+        '',
+        link,
+        '',
+        'Nếu bạn không yêu cầu việc này, chỉ cần bỏ qua email — mật khẩu hiện tại vẫn còn hiệu lực.',
+        '',
+        '— HeyShow',
+        `Trợ giúp: ${publicBaseUrl()}/help · Liên hệ quản trị: +84 979 555 375 (Signal)`
+    ].join('\n');
+
+    const html = [
+        `<p>${escapeHtml(greeting)}</p>`,
+        `<p>Có người vừa yêu cầu đặt lại mật khẩu cho tài khoản HeyShow <b>${escapeHtml(loginId)}</b> (email ${escapeHtml(email)}).</p>`,
+        `<p><a href="${escapeHtml(link)}" style="display:inline-block;padding:12px 20px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none">Đặt lại mật khẩu</a></p>`,
+        `<p>Link chỉ dùng được một lần và hết hạn sau ${minutes} phút. Nếu không bấm được, hãy sao chép cả đường dẫn này vào trình duyệt:</p>`,
+        `<p style="word-break:break-all">${escapeHtml(link)}</p>`,
+        `<p>Nếu bạn không yêu cầu việc này, chỉ cần bỏ qua email — mật khẩu hiện tại vẫn còn hiệu lực.</p>`,
+        `<p style="color:#6b7280">— HeyShow · Trợ giúp: <a href="${escapeHtml(`${publicBaseUrl()}/help`)}">${escapeHtml(`${publicBaseUrl()}/help`)}</a> · Liên hệ quản trị: +84 979 555 375 (Signal)</p>`
+    ].join('');
+
+    return { text, html };
+}
+
+// Trả lời một mẫu duy nhất bất kể tài khoản có tồn tại hay không, để endpoint công khai
+// không trở thành máy dò danh sách user.
+const RESET_GENERIC = 'Nếu tài khoản của bạn có gắn email, HeyShow đã gửi đường link đặt lại mật khẩu. Hãy kiểm tra cả thư rác.';
+
+app.post('/api/auth/forgot-password', limitReset, async (req, res) => {
+    if (!mailer.enabled()) {
+        return res.status(503).json({
+            success: false,
+            error: 'HeyShow chưa bật được gửi thư. Hãy liên hệ quản trị để đặt lại mật khẩu.'
+        });
+    }
+
+    const identifier = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+    if (!identifier || identifier.length > 254) return res.json({ success: true, message: RESET_GENERIC });
+
+    const currentDB = getDB();
+    const loginId = Object.hasOwn(currentDB.users, identifier)
+        ? identifier
+        : loginIdByEmail(currentDB, identifier);
+    if (!loginId) return res.json({ success: true, message: RESET_GENERIC });
+
+    const user = currentDB.users[loginId];
+    const email = recoveryEmailFor(loginId, user);
+    const pending = user.passwordReset;
+    if (!email) return res.json({ success: true, message: RESET_GENERIC });
+    // Đang có link còn hiệu lực và vừa gửi trong vòng một phút: giữ nguyên link cũ,
+    // không gửi thêm thư, cũng không trả lời khác đi.
+    if (pending && Number.isFinite(pending.sentAt) && Date.now() - pending.sentAt < RESET_RESEND_MS
+        && Number.isFinite(pending.expiresAt) && pending.expiresAt > Date.now()) {
+        return res.json({ success: true, message: RESET_GENERIC });
+    }
+    if (mailBudgetLeft() <= 0) {
+        return res.status(503).json({
+            success: false,
+            error: 'Hộp thư của HeyShow đang tạm hết chỗ gửi. Hãy thử lại sau ít phút hoặc liên hệ quản trị.'
+        });
+    }
+
+    const token = crypto.randomBytes(16).toString('hex');
+    const version = Number.isFinite(user.tokenVersion) ? user.tokenVersion : 0;
+    mutateDB(db => {
+        const rec = db.users[loginId];
+        if (!rec) return;
+        rec.passwordReset = {
+            tokenHash: resetTokenHash(token, loginId, version),
+            expiresAt: Date.now() + RESET_TTL_MS,
+            sentAt: Date.now()
+        };
+    });
+
+    const link = `${publicBaseUrl()}/reset_password?token=${token}`;
+    const body = resetEmailBody({
+        name: String(user.fullName || '').trim(),
+        loginId,
+        email,
+        link,
+        minutes: Math.round(RESET_TTL_MS / 60000)
+    });
+    const result = await mailer.send({ to: email, subject: 'Đặt lại mật khẩu HeyShow', text: body.text, html: body.html });
+
+    if (!result.sent) {
+        // Thư không đi thì link cũng phải biến mất: để lại token trong db là mở một cửa
+        // hậu mà không ai biết.
+        mutateDB(db => { if (db.users[loginId]) delete db.users[loginId].passwordReset; });
+        console.error(`[RESET] ${loginId}: không gửi được thư đi ${email} — ${result.reason}`);
+        return res.status(502).json({
+            success: false,
+            error: 'Không gửi được thư. Hãy thử lại sau, hoặc liên hệ quản trị để đặt lại mật khẩu.'
+        });
+    }
+
+    mailSendTimes.push(Date.now());
+    console.log(`[RESET] đã gửi link đặt lại mật khẩu cho ${loginId}`);
+    res.json({ success: true, message: RESET_GENERIC });
+});
+
+app.post('/api/auth/reset-password', limitReset, async (req, res) => {
+    const badLink = { success: false, error: 'Đường link đặt lại không hợp lệ hoặc đã hết hạn. Hãy yêu cầu thư mới.' };
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    const { password } = req.body;
+    if (!token || token.length > 128) return res.status(400).json(badLink);
+    if (passwordTooShort(password, SELF_PASSWORD_MIN)) {
+        return res.status(400).json({ success: false, error: `Mật khẩu phải có ít nhất ${SELF_PASSWORD_MIN} ký tự` });
+    }
+
+    const currentDB = getDB();
+    // Băm tính theo tokenVersion của lúc YÊU CẦU GỬI. Nếu tài khoản đổi mật khẩu hay đổi
+    // quyền giữa chừng (hai việc đều tăng tokenVersion) thì link cũ không còn khớp nữa.
+    const loginId = Object.keys(currentDB.users).find(name => {
+        const rec = currentDB.users[name];
+        const pending = rec && rec.passwordReset;
+        if (!pending || typeof pending !== 'object' || typeof pending.tokenHash !== 'string') return false;
+        const version = Number.isFinite(rec.tokenVersion) ? rec.tokenVersion : 0;
+        return resetTokenHash(token, name, version) === pending.tokenHash;
+    });
+    const pending = loginId ? currentDB.users[loginId].passwordReset : null;
+    if (!pending || !Number.isFinite(pending.expiresAt) || pending.expiresAt < Date.now()) {
+        return res.status(400).json(badLink);
+    }
+
+    const freshHash = await hashPassword(password);
+    mutateDB(db => {
+        const rec = db.users[loginId];
+        if (!rec) return;
+        rec.passwordHash = freshHash;
+        delete rec.passwordReset;
+    });
+    // Vô hiệu mọi phiên đang đăng nhập của tài khoản, đồng thời khiến chính link vừa dùng
+    // này không còn khớp băm nếu ai đó giữ bản sao.
+    bumpTokenVersion(loginId);
+    console.log(`[RESET] ${loginId} đã đặt lại mật khẩu qua email`);
+    res.json({ success: true, message: 'Mật khẩu mới đã được lưu. Hãy đăng nhập lại.' });
+});
+
 // --- API ROUTES (CẦN JWT) ---
 
 // --- API USER PROFILE ---
@@ -1533,7 +1757,21 @@ function buildFullHtml(fileName, rawHtml) {
     // duyệt đọc thành thẻ HTML — xem client/src/jsxgraph-runtime.js). Bài không dùng thẻ đó
     // thì đừng bắt người xem tải oan: gallery mở 12 iframe một lúc.
     const coJsxgraph = /<\s*jsxgraph\b/i.test(rawHtml);
-    const bai = coJsxgraph ? JSXGRAPH_BOC(rawHtml) : rawHtml;
+    const bai1 = coJsxgraph ? JSXGRAPH_BOC(rawHtml) : rawHtml;
+    // <wsp> cùng khuôn: script raw-text + runtime nội tuyến, nhưng thư viện Web Sketchpad
+    // (~1.3MB) lấy từ /wsp/ của chính máy chủ này chứ không từ CDN (client/src/wsp-runtime.js).
+    const coWsp = /<\s*wsp\b/i.test(bai1);
+    const bai2 = coWsp ? WSP_BOC(bai1) : bai1;
+    // <tts> cùng khuôn đổi thẻ, nhưng nội dung là chữ nên có thể chứa dấu `<`. Server còn
+    // đăng ký từng đoạn vào kho cache ngay ở đây (chưa gọi HeyTTS) và gắn hash vào thẻ;
+    // âm thanh chỉ được tạo khi người xem bấm nghe lần đầu — đúng cơ chế lazy.
+    const coTts = /<\s*tts\b/i.test(bai2);
+    const bai = coTts ? TTS_BOC(bai2, (chu, attrs) => {
+        const kq = tts.registerFromAttrs(chu, attrs);
+        return kq.error
+            ? ` data-tts-error="${escapeHtml(kq.error)}"`
+            : ` data-tts-hash="${kq.hash}"`;
+    }) : bai2;
     return `<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -1549,7 +1787,7 @@ function buildFullHtml(fileName, rawHtml) {
 ${SLIDE_HEAD_GUARD}
     </style>
     <style>${SLIDE_FULLSCREEN_CSS}
-    </style>${coJsxgraph ? `\n    ${SLIDE_JSXGRAPH_STYLE}` : ''}
+    </style>${coJsxgraph ? `\n    ${SLIDE_JSXGRAPH_STYLE}` : ''}${coWsp ? `\n    ${SLIDE_WSP_STYLE}` : ''}${coTts ? `\n    ${SLIDE_TTS_STYLE}` : ''}
 </head>
 <body>
     <div class="reveal">
@@ -1592,7 +1830,7 @@ ${SLIDE_HEAD_GUARD}
             });
         });
     </script>
-    ${coJsxgraph ? `${SLIDE_JSXGRAPH_JS}\n    ` : ''}${SLIDE_FULLSCREEN_BUTTON}
+    ${coJsxgraph ? `${SLIDE_JSXGRAPH_JS}\n    ` : ''}${coWsp ? `${SLIDE_WSP_JS}\n    ` : ''}${coTts ? `${SLIDE_TTS_JS}\n    ` : ''}${SLIDE_FULLSCREEN_BUTTON}
 ${SLIDE_FULLSCREEN_JS}
 </body>
 </html>`;
@@ -1748,6 +1986,128 @@ app.get('/api/files/:name/export', authenticateToken, (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     res.send(content);
+});
+
+// --- API SAO LƯU & PHỤC HỒI ---
+// Hai đường về nhà cho dữ liệu của người dùng: file .zip tải về máy (tab Backup) và
+// bản sao trong IndexedDB của trình duyệt (tab Sync, đẩy qua cùng một cửa ghi ở đây).
+
+const backup = require('./backup');
+// File zip của người có 50 bài toàn ảnh base64 có thể vượt xa giới hạn 5MB của express.json,
+// nên hai route nhận nhị phân dùng parser riêng với hạn mức hẳn hoi.
+const backupRaw = express.raw({ type: 'application/octet-stream', limit: '60mb' });
+
+// Ghi một loạt bản nháp. Trùng tên thì MẶC ĐỊNH giữ cả hai (bản phục hồi thành tên -2):
+// người dùng bấm phục hồi lúc hoảng vì mất bài, không ai muốn ghi đè lên thứ còn sót lại.
+// Nội dung đã giống hệt bản trên server thì bỏ qua, nhờ đẩy lần thứ hai không tạo bản thừa.
+function applyDeckBatch(req, decks, { overwrite }) {
+    const existing = new Set(presentationNames(req.userDir));
+    const fresh = decks.filter(d => !existing.has(d.fileName)).length;
+    const quota = quotaFor(req.user.username);
+    if (quota.max !== null && quota.used + fresh > quota.max) {
+        return {
+            blocked: {
+                status: 403,
+                body: {
+                    success: false,
+                    error: `${access.limitMessage(getDB().users[req.user.username]?.role, quota.max)} `
+                        + `File backup cần thêm ${fresh} bài, hiện bạn còn ${quota.max - quota.used} chỗ.`,
+                    quota
+                }
+            }
+        };
+    }
+
+    const entries = [];
+    for (const deck of decks) {
+        const draftPath = path.join(req.userDir, 'drafts', deck.fileName);
+        let current = null;
+        try { current = fs.readFileSync(draftPath, 'utf-8'); } catch (err) { /* chưa có bản nháp */ }
+
+        if (current !== null && current === deck.content) {
+            entries.push({ from: deck.fileName, fileName: deck.fileName, action: 'unchanged' });
+            continue;
+        }
+        const renamed = current !== null && !overwrite;
+        const fileName = renamed ? reserveDraftName(req, deck.fileName.replace(/\.html$/i, '')) : deck.fileName;
+        writeDraft(req, fileName, deck.content);
+        entries.push({
+            from: deck.fileName,
+            fileName,
+            action: current === null ? 'created' : (overwrite ? 'overwritten' : 'renamed')
+        });
+    }
+    return { entries };
+}
+
+// 1. Đóng gói toàn bộ bản nháp thành .zip: manifest.json + drafts/<tên bài>.html.
+//    Người dùng chỉ cần giải nén là đọc lại được từng bài bằng trình duyệt biasa.
+app.get('/api/backup/export', authenticateToken, async (req, res) => {
+    const draftDir = path.join(req.userDir, 'drafts');
+    const decks = listHtml(draftDir).map(fileName => {
+        const filePath = path.join(draftDir, fileName);
+        return { fileName, content: fs.readFileSync(filePath, 'utf-8'), updatedAt: fileMtime(filePath) };
+    });
+    if (!decks.length) {
+        return res.status(400).json({ success: false, error: 'Bạn chưa có bài trình chiếu nào để sao lưu' });
+    }
+
+    try {
+        const packed = await backup.buildBackupZip({
+            host: new URL(publicBaseUrl()).host,
+            slug: slugOf(req.user.username, getDB().users[req.user.username]),
+            decks
+        });
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${packed.fileName}"`);
+        res.send(packed.buffer);
+    } catch (err) {
+        res.status(500).json({ success: false, error: `Không tạo được file sao lưu: ${err.message}` });
+    }
+});
+
+// 2. Phục hồi từ file .zip do chính HeyShow xuất ra (hoặc bất kỳ zip nào có chứa .html).
+app.post('/api/backup/restore', authenticateToken, limitWrite, backupRaw, async (req, res) => {
+    let parsed;
+    try {
+        parsed = await backup.readBackupZip(req.body);
+    } catch (err) {
+        return res.status(err.status || 400).json({ success: false, error: err.message });
+    }
+
+    const out = applyDeckBatch(req, parsed.decks, { overwrite: req.query.overwrite === '1' });
+    if (out.blocked) return res.status(out.blocked.status).json(out.blocked.body);
+    res.json({ success: true, entries: out.entries });
+});
+
+// 3. Đẩy bản sao trong IndexedDB của trình duyệt lên server. Payload là JSON nhưng đi bằng
+//    application/octet-stream để không dính giới hạn 5MB của express.json toàn cục.
+app.post('/api/backup/push', authenticateToken, limitWrite, backupRaw, (req, res) => {
+    let payload;
+    try {
+        payload = JSON.parse(Buffer.isBuffer(req.body) ? req.body.toString('utf-8') : '');
+    } catch (err) {
+        return res.status(400).json({ success: false, error: 'Dữ liệu đẩy lên không đúng định dạng' });
+    }
+
+    const incoming = Array.isArray(payload.decks) ? payload.decks.slice(0, 500) : [];
+    const decks = [];
+    for (const deck of incoming) {
+        const fileName = backup.safeDeckName(deck?.fileName);
+        const content = typeof deck?.content === 'string' ? deck.content : null;
+        if (!fileName || content === null) {
+            return res.status(400).json({ success: false, error: 'Danh sách bài đẩy lên không hợp lệ' });
+        }
+        if (Buffer.byteLength(content, 'utf-8') > MAX_DRAFT_BYTES) {
+            return res.status(413).json({ success: false, error: `Bài "${fileName}" vượt quá 2MB` });
+        }
+        decks.push({ fileName, content });
+    }
+    if (!decks.length) return res.status(400).json({ success: false, error: 'Trình duyệt không có bản sao nào để đẩy lên' });
+
+    const out = applyDeckBatch(req, decks, { overwrite: payload.overwrite === true });
+    if (out.blocked) return res.status(out.blocked.status).json(out.blocked.body);
+    res.json({ success: true, entries: out.entries });
 });
 
 // --- API IMPORT PPTX ---
@@ -2019,6 +2379,8 @@ Cấu trúc một file HeyShow:
 - <section-master>...</section-master> (không bắt buộc, tối đa một thẻ): chứa nội dung dùng chung được hệ thống TỰ ĐỘNG chèn vào đầu MỌI slide khi trình chiếu (header, footer, <style> thiết lập chung...). Bản thân <section-master> KHÔNG phải là một slide.
 - <section>...</section>: mỗi thẻ là một slide. <section> lồng bên trong <section> tạo thành nhóm slide dọc.
 - <jsxgraph>...</jsxgraph>: đặt TRONG một <section>, vẽ hình Toán học tương tác bằng thư viện JSXGraph. Bên trong là JavaScript thuần: dùng biến \`board\` có sẵn (board.create('point', [1, 2])) hoặc tự gọi JXG.JSXGraph.initBoard(BOARDID, {...}); data-w / data-h quy định kích thước khung (px hoặc %). KHÔNG escape dấu < và & bên trong thẻ này — viết \`a < b\` nguyên văn.
+- <wsp>...</wsp>: đặt TRONG một <section>, nhúng mô hình Web Sketchpad. Bên trong là JSON của một file sketch (.json), VIÊN CHỨNG TOÀN BỘ nội dung file, không rút gọn, không bọc trong chuỗi, không escape: {"metadata":{"width":600,"height":400,"wsp-version":"4.8.0",...},"resources":{},"pages":[...]}. data-w / data-h quy định khung (px hoặc %); thiếu thì hệ thống tự co sketch vừa bề ngang slide.
+- <tts data-voice="diem_trinh" data-speed="1">...</tts>: đặt TRONG một <section>, đọc đoạn chữ bằng giọng HeyTTS. Bên trong CHỈ là chữ thuần (không thẻ HTML, không code). Giọng Việt: diem_trinh, duc_duy, mai_linh, manh_dung, ngoc_huyen, phat_tai, thuc_trinh; giọng Anh: af_heart, af_sarah, am_adam, bf_emma... data-speed trong khoảng 0.5–2. HỘI THOẠI NHIỀU GIỌNG: mỗi lượt mở đầu bằng [giọng], ví dụ: [am_adam] Good morning, class. [af_heart] It is five, sir. — cả hội thoại gộp thành MỘT nút nghe (một file Opus có khoảng lặng ngắn giữa các lượt). Chỉ dùng khi người dùng muốn có lời đọc; âm thanh được tạo ở lần nghe đầu nên không cần chèn link file.
 
 Quy tắc chung:
 - CHỈ TRẢ VỀ code HTML thuần (plain text): KHÔNG <html>/<head>/<body>, KHÔNG markdown backticks (\`\`\`html), KHÔNG giải thích.
@@ -2576,7 +2938,107 @@ app.delete('/api/p/:user/:file/comments/:commentId', authenticateToken, limitWri
     res.json({ success: true, removed: outcome.removed });
 });
 
+// --- ÂM THANH ĐỌC (thẻ <tts>) ---
+// Hai cửa: GET file .opus đã có (URL bất biến, cache được cả năm) và POST xin tạo âm
+// thanh. Đường POST của bài đã publish chỉ nhận việc đã đăng ký lúc publish/export; muốn
+// đọc đoạn chữ tuỳ ý thì phải đăng nhập (preview trong editor). Xem server/src/tts.js.
+const limitTts = createCounter(60 * 1000, Number(process.env.TTS_MAX_PER_MINUTE || 6));
+
+function traKetQuaTts(res, job, hash, cached) {
+    const dialogue = Array.isArray(job.segments);
+    return res.json({
+        success: true,
+        hash,
+        cached,
+        url: `/api/tts/audio/${hash}.opus`,
+        voice: dialogue ? 'dialogue' : job.voice,
+        speed: dialogue ? null : job.speed,
+        chars: dialogue
+            ? job.segments.reduce((n, s) => n + s.text.length, 0)
+            : job.text.length
+    });
+}
+
+app.get('/api/tts/audio/:file', (req, res) => {
+    const file = tts.audioFile(req.params.file);
+    if (!file) {
+        // no-store: lần đầu tiên thư viện chưa có file, sau khi tạo xong trình duyệt phải
+        // được phép hỏi lại cùng URL đó thay vì dùng lại kết quả 404 đã cache.
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(404).json({ success: false, error: 'Chưa có âm thanh cho đoạn này.' });
+    }
+    res.sendFile(file, {
+        maxAge: '1y',
+        immutable: true,
+        headers: { 'Content-Type': 'audio/ogg; codecs=opus' }
+    });
+});
+
+app.post('/api/tts/speak', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const token = extractBearer(req);
+    const user = token ? verifyToken(token) : null;
+    if (token && !user) {
+        return res.status(401).json({ success: false, code: 'auth', error: 'Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.' });
+    }
+
+    let job = null;
+    if (typeof body.hash === 'string' && body.hash) {
+        // Bài đã publish: hash đã được gắn vào thẻ lúc build, không cần gửi chữ.
+        job = tts.readJob(body.hash);
+        if (!job) {
+            return res.status(403).json({
+                success: false,
+                error: 'Đoạn âm thanh này chưa được đăng ký. Hãy Xuất bản lại bài để bật âm thanh.'
+            });
+        }
+    } else {
+        const kq = tts.normalize(body);
+        if (!kq.ok) return res.status(400).json({ success: false, error: kq.error });
+        // Chưa đăng nhập: chỉ cho đúng những đoạn đã có trong kho đăng ký (bài đã xuất
+        // bản hoặc mẫu công khai). Chặn việc biến HeyShow thành API TTS mở.
+        if (!user && !tts.readJob(tts.hashOf(kq.job))) {
+            return res.status(403).json({
+                success: false,
+                error: 'Chưa đăng nhập: chỉ được tạo âm thanh cho đoạn chữ có trong bài đã xuất bản.'
+            });
+        }
+        job = kq.job;
+    }
+
+    const hash = tts.hashOf(job);
+    if (tts.hasAudio(hash)) return traKetQuaTts(res, job, hash, true);
+
+    // Một đoạn đang được tổng hợp: chờ chung, không tính thêm lượt vào hạn mức.
+    if (tts.isInflight(hash)) {
+        try { await tts.whenReady(hash); } catch (err) { /* rơi xuống và thử lại bên dưới */ }
+        if (tts.hasAudio(hash)) return traKetQuaTts(res, job, hash, true);
+    }
+
+    if (!limitTts.allow(req, 'tts')) {
+        return res.status(429).json({ success: false, error: limitTts.message() });
+    }
+
+    try {
+        const kq = await tts.synthesize(job);
+        return traKetQuaTts(res, job, kq.hash, kq.cached);
+    } catch (err) {
+        return res.status(err.status || 502).json({ success: false, error: err.message });
+    }
+});
+
 // --- PHỤC VỤ STATIC FILES ---
+
+// Thư viện Web Sketchpad cho thẻ <wsp> — ~1.3MB nằm trong client/public/wsp/ (không có CDN
+// nào phát nó). Trang slide chạy với CSP sandbox nên document của nó có origin mờ: mọi XHR
+// nó phát đi là request null-origin, kể cả request tới chính máy chủ này. widgets.js nạp
+// bảng công cụ bằng $.load('widgets.html'), vì vậy toàn bộ /wsp/ phải trả
+// Access-Control-Allow-Origin: *. <script src> và ảnh thì không cần CORS.
+app.use('/wsp', express.static(path.join(CLIENT_DIST, 'wsp'), {
+    index: false,
+    setHeaders: (res2) => { res2.setHeader('Access-Control-Allow-Origin', '*'); }
+}));
 
 // Slide là HTML do người dùng tự viết. CSP sandbox cấp cho tài liệu một origin mờ,
 // nên code trong slide KHÔNG đọc được localStorage/cookie của editor dù vẫn chạy trên
@@ -2641,7 +3103,8 @@ const PUBLIC_PAGES = [
     ['/design', 'index.html'],
     ['/dashboard', 'dashboard.html'],
     ['/help', 'help.html'],
-    ['/templates', 'templates.html']
+    ['/templates', 'templates.html'],
+    ['/reset_password', 'reset.html']
 ];
 
 for (const [route, file] of PUBLIC_PAGES) {

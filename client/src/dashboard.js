@@ -1,8 +1,9 @@
-// Dashboard 3 tab: Presentations (dropdown ⋮ cho từng bài), Activities và Profile.
-import { get, post, del, request, getToken, setToken, clearToken, tokenPayload, getStashedToken, clearStashedToken, onUnauthorized } from './api.js';
+// Dashboard: Presentations (dropdown ⋮ cho từng bài), Activities, Profile, Import, Sync và Backup.
+import { get, post, del, request, getToken, setToken, clearToken, tokenPayload, getStashedToken, clearStashedToken, onUnauthorized, authHeaders } from './api.js';
+import { allDecks, putDeck, putDecks, clearDecks, isSupported as idbSupported, estimate as idbEstimate } from './browser-store.js';
 
 const TAB_KEY = 'heyshow_dashboard_tab';
-const TAB_NAMES = ['presentations', 'activities', 'profile', 'import'];
+const TAB_NAMES = ['presentations', 'activities', 'profile', 'import', 'sync', 'backup'];
 
 const itemsEl = document.getElementById('items');
 const itemsEmpty = document.getElementById('items-empty');
@@ -118,6 +119,8 @@ function switchTab(name) {
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     for (const t of TAB_NAMES) document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
     localStorage.setItem(TAB_KEY, name);
+    // Bảng so sánh cần dữ liệu hai phía (server + IndexedDB) nên chỉ dựng khi tab mở.
+    if (name === 'sync') refreshSync();
 }
 
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -489,7 +492,7 @@ function hideProgress() {
     importStatus.replaceChildren();
 }
 
-function uploadPptx(path, buffer, onUploadPct) {
+function uploadRaw(path, buffer, onUploadPct) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api' + path);
@@ -529,7 +532,7 @@ async function handlePptxFile(file) {
     const analyzePath = isPptx ? '/import/pptx/analyze' : `/import/text/analyze?orig=${encodeURIComponent(file.name)}`;
     try {
         importBuffer = await file.arrayBuffer();
-        const { status, data } = await uploadPptx(analyzePath, importBuffer, pct => {
+        const { status, data } = await uploadRaw(analyzePath, importBuffer, pct => {
             if (pct < 100) showProgress('Đang tải file lên HeyShow...', pct);
             else showProgress('Đã tải xong. Máy chủ đang phân tích file (có thể mất vài chục giây với file nhiều ảnh/video)...', null);
         });
@@ -622,7 +625,7 @@ async function doImport(btn) {
         ? `/import/pptx/convert?orig=${encodeURIComponent(importOrigName)}`
         : `/import/text/convert?orig=${encodeURIComponent(importOrigName)}`;
     try {
-        const { status, data } = await uploadPptx(convertPath, importBuffer, pct => {
+        const { status, data } = await uploadRaw(convertPath, importBuffer, pct => {
             if (pct < 100) showProgress('Đang gửi file để chuyển đổi...', pct);
             else showProgress('Đã tải xong. Máy chủ đang chuyển đổi sang slide HeyShow...', null);
         });
@@ -785,6 +788,355 @@ importDrop.addEventListener('drop', e => {
     handlePptxFile(e.dataTransfer?.files?.[0]);
 });
 
+// ---------- Sync: bản sao bài trong IndexedDB của trình duyệt ----------
+
+const syncSection = document.getElementById('tab-sync');
+const syncRows = document.getElementById('sync-rows');
+const syncStatus = document.getElementById('sync-status');
+const syncSummary = document.getElementById('sync-summary');
+const syncOverwrite = document.getElementById('sync-overwrite');
+const btnSyncPull = document.getElementById('btn-sync-pull');
+const btnSyncPush = document.getElementById('btn-sync-push');
+const btnSyncClear = document.getElementById('btn-sync-clear');
+
+let localDecks = [];   // bản sao đang nằm trong trình duyệt, nạp lại mỗi lần mở tab
+
+function setSyncStatus(text, isError) {
+    syncStatus.textContent = text;
+    syncStatus.className = isError ? 'error' : '';
+}
+
+function fmtBytes(bytes) {
+    if (!bytes) return '0 KB';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function serverDrafts() {
+    return items.filter(item => item.hasDraft);
+}
+
+// So sánh theo thời điểm: lúc tải về có ghi lại mtime của bài trên server, nên
+// "server mới hơn" nghĩa là bài đó đã được sửa sau lần tải gần nhất.
+function syncState(item, local) {
+    if (!item) return ['local-only', 'chỉ có trong trình duyệt'];
+    if (!local) return ['none', 'chưa có trong trình duyệt'];
+    if (item.updatedAt > local.serverUpdatedAt) return ['server-new', 'server mới hơn — tải lại'];
+    return ['synced', 'đã đồng bộ'];
+}
+
+function renderSync() {
+    syncRows.replaceChildren();
+    const byName = new Map(localDecks.map(d => [d.fileName, d]));
+    const rows = serverDrafts().map(item => ({ item, local: byName.get(item.fileName) || null }));
+    for (const deck of localDecks) {
+        if (!rows.some(r => r.item && r.item.fileName === deck.fileName)) rows.push({ item: null, local: deck });
+    }
+    rows.sort((a, b) => (b.item ? b.item.updatedAt : b.local.savedAt) - (a.item ? a.item.updatedAt : a.local.savedAt));
+
+    for (const row of rows) {
+        const name = row.item ? row.item.fileName : row.local.fileName;
+        const [cls, label] = syncState(row.item, row.local);
+        const tr = el('tr');
+        const title = el('td');
+        title.appendChild(el('b', null, row.item ? row.item.title : name));
+        // Bài chỉ còn trong trình duyệt thì tên file là tiêu đề, in lại dòng dưới chỉ thừa
+        if (row.item) title.appendChild(el('div', 'avatar-hint', name));
+        tr.appendChild(title);
+        tr.appendChild(el('td', null, row.item ? fmtVersion(row.item.updatedAt) : '— không còn trên server —'));
+        tr.appendChild(el('td', null, row.local ? `${fmtVersion(row.local.savedAt)} · ${fmtBytes(row.local.bytes)}` : '—'));
+        tr.appendChild(el('td')).appendChild(el('span', `state ${cls}`, label));
+        syncRows.appendChild(tr);
+    }
+    renderSyncSummary(rows);
+}
+
+async function renderSyncSummary(rows) {
+    const bytes = localDecks.reduce((n, d) => n + (d.bytes || 0), 0);
+    const est = await idbEstimate();
+    syncSummary.textContent = localDecks.length
+        ? `${rows.length} bài · ${localDecks.length} bản sao trong trình duyệt (${fmtBytes(bytes)})`
+        + (est && est.usage ? ` · trình duyệt đang dùng ${fmtBytes(est.usage)} cho toàn bộ dữ liệu của HeyShow` : '')
+        : 'Trình duyệt này chưa chứa bản sao nào của bài trình chiếu.';
+}
+
+// Chỉ đọc IndexedDB khi cần; lỗi (bị tab khác giữ, trình duyệt chặn) báo ra status chứ không ném.
+async function readLocalDecks() {
+    if (!idbSupported()) {
+        localDecks = [];
+        setSyncStatus('Trình duyệt này không có IndexedDB (chế độ ẩn danh?). Hãy dùng tab Backup để tải file .zip.', true);
+        return false;
+    }
+    try {
+        localDecks = await allDecks();
+        return true;
+    } catch (e) {
+        localDecks = [];
+        setSyncStatus(e.message || 'Không đọc được bản sao trong trình duyệt', true);
+        return false;
+    }
+}
+
+async function refreshSync() {
+    const ok = await readLocalDecks();
+    renderSync();
+    if (ok) setSyncStatus(localDecks.length ? '' : 'Chưa có bản sao nào. Bấm "Tải từ server về trình duyệt" để tạo.');
+}
+
+function deckRecord(fileName, content) {
+    const item = items.find(i => i.fileName === fileName);
+    return {
+        fileName,
+        content,
+        bytes: new Blob([content]).size,
+        serverUpdatedAt: item ? item.updatedAt : Date.now(),
+        savedAt: Date.now()
+    };
+}
+
+async function pullOne(fileName) {
+    const content = (await get(`/api/files/${encodeURIComponent(fileName)}`)).content;
+    const deck = deckRecord(fileName, content);
+    await putDeck(deck);
+    return deck;
+}
+
+async function pullAll() {
+    const drafts = serverDrafts();
+    if (!drafts.length) return setSyncStatus('Bạn chưa có bài nào trên server để tải về.', true);
+    btnSyncPull.disabled = true;
+    btnSyncPush.disabled = true;
+    const failed = [];
+    try {
+        const pulled = [];
+        for (let i = 0; i < drafts.length; i++) {
+            setSyncStatus(`Đang tải bài ${i + 1}/${drafts.length}: ${drafts[i].fileName}`);
+            try {
+                pulled.push(deckRecord(drafts[i].fileName, (await get(`/api/files/${encodeURIComponent(drafts[i].fileName)}`)).content));
+            } catch (e) {
+                if (e && e.status === 401) { clearToken(); return requireLogin(); }
+                failed.push(drafts[i].fileName);
+            }
+        }
+        if (pulled.length) await putDecks(pulled);
+        await refreshSync();
+        setSyncStatus(failed.length
+            ? `⚠ Đã cất ${pulled.length} bài, ${failed.length} bài lỗi: ${failed.join(', ')}. Bấm lại để tải phần còn thiếu.`
+            : `✅ Đã cất ${pulled.length} bài vào trình duyệt này.`, failed.length > 0);
+        if (!failed.length) showToast('Đã tải bản sao về trình duyệt');
+    } catch (e) {
+        setSyncStatus(e.message || 'Không ghi được vào IndexedDB', true);
+    } finally {
+        btnSyncPull.disabled = false;
+        btnSyncPush.disabled = false;
+    }
+}
+
+// Đếm số bài theo hành động server trả về, dùng chung cho push và restore.
+function summarizeEntries(entries) {
+    const n = action => entries.filter(e => e.action === action).length;
+    const parts = [];
+    if (n('created')) parts.push(`${n('created')} bài tạo mới`);
+    if (n('overwritten')) parts.push(`${n('overwritten')} bài ghi đè`);
+    if (n('renamed')) parts.push(`${n('renamed')} bài trùng tên, cất thành tên khác`);
+    if (n('unchanged')) parts.push(`${n('unchanged')} bài đã giống hệt nên bỏ qua`);
+    return parts.length ? parts.join(' · ') : 'không có bài nào';
+}
+
+// Sau khi đẩy lên, bản sao trong trình duyệt phải được coi là khớp với server. Bài bị
+// đổi tên (trùng tên) thì ngược lại: kéo bản trên server về đè lên bản cục bộ, vì nội dung
+// đẩy đi đã nằm an toàn trên server dưới tên khác.
+async function markPushed(entries) {
+    await load();
+    let touched = false;
+    for (const e of entries) {
+        if (e.action === 'renamed') { await pullOne(e.from); touched = true; continue; }
+        const item = items.find(i => i.fileName === e.fileName);
+        const local = localDecks.find(d => d.fileName === e.from);
+        if (!item || !local || local.serverUpdatedAt === item.updatedAt) continue;
+        local.serverUpdatedAt = item.updatedAt;
+        await putDeck(local);
+        touched = true;
+    }
+    if (touched) localDecks = await allDecks();
+}
+
+async function pushAll() {
+    if (!localDecks.length) {
+        return setSyncStatus('Trình duyệt chưa có bản sao nào để đẩy lên. Bấm "Tải từ server về trình duyệt" trước.', true);
+    }
+    btnSyncPush.disabled = true;
+    btnSyncPull.disabled = true;
+    setSyncStatus(`Đang đẩy ${localDecks.length} bài lên server...`);
+    try {
+        const out = await request('POST', '/api/backup/push', {
+            body: JSON.stringify({
+                overwrite: syncOverwrite.checked,
+                decks: localDecks.map(d => ({ fileName: d.fileName, content: d.content }))
+            }),
+            raw: true,
+            headers: { 'Content-Type': 'application/octet-stream' }
+        });
+        if (!out.ok || !out.data || !out.data.success) {
+            setSyncStatus((out.data && out.data.error) || `Server từ chối (lỗi ${out.status})`, true);
+            return;
+        }
+        await markPushed(out.data.entries);
+        renderSync();
+        setSyncStatus(`✅ Đẩy lên xong: ${summarizeEntries(out.data.entries)}.`);
+        showToast('Đã đẩy bản sao lên server');
+    } catch (e) {
+        setSyncStatus(e.message || 'Lỗi kết nối khi đẩy lên server', true);
+    } finally {
+        btnSyncPush.disabled = false;
+        btnSyncPull.disabled = false;
+    }
+}
+
+btnSyncPull.addEventListener('click', () => pullAll());
+btnSyncPush.addEventListener('click', () => pushAll());
+btnSyncClear.addEventListener('click', async () => {
+    if (!localDecks.length) return setSyncStatus('Trình duyệt không có bản sao nào để xoá.');
+    if (!confirm(`Xoá ${localDecks.length} bản sao trong trình duyệt này?\n\nBài trên server không bị ảnh hưởng, và có thể tải lại bất cứ lúc nào.`)) return;
+    try {
+        await clearDecks();
+        localDecks = [];
+        renderSync();
+        setSyncStatus('Đã xoá toàn bộ bản sao trong trình duyệt.');
+    } catch (e) {
+        setSyncStatus(e.message || 'Không xoá được bản sao', true);
+    }
+});
+
+// ---------- Backup: file .zip tải về máy và phục hồi từ file ----------
+
+const btnBackupExport = document.getElementById('btn-backup-export');
+const backupStatus = document.getElementById('backup-status');
+const backupReport = document.getElementById('backup-report');
+const backupDrop = document.getElementById('backup-drop');
+const btnPickZip = document.getElementById('btn-pick-zip');
+const backupFile = document.getElementById('backup-file');
+const backupZipName = document.getElementById('backup-zip-name');
+const backupOverwrite = document.getElementById('backup-overwrite');
+const btnBackupRestore = document.getElementById('btn-backup-restore');
+
+const MAX_ZIP_BYTES = 60 * 1024 * 1024;   // đúng hạn mức express.raw của route restore
+
+let zipBuffer = null;   // ArrayBuffer file .zip đã chọn, chỉ gửi lên khi bấm Phục hồi
+
+function setBackupStatus(text, isError) {
+    backupStatus.textContent = text;
+    backupStatus.className = isError ? 'error' : '';
+}
+
+function clearZipPick() {
+    zipBuffer = null;
+    backupFile.value = '';
+    backupZipName.textContent = '';
+    btnBackupRestore.disabled = true;
+}
+
+async function exportBackup() {
+    btnBackupExport.disabled = true;
+    setBackupStatus('Máy chủ đang đóng gói toàn bộ bản nháp của bạn...');
+    try {
+        // zip là nhị phân nên không đi qua request()/api.js: đọc res.text() sẽ làm hỏng byte
+        const res = await fetch('/api/backup/export', { headers: authHeaders() });
+        if (!res.ok) {
+            const msg = `Không tải được file sao lưu (lỗi ${res.status})`;
+            let data = null;
+            try { data = await res.json(); } catch (e) { /* server lỗi giữa chừng, trả HTML */ }
+            if (data && data.code === 'auth') { clearToken(); return requireLogin(); }
+            setBackupStatus((data && data.error) || msg, true);
+            return;
+        }
+        const blob = await res.blob();
+        const disp = res.headers.get('Content-Disposition') || '';
+        const name = (/filename="([^"]+)"/.exec(disp) || [])[1] || 'heyshow-backup.zip';
+        const a = el('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        setBackupStatus(`✅ Đã tải về ${name} (${fmtBytes(blob.size)}). Giải nén ra là thấy thư mục drafts/ — mở từng file .html bằng trình duyệt là đọc được bài.`);
+        showToast('Đã tải file sao lưu');
+    } catch (e) {
+        setBackupStatus('Lỗi kết nối khi tải file sao lưu', true);
+    } finally {
+        btnBackupExport.disabled = false;
+    }
+}
+
+async function handleZipFile(file) {
+    if (!file) return;
+    if (!/\.zip$/i.test(file.name)) return setBackupStatus('Chỉ nhận file .zip do HeyShow xuất ra', true);
+    if (file.size > MAX_ZIP_BYTES) return setBackupStatus(`File vượt quá ${fmtBytes(MAX_ZIP_BYTES)}`, true);
+    clearZipPick();
+    setBackupStatus('Đang đọc file...');
+    try {
+        zipBuffer = await file.arrayBuffer();
+    } catch (e) {
+        return setBackupStatus('Không đọc được file này', true);
+    }
+    backupZipName.textContent = `${file.name} · ${fmtBytes(file.size)}`;
+    btnBackupRestore.disabled = false;
+    setBackupStatus('File đã sẵn sàng. Bấm "Phục hồi từ file đã chọn" để đưa các bài về thành bản nháp. Bài trùng tên mặc định được giữ cả hai.');
+}
+
+async function doRestore() {
+    if (!zipBuffer) return;
+    btnBackupRestore.disabled = true;
+    setBackupStatus('Đang gửi file lên server...');
+    // uploadRaw tự nối tiền tố /api, nên ở đây chỉ đưa đường đi sau /api
+    const route = '/backup/restore' + (backupOverwrite.checked ? '?overwrite=1' : '');
+    try {
+        const { status, data } = await uploadRaw(route, zipBuffer, pct => {
+            if (pct < 100) setBackupStatus(`Đang tải file lên HeyShow: ${pct}%`);
+            else setBackupStatus('Đã gửi xong. Máy chủ đang giải nén và ghi bản nháp...');
+        });
+        if (data && data.code === 'auth') { clearToken(); return requireLogin(); }
+        if (!data || !data.success) {
+            setBackupStatus((data && data.error) || `Phục hồi thất bại (lỗi ${status})`, true);
+            return;
+        }
+        renderRestoreReport(data.entries);
+        setBackupStatus(`✅ ${summarizeEntries(data.entries)}. Bấm lại để phục hồi lần nữa, ví dụ với tuỳ chọn ghi đè.`);
+        showToast('Đã phục hồi từ file backup');
+        await load();
+        if (!syncSection.classList.contains('hidden')) await refreshSync();
+    } catch (e) {
+        setBackupStatus('Lỗi kết nối khi phục hồi', true);
+    } finally {
+        // File vẫn được giữ lại sau lần phục hồi nên nút sáng trở lại, chỉ hết bấm khi chọn file khác
+        btnBackupRestore.disabled = !zipBuffer;
+    }
+}
+
+function renderRestoreReport(entries) {
+    backupReport.replaceChildren();
+    const renamed = entries.filter(e => e.action === 'renamed');
+    if (!renamed.length) return;
+    const box = el('div', 'media-guide');
+    box.appendChild(el('p', null, 'Những bài trùng tên được cất thành tên khác để không mất bản đang có trên server:'));
+    for (const e of renamed) box.appendChild(el('p', null, `• ${e.from} → ${e.fileName}`));
+    box.appendChild(el('p', null, 'Muốn ghi đè thay vì tạo bản đôi, tích "Ghi đè bài trùng tên trên server" rồi phục hồi lại — bản đang có vẫn được cất vào lịch sử phiên bản.'));
+    backupReport.appendChild(box);
+}
+
+btnBackupExport.addEventListener('click', () => exportBackup());
+backupDrop.addEventListener('click', () => backupFile.click());
+btnPickZip.addEventListener('click', e => { e.stopPropagation(); backupFile.click(); });
+backupFile.addEventListener('change', () => handleZipFile(backupFile.files[0]));
+backupDrop.addEventListener('dragover', e => { e.preventDefault(); backupDrop.classList.add('drag'); });
+backupDrop.addEventListener('dragleave', () => backupDrop.classList.remove('drag'));
+backupDrop.addEventListener('drop', e => {
+    e.preventDefault();
+    backupDrop.classList.remove('drag');
+    handleZipFile(e.dataTransfer?.files?.[0]);
+});
+btnBackupRestore.addEventListener('click', doRestore);
+
 // ---------- Modal xoá / đổi tên ----------
 
 function openDelete(item) {
@@ -908,5 +1260,6 @@ async function load() {
 }
 
 switchTab(localStorage.getItem(TAB_KEY) || 'presentations');
-load();
+// Mở Dashboard sẵn ở tab Sync: load() chạy nền, xong thì dựng bảng so sánh với dữ liệu thật.
+load().then(() => { if (!syncSection.classList.contains('hidden')) refreshSync(); });
 loadProfile();

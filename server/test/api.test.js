@@ -316,6 +316,127 @@ test('runtime <jsxgraph>: server và client sinh ra cùng một mảnh HTML', as
     assert.equal(ho, '<jsxgraph>board.create();', 'thẻ thiếu </jsxgraph> phải để nguyên');
 });
 
+// --- Thẻ <wsp> ---
+// Người dùng dán TOÀN BỘ nội dung file .json của một sketch Web Sketchpad vào thẻ. JSON thì
+// đầy dấu nháy và có thể chứa dấu `<` trong một chuỗi (nhãn "a<b"), nên cùng lớp lỗi với
+// <jsxgraph>: đưa thẳng vào DOM là parser HTML đọc thành thẻ. WSP_BOC cũng đổi sang script
+// raw-text. Thư viện WSP ~1.3MB (không có CDN, đóng gói trong client/public/wsp/) nên bài
+// không có thẻ <wsp> tuyệt đối không được mang theo.
+const WSP_SKETCH = '{"metadata":{"width":600,"height":400,"wsp-version":"4.8.0"},"resources":{},'
+    + '"pages":[{"objects":{"a":{"type":"point","name":"A","coords":[1,2]},'
+    + '"t":{"type":"text","text":"a<b và \\"nháy\\"","position":[3,4]}}}]}';
+
+test('thẻ <wsp>: bản publish mang runtime, JSON sketch giữ nguyên từng ký tự', async () => {
+    const sp = require('../src/slide-parts.js');
+    const tok = srv.users.master.login;
+    const code = [
+        '<section>',
+        '  <h2>Sketch Web Sketchpad</h2>',
+        '  <wsp data-w="70%" data-h="80%">',
+        WSP_SKETCH,
+        '  </wsp>',
+        '</section>'
+    ].join('\n');
+
+    await apiRequest(srv.url, 'POST', '/api/files/wsp.html', { token: tok, body: { content: code } });
+    const pub = await apiRequest(srv.url, 'POST', '/api/files/wsp.html/publish', { token: tok });
+    assert.equal(pub.status, 200);
+    const bai = await (await fetch(srv.url + pub.json.url)).text();
+
+    assert.ok(bai.includes(sp.SLIDE_WSP_JS), 'file publish phải nội tuyến đúng runtime mà slide-parts.js sinh ra');
+    assert.ok(bai.includes(sp.SLIDE_WSP_STYLE), 'file publish phải kèm CSS của khung sketch');
+    assert.ok(bai.includes(`<script type="${sp.WSP_TYPE}" data-w="70%" data-h="80%">`),
+        'thẻ phải thành script raw-text và thuộc tính data-* đi theo nguyên văn');
+    // Hai mảnh runtime có nhắc "<wsp>" trong comment/log nên phải gỡ chúng ra trước rồi mới dò.
+    const phanBai = bai.replace(sp.SLIDE_WSP_STYLE, '').replace(sp.SLIDE_WSP_JS, '');
+    assert.ok(!/<\s*wsp\b/i.test(phanBai), 'không còn thẻ <wsp> thô nào trong bài viết');
+    // Nguyên văn tới mức JSON.parse lại ra đúng chuỗi đã dán, kể cả dấu < viết trần và dấu
+    // nháy lồng trong giá trị: đó chính là lớp lỗi "$0<p<1$" từng làm parser nuốt cả slide.
+    const khoWsp = bai.match(/<script type="text\/wsp"[^>]*>([\s\S]*?)<\/script>/);
+    assert.ok(khoWsp, 'phải còn đúng khối script raw-text chứa JSON');
+    assert.equal(JSON.parse(khoWsp[1]).pages[0].objects.t.text, 'a<b và "nháy"',
+        'JSON sketch phải đi qua nguyên văn từng ký tự');
+    // Runtime tự suy thư mục từ URL trang (bản publish) rồi ghép tên file, nên hai mảnh
+    // '/wsp/' và 'wsp-min.js' nằm rời nhau trong nguồn — đừng đòi một chuỗi liền.
+    assert.ok(bai.includes(`'${sp.WSP_DIR}'`) && bai.includes("'wsp-min.js'"),
+        'runtime phải lấy thư viện Web Sketchpad từ /wsp/ của chính máy chủ');
+    // WSP_MOUNT được cắt nguyên văn vào bài publish nên không đọc được WSP_HOME: máy gốc
+    // phải nằm cứng trong hàm. Đổi WSP_HOME mà quên đổi chuỗi này thì bài export tải về
+    // mở ở máy khác hết đường hồi về — test này là cái kẹp giữ hai bên khớp nhau.
+    assert.ok(bai.includes(`'${sp.WSP_HOME}'`),
+        'runtime phải có máy gốc dự phòng cho bài export mở ở nơi không có /wsp/');
+
+    // /export của bản nháp đi qua cùng buildFullHtml, phải ra cùng một mảnh
+    await apiRequest(srv.url, 'POST', '/api/files/wspdraft.html', { token: tok, body: { content: code } });
+    const exported = await (await fetch(`${srv.url}/api/files/wspdraft.html/export`, {
+        headers: { Authorization: `Bearer ${tok}` }
+    })).text();
+    assert.ok(exported.includes(sp.SLIDE_WSP_JS), 'file export cũng phải có runtime');
+    assert.ok(exported.includes(`<script type="${sp.WSP_TYPE}"`), 'export cũng đổi thẻ sang script raw-text');
+
+    // Bài chỉ có chữ: không được trả giá 1.3MB cho thứ slide không dùng
+    const onlyText = '<section><h1>Chỉ chữ</h1><p>$a<b$</p></section>';
+    await apiRequest(srv.url, 'POST', '/api/files/nowsp.html', { token: tok, body: { content: onlyText } });
+    const p2 = await apiRequest(srv.url, 'POST', '/api/files/nowsp.html/publish', { token: tok });
+    const bai2 = await (await fetch(srv.url + p2.json.url)).text();
+    assert.ok(!bai2.includes(sp.WSP_MARKER), 'bài không có <wsp> phải sạch runtime');
+    assert.ok(!/heyshow-wsp|wsp-min\.js/.test(bai2), 'bài không có <wsp> không được nhắc tới Web Sketchpad');
+});
+
+// Server cắt chuỗi từ file nguồn của client chứ không import: lệch một ký tự là giáo viên soạn
+// một đằng, người xem nhận một nẻo (bài học của REVEAL_KATEX_OPTS và của <jsxgraph>).
+test('runtime <wsp>: server và client sinh ra cùng một mảnh HTML', async () => {
+    const read = rel => fs.readFileSync(path.join(__dirname, rel), 'utf8');
+    const sp = require('../src/slide-parts.js');
+    const client = await import('../../client/src/wsp-runtime.js');
+
+    for (const key of ['WSP_VERSION', 'WSP_HOME', 'WSP_DIR', 'WSP_MARKER', 'WSP_TYPE']) {
+        assert.equal(client[key], sp[key], `client/src/wsp-runtime.js phải cùng ${key} với server`);
+    }
+    assert.equal(client.WSP_STYLE, sp.SLIDE_WSP_STYLE, 'CSS của preview và bản publish phải một');
+    // Bản publish để trống DIR (runtime tự suy ra từ URL trang) — đúng WSP_SCRIPT('') của client.
+    assert.equal(client.WSP_SCRIPT(''), sp.SLIDE_WSP_JS, 'runtime của preview và bản publish phải một');
+
+    const MAU = `<section><wsp data-w="640">${WSP_SKETCH}</wsp></section>`;
+    assert.equal(client.WSP_BOC(MAU), sp.WSP_BOC(MAU), 'hai bên đổi thẻ phải ra cùng kết quả');
+    assert.ok(sp.WSP_BOC(MAU).includes('<script type="text/wsp" data-w="640">'), 'kết quả phải là script raw-text');
+
+    // Preview không được tự viết lại cách dựng sketch
+    for (const file of ['src/reveal-preview.js', 'src/main.js']) {
+        assert.ok(read(`../../client/${file}`).includes('wsp-runtime.js'),
+            `${file} phải lấy runtime từ wsp-runtime.js thay vì tự ghi`);
+        assert.ok(read(`../../client/${file}`).includes('WSP_BOC('),
+            `${file} phải đổi thẻ <wsp> y hệt bản publish trước khi đưa vào DOM`);
+    }
+
+    // Thẻ không cân cặp: BOC bỏ qua để debug.js còn thấy mà báo, không nuốt cả bài
+    assert.equal(sp.WSP_BOC('<wsp>{"pages":[]}</wsp> <wsp>{"pages":[]}'),
+        '<wsp>{"pages":[]}</wsp> <wsp>{"pages":[]}', 'thẻ thiếu </wsp> phải để nguyên');
+});
+
+// Thư viện WSP không có CDN: từng file phải nằm trong client/public/wsp/ vì runtime gọi tên
+// thẳng, và widgets.html phải fetch được từ trang slide vốn chạy với CSP sandbox (origin mờ)
+// nên cần Access-Control-Allow-Origin. Thiếu một file là sketch chết giữa chừng — từng xảy ra
+// với jquery.tiny-draggable.min.js mà widgets.js gọi lúc mở bảng điều khiển.
+test('/wsp/: thư viện đóng gói phải đủ file và mở cho origin mờ', async () => {
+    const thuMuc = path.join(__dirname, '../../client/public/wsp');
+    const CAN = ['jquery-2.1.0.min.js', 'jquery.tiny-draggable.min.js', 'wsp-min.js',
+        'wsp-runner.js', 'widgets.js', 'widgets.css', 'widgets.html'];
+    for (const f of CAN) {
+        const duongDan = path.join(thuMuc, f);
+        assert.ok(fs.existsSync(duongDan), `client/public/wsp/${f} phải có mặt (runtime gọi thẳng tên này)`);
+        assert.ok(fs.statSync(duongDan).size > 0, `client/public/wsp/${f} rỗng`);
+    }
+    // getScriptPath() của widgets.js dò <script src> kết thúc bằng "/widgets.js" để suy ra
+    // thư mục png + widgets.html: đổi tên là mất ảnh của bảng điều khiển.
+    assert.ok(fs.existsSync(path.join(thuMuc, 'widgets.js')), 'bản nén widgets phải mang tên widgets.js');
+
+    const res = await fetch(srv.url + '/wsp/widgets.html');
+    assert.equal(res.status, 200, '/wsp/widgets.html phải phục vụ được');
+    assert.equal(res.headers.get('access-control-allow-origin'), '*',
+        'trang slide chạy CSP sandbox (origin mờ) nên /wsp/ phải trả CORS cho widgets.html');
+});
+
 // Sidebar và nội dung trang /templates sinh từ GROUP + SAMPLES của từng file danh mục trong
 // client/src/templates/, nối nhau theo thứ tự khai báo ở groups.js. Khai báo lệch một ký tự là
 // mẫu biến mất khỏi trang trong im lặng (không lỗi, không cảnh báo), nên test chốt lại tính
@@ -1204,4 +1325,375 @@ test('tái sử dụng chịu hạn mức bài của người bấm', async () =
 
     const still = await apiRequest(srv.url, 'GET', '/api/files', { token: full });
     assert.equal(still.json.files.length, 10, 'bị chặn thì không được để lại bản nháp mồ côi');
+});
+
+// --- ĐẶT LẠI MẬT KHẨU QUA EMAIL ---
+// Instance riêng chạy transport "capture": thư không đi ra ngoài mà ghi xuống
+// <dataDir>/mail-outbox.jsonl, đủ để soi nội dung link và vòng đời của token.
+
+function readOutbox(dataDir) {
+    try {
+        return fs.readFileSync(path.join(dataDir, 'mail-outbox.jsonl'), 'utf-8')
+            .split('\n').filter(Boolean).map(line => JSON.parse(line));
+    } catch (err) {
+        return [];
+    }
+}
+
+test('chưa cấu hình gửi thư thì endpoint báo thẳng 503, không im lặng nuốt yêu cầu', async () => {
+    // srv là instance chung, helper đã khóa chặt SMTP nên mailer đang ở chế độ tắt
+    const res = await apiRequest(srv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'tuser' } });
+    assert.equal(res.status, 503);
+    assert.match(res.json.error, /chưa bật/);
+});
+
+test('MAIL_TRANSPORT=off chặn cả SMTP đã có credentials: nói tắt là không được gửi thật', async () => {
+    const offSrv = await startServer({
+        env: { MAIL_TRANSPORT: 'off', SMTP_USER: 'quantri@example.edu.vn', SMTP_PASS: 'mat-kha-gia-d' }
+    });
+    try {
+        const reg = await apiRequest(offSrv.url, 'POST', '/api/auth/register', {
+            body: { username: 'offmail', password: 'matkhau123', email: 'offmail@example.edu.vn', urlSlug: 'offmail' }
+        });
+        assert.equal(reg.status, 200, JSON.stringify(reg.json));
+        const res = await apiRequest(offSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'offmail' } });
+        assert.equal(res.status, 503, 'mailer tắt thì phải báo 503 chứ không im lặng ghi token chờ gửi');
+    } finally {
+        await offSrv.stop();
+    }
+});
+
+test('quên mật khẩu: link chỉ dùng một lần, db chỉ lưu băm, đổi mật khẩu đá mọi phiên cũ', async () => {
+    const mailSrv = await startServer({
+        env: { MAIL_TRANSPORT: 'capture', PUBLIC_BASE_URL: 'https://heyshow.test', PASSWORD_RESET_RESEND_SECONDS: '0' }
+    });
+    try {
+        const registered = await apiRequest(mailSrv.url, 'POST', '/api/auth/register', {
+            body: { username: 'tpw', password: 'matkhau123', email: 'tpw@example.edu.vn', urlSlug: 'tpw' }
+        });
+        assert.equal(registered.status, 200, JSON.stringify(registered.json));
+        const sessionToken = registered.json.token;
+
+        const asked = await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'tpw' } });
+        assert.equal(asked.status, 200);
+        assert.match(asked.json.message, /đã gửi đường link/);
+
+        const mails = readOutbox(mailSrv.dataDir);
+        assert.equal(mails.length, 1, 'một yêu cầu phải đúng một lá thư');
+        assert.equal(mails[0].to, 'tpw@example.edu.vn');
+        const link = mails[0].text.match(/https:\/\/heyshow\.test\/reset_password\?token=([0-9a-f]{32})/);
+        assert.ok(link, `thiếu link đúng định dạng trong thư:\n${mails[0].text}`);
+        const token = link[1];
+
+        await sleep(350); // db.json ghi xuống theo chu kỳ 250ms của storage.js
+        const db = JSON.parse(fs.readFileSync(path.join(mailSrv.dataDir, 'db.json'), 'utf-8'));
+        assert.match(db.users.tpw.passwordReset.tokenHash, /^[0-9a-f]{64}$/, 'phải lưu băm SHA-256');        assert.ok(!JSON.stringify(db).includes(token), 'db.json không được chứa token thô');
+
+        // Sai token và mật khẩu quá ngắn không được tiêu tốn link
+        const wrong = await apiRequest(mailSrv.url, 'POST', '/api/auth/reset-password', { body: { token: 'f'.repeat(32), password: 'matkhaumoi123' } });
+        assert.equal(wrong.status, 400);
+        const short = await apiRequest(mailSrv.url, 'POST', '/api/auth/reset-password', { body: { token, password: '123' } });
+        assert.equal(short.status, 400, 'mật khẩu ngắn phải bị chặn trước khi tiêu link');
+
+        const done = await apiRequest(mailSrv.url, 'POST', '/api/auth/reset-password', { body: { token, password: 'matkhaumoi123' } });
+        assert.equal(done.status, 200, JSON.stringify(done.json));
+
+        const reused = await apiRequest(mailSrv.url, 'POST', '/api/auth/reset-password', { body: { token, password: 'matkhaumoi456' } });
+        assert.equal(reused.status, 400, 'link đã dùng không được dùng lần hai');
+
+        const oldSession = await apiRequest(mailSrv.url, 'GET', '/api/user/profile', { token: sessionToken });
+        assert.equal(oldSession.status, 401);
+        assert.equal(oldSession.json.code, 'auth', 'phiên đang mở phải bị vô hiệu sau khi đổi mật khẩu');
+
+        const newLogin = await apiRequest(mailSrv.url, 'POST', '/api/auth/login', { body: { username: 'tpw', password: 'matkhaumoi123' } });
+        assert.equal(newLogin.status, 200);
+        const oldLogin = await apiRequest(mailSrv.url, 'POST', '/api/auth/login', { body: { username: 'tpw', password: 'matkhau123' } });
+        assert.equal(oldLogin.status, 401);
+
+        // link mới lại xin bằng EMAIL (loginId của tpw không phải email)
+        const byEmail = await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'TPW@example.edu.vn' } });
+        assert.equal(byEmail.status, 200);
+        assert.equal(readOutbox(mailSrv.dataDir).length, 2, 'tìm tài khoản qua email phải gửi được thư, kể cả viết hoa');
+    } finally {
+        await mailSrv.stop();
+    }
+});
+
+test('quên mật khẩu không dò được tài khoản, bỏ qua tài khoản không email, và không spam hộp thư', async () => {
+    const mailSrv = await startServer({
+        env: { MAIL_TRANSPORT: 'capture', PUBLIC_BASE_URL: 'https://heyshow.test' }
+    });
+    try {
+        const admin = await apiRequest(mailSrv.url, 'POST', '/api/auth/login', {
+            body: { username: 'admin', password: mailSrv.adminPassword }
+        });
+        const tok = admin.json.token;
+        // Tài khoản do admin tạo: không có email trong hồ sơ
+        await apiRequest(mailSrv.url, 'POST', '/api/admin/users', {
+            token: tok, body: { username: 'tnomail', password: 'matkhau123', role: 'user' }
+        });
+        await apiRequest(mailSrv.url, 'POST', '/api/auth/register', {
+            body: { username: 'thasmail', password: 'matkhau123', email: 'thas@example.edu.vn', urlSlug: 'thas' }
+        });
+
+        const generic = (res) => {
+            assert.equal(res.status, 200);
+            assert.match(res.json.message, /Nếu tài khoản của bạn có gắn email/);
+        };
+
+        generic(await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'khongtontaix' } }));
+        generic(await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'tnomail' } }));
+        generic(await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: {} }));
+        assert.equal(readOutbox(mailSrv.dataDir).length, 0, 'không được gửi thư cho tài khoản ma hay tài khoản thiếu email');
+
+        generic(await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'thasmail' } }));
+        assert.equal(readOutbox(mailSrv.dataDir).length, 1);
+        // Bấm liên tiếp: lá thư thứ hai bị chặn bởi thời gian chờ, câu trả lời vẫn như cũ
+        generic(await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'thasmail' } }));
+        generic(await apiRequest(mailSrv.url, 'POST', '/api/auth/forgot-password', { body: { username: 'thas@example.edu.vn' } }));
+        assert.equal(readOutbox(mailSrv.dataDir).length, 1, 'phải có thời gian chờ giữa hai lá thư của cùng một tài khoản');
+
+        await sleep(350); // db.json ghi xuống theo chu kỳ 250ms của storage.js
+        const db = JSON.parse(fs.readFileSync(path.join(mailSrv.dataDir, 'db.json'), 'utf-8'));
+        assert.ok(!db.users.tnomail.passwordReset, 'tài khoản không email không được nhận token treo trong db');
+        assert.ok(db.users.thasmail.passwordReset.tokenHash, 'tài khoản hợp lệ phải có token');
+    } finally {
+        await mailSrv.stop();
+    }
+});
+// ---------- sao lưu (.zip) và phục hồi ----------
+
+const JSZip = require('jszip');
+const backupLib = require('../src/backup');
+
+// Route backup nhận nhị phân nên không đi qua apiRequest (vốn ép Content-Type json).
+// Đọc body hai lần sẽ làm hỏng stream, vì thế mỗi helper chỉ trả về MỘT dạng kết quả.
+async function rawPost(baseUrl, route, token, buffer) {
+    const res = await fetch(baseUrl + route, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream', Authorization: `Bearer ${token}` },
+        body: buffer
+    });
+    return { status: res.status, json: await res.json().catch(() => null) };
+}
+
+async function exportZip(baseUrl, token) {
+    const res = await fetch(baseUrl + '/api/backup/export', { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status !== 200) return { status: res.status, json: await res.json().catch(() => null) };
+    return {
+        status: res.status,
+        contentType: res.headers.get('content-type'),
+        disposition: res.headers.get('content-disposition'),
+        buffer: Buffer.from(await res.arrayBuffer())
+    };
+}
+
+async function zipOf(files) {
+    const zip = new JSZip();
+    for (const [name, content] of Object.entries(files)) zip.file(name, content);
+    return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+// Ghi lại kích thước giải nén trong header zip thành 8 byte còn nội dung thật vẫn giữ
+// nguyên: zip do tay người tạo, để qua mặt mọi kiểm tra chỉ nhìn vào header.
+// Đủ an toàn để quét thô vì nội dung các test này toàn chữ "A", không chứa dấu hiệu PK.
+function lieAboutSizes(buffer) {
+    const out = Buffer.from(buffer);
+    for (let i = 0; i + 4 <= out.length; i++) {
+        const sig = out.readUInt32LE(i);
+        if (sig === 0x04034b50) out.writeUInt32LE(8, i + 22);       // local file header
+        else if (sig === 0x02014b50) out.writeUInt32LE(8, i + 24);  // central directory
+    }
+    return out;
+}
+
+let backupToken = null;
+
+test('file zip backup chứa manifest và toàn bộ bản nháp, tên file theo khuôn', async () => {
+    backupToken = await makeUser('tbackup');
+    const save = (name, content) => apiRequest(srv.url, 'POST', `/api/files/${name}`, {
+        token: backupToken, body: { content }
+    });
+    await save('ly-thuyet.html', '<section><h1>Lý thuyết</h1></section>');
+    await save('bai-tap.html', '<section><h1>Bài tập</h1></section>');
+
+    const out = await exportZip(srv.url, backupToken);
+    assert.equal(out.status, 200, JSON.stringify(out.json));
+    assert.match(out.contentType, /application\/zip/);
+    assert.match(out.disposition, /filename="heyshow\.pedu\.vn-backup-tbackup-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}\.zip"/);
+
+    const zip = await JSZip.loadAsync(out.buffer);
+    const manifest = JSON.parse(await zip.file('manifest.json').async('string'));
+    assert.equal(manifest.app, 'HeyShow');
+    assert.equal(manifest.slug, 'tbackup');
+    assert.equal(manifest.deckCount, 2);
+    assert.deepEqual(manifest.decks.map(d => d.fileName).sort(), ['bai-tap.html', 'ly-thuyet.html']);
+    assert.equal(await zip.file('drafts/ly-thuyet.html').async('string'), '<section><h1>Lý thuyết</h1></section>');
+});
+
+test('chưa có bài nào thì không tạo file zip rỗng', async () => {
+    const lonely = await makeUser('tlonely');
+    const out = await exportZip(srv.url, lonely);
+    assert.equal(out.status, 400);
+    assert.match(out.json.error, /chưa có bài/);
+});
+
+test('phục hồi zip đưa bài đã xoá trở lại đúng tên cũ, chỉ dưới dạng nháp', async () => {
+    const packed = await exportZip(srv.url, backupToken);
+    await apiRequest(srv.url, 'DELETE', '/api/files/ly-thuyet.html', { token: backupToken });
+    const gone = await apiRequest(srv.url, 'GET', '/api/files/ly-thuyet.html', { token: backupToken });
+    assert.equal(gone.status, 404, 'phải xoá thật thì đây mới là tình huống phục hồi');
+
+    const res = await rawPost(srv.url, '/api/backup/restore', backupToken, packed.buffer);
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+    const actions = Object.fromEntries(res.json.entries.map(e => [e.fileName, e.action]));
+    assert.equal(actions['ly-thuyet.html'], 'created');
+    assert.equal(actions['bai-tap.html'], 'unchanged', 'bài nguyên trạng không được bị nhân bản');
+
+    const back = await apiRequest(srv.url, 'GET', '/api/files/ly-thuyet.html', { token: backupToken });
+    assert.equal(back.json.content, '<section><h1>Lý thuyết</h1></section>');
+
+    const dash = await apiRequest(srv.url, 'GET', '/api/dashboard', { token: backupToken });
+    const item = dash.json.items.find(i => i.fileName === 'ly-thuyet.html');
+    assert.equal(item.status, 'draft', 'phục hồi không tự ý publish lại bài');
+});
+
+test('trùng tên: mặc định giữ cả hai, bật overwrite thì ghi đè và giữ bản cũ trong history', async () => {
+    const packed = await exportZip(srv.url, backupToken);
+    await apiRequest(srv.url, 'POST', '/api/files/ly-thuyet.html', {
+        token: backupToken, body: { content: '<section><h1>Bản sửa mới</h1></section>' }
+    });
+
+    const keep = await rawPost(srv.url, '/api/backup/restore', backupToken, packed.buffer);
+    assert.equal(keep.status, 200, JSON.stringify(keep.json));
+    const renamed = keep.json.entries.find(e => e.action === 'renamed');
+    assert.equal(renamed.from, 'ly-thuyet.html');
+    assert.equal(renamed.fileName, 'ly-thuyet-2.html');
+    const current = await apiRequest(srv.url, 'GET', '/api/files/ly-thuyet.html', { token: backupToken });
+    assert.match(current.json.content, /Bản sửa mới/, 'giữ cả hai nghĩa là không đụng bản đang có');
+
+    const over = await rawPost(srv.url, '/api/backup/restore?overwrite=1', backupToken, packed.buffer);
+    assert.equal(over.status, 200, JSON.stringify(over.json));
+    assert.equal(over.json.entries.find(e => e.fileName === 'ly-thuyet.html').action, 'overwritten');
+    const restored = await apiRequest(srv.url, 'GET', '/api/files/ly-thuyet.html', { token: backupToken });
+    assert.match(restored.json.content, /Lý thuyết/);
+
+    const hist = await apiRequest(srv.url, 'GET', '/api/files/ly-thuyet.html/history', { token: backupToken });
+    assert.ok(hist.json.versions.length >= 1, 'ghi đè phải để lại bản cũ trong lịch sử phiên bản');
+});
+
+test('zip độc hại: tên vượt thư mục bị chặn ngay ở tầng kiểm tra', async () => {
+    // JSZip tự xoá "../" khi ghi zip, nên đường này phải thử hàm kiểm tên trực tiếp —
+    // zip do công cụ khác tạo vẫn mang được entry có tên vượt thư mục.
+    assert.equal(backupLib.safeDeckName('../../../evil.html'), null);
+    assert.equal(backupLib.safeDeckName('drafts/bai tap.html'), 'bai tap.html');
+    assert.equal(backupLib.safeDeckName('drafts/x.htm'), null);
+
+    const junk = await zipOf({ 'notes/readme.txt': 'không phải bài trình chiếu' });
+    const res = await rawPost(srv.url, '/api/backup/restore', backupToken, junk);
+    assert.equal(res.status, 400, 'zip không còn entry hợp lệ nào phải bị từ chối');
+    assert.match(res.json.error, /không chứa bài/);
+
+    const notZip = await rawPost(srv.url, '/api/backup/restore', backupToken, Buffer.from('day khong phai zip'));
+    assert.equal(notZip.status, 400);
+});
+
+test('zip phục hồi chỉ ghi được vào thư mục bài của chính người phục hồi', async () => {
+    const zip = await zipOf({ '../../../evil.html': '<section>x</section>' });
+    const res = await rawPost(srv.url, '/api/backup/restore', backupToken, zip);
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+
+    assert.ok(fs.existsSync(path.join(srv.dataDir, 'users', 'tbackup', 'drafts', 'evil.html')),
+        'bài phải nằm trong drafts của chính tài khoản');
+    assert.ok(!fs.existsSync(path.join(srv.dataDir, 'evil.html')),
+        'không được ghi ra ngoài kho dữ liệu');
+});
+
+test('zip bomb: header khai báo bài to bất thường thì chặn trước khi giải nén', async () => {
+    // DEFLATE nén 3MB chữ "A" lặp lại xuống còn vài KB, nên đây là tình huống thật:
+    // body nhỏ lọt qua express.raw nhưng giải nén ra thì vượt xa dung lượng file.
+    const bombToken = await makeUser('tbomb1');
+    const zip = new JSZip();
+    zip.file('drafts/bomb.html', 'A'.repeat(3 * 1024 * 1024));
+    const packed = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+    assert.ok(packed.length < 64 * 1024, `zip phải rất nhỏ so với nội dung, thực đo ${packed.length} byte`);
+
+    const res = await rawPost(srv.url, '/api/backup/restore', bombToken, packed);
+    assert.equal(res.status, 400, JSON.stringify(res.json));
+    assert.match(res.json.error, /2MB/);
+});
+
+test('zip bomb nói láo header: vẫn chặn bằng số byte thật chảy ra lúc giải nén', async () => {
+    // Không nén (STORE) để dung lượng zip bằng đúng nội dung, rồi sửa header khai 8 byte.
+    const bombToken = await makeUser('tbomb2');
+    const honest = await zipOf({ 'drafts/bomb.html': 'A'.repeat(3 * 1024 * 1024) });
+    const lied = lieAboutSizes(honest);
+
+    const asZip = await JSZip.loadAsync(lied);
+    assert.equal(asZip.files['drafts/bomb.html']._data.uncompressedSize, 8,
+        'header phải thật sự nói láo thì phép thử mới chứng minh được tầng chặn dưới');
+
+    const res = await rawPost(srv.url, '/api/backup/restore', bombToken, lied);
+    assert.equal(res.status, 400, JSON.stringify(res.json));
+    assert.match(res.json.error, /2MB/);
+});
+
+test('đẩy từ IndexedDB: nhận diện bài giống hệt, tạo bài mới, giữ cả hai khi trùng tên', async () => {
+    const pushToken = await makeUser('tpush');
+    const save = (name, content) => apiRequest(srv.url, 'POST', `/api/files/${name}`, {
+        token: pushToken, body: { content }
+    });
+    await save('Onthi.html', '<section>A</section>');
+
+    const first = await rawPost(srv.url, '/api/backup/push', pushToken, Buffer.from(JSON.stringify({
+        decks: [
+            { fileName: 'Onthi.html', content: '<section>A</section>' },
+            { fileName: 'ChuyenDong.html', content: '<section>C</section>' }
+        ]
+    })));
+    assert.equal(first.status, 200, JSON.stringify(first.json));
+    const actions = Object.fromEntries(first.json.entries.map(e => [e.fileName, e.action]));
+    assert.equal(actions['Onthi.html'], 'unchanged');
+    assert.equal(actions['ChuyenDong.html'], 'created');
+
+    await save('Onthi.html', '<section>A sửa trên server</section>');
+    const second = await rawPost(srv.url, '/api/backup/push', pushToken, Buffer.from(JSON.stringify({
+        decks: [{ fileName: 'Onthi.html', content: '<section>A bản trong trình duyệt</section>' }]
+    })));
+    assert.equal(second.json.entries[0].fileName, 'Onthi-2.html', 'trùng tên thì mặc định giữ cả hai');
+    const onServer = await apiRequest(srv.url, 'GET', '/api/files/Onthi.html', { token: pushToken });
+    assert.match(onServer.json.content, /A sửa trên server/);
+
+    const third = await rawPost(srv.url, '/api/backup/push', pushToken, Buffer.from(JSON.stringify({
+        overwrite: true,
+        decks: [{ fileName: 'Onthi.html', content: '<section>A bản trong trình duyệt</section>' }]
+    })));
+    assert.equal(third.json.entries.find(e => e.fileName === 'Onthi.html').action, 'overwritten');
+
+    const bad = await rawPost(srv.url, '/api/backup/push', pushToken, Buffer.from(JSON.stringify({
+        decks: [{ fileName: '../../../evil.html', content: '<section>x</section>' }]
+    })));
+    assert.equal(bad.status, 400);
+});
+
+test('phục hồi không được vượt hạn mức bài của người dùng', async () => {
+    const poor = await makeUser('tpoor');
+    for (let i = 1; i <= 10; i++) {
+        const res = await apiRequest(srv.url, 'POST', `/api/files/bai-${i}.html`, {
+            token: poor, body: { content: `<section>${i}</section>` }
+        });
+        assert.equal(res.status, 200, `phải lấp được hạn mức, lỗi ${JSON.stringify(res.json)}`);
+    }
+
+    const zip = await zipOf({
+        'drafts/moi-1.html': '<section>1</section>',
+        'drafts/moi-2.html': '<section>2</section>'
+    });
+    const res = await rawPost(srv.url, '/api/backup/restore', poor, zip);
+    assert.equal(res.status, 403);
+    assert.match(res.json.error, /tối đa 10 bài/);
+    assert.notEqual(res.json.code, 'auth', 'đầy hạn mức không phải phiên chết');
+
+    const still = await apiRequest(srv.url, 'GET', '/api/files', { token: poor });
+    assert.equal(still.json.files.length, 10, 'bị chặn thì không được ghi nửa vời');
 });

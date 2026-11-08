@@ -19,7 +19,8 @@
     "express": "^5.2.1",
     "fast-xml-parser": "^5.11.2",
     "jsonwebtoken": "^9.0.3",
-    "jszip": "^3.10.2"
+    "jszip": "^3.10.2",
+    "nodemailer": "^10.3.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

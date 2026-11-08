@@ -1,6 +1,18 @@
 // Trang Help: render các ví dụ code kèm preview Reveal.js thật (lazy-load khi cuộn tới)
 import { previewHtml } from './reveal-preview.js';
 
+// Ba sketch WSP cho mục 5.3. Mẫu phải mang NGUYÊN VĂN nội dung file .json vì đó đúng cách
+// người dùng dán vào thẻ <wsp> (kể cả dấu { }), nên chép file rồi import ?raw thay vì viết
+// lại bằng chuỗi — JSON chứa " và \ dày đặc, escaping thủ công dễ sai.
+// client/src/samples/wsp/ là bản copy từ embed-objects-examples/WSP/wsp-examples (thư mục
+// đó bị gitignore, không đi theo repo).
+import WSP_DIEM_TU_DO from './samples/wsp/t1_free_points.json?raw';
+import WSP_NUT_ANIM from './samples/wsp/t5_button_anim.json?raw';
+import WSP_NGU_GIAC from './samples/wsp/Dung_ngu_giac_deu.json?raw';
+// Đoạn chữ mẫu cho <tts>. Cùng file này được server đọc lúc khởi động để đăng ký sẵn:
+// người chưa đăng nhập mở /help vẫn bấm Nghe được, còn văn bản tuỳ ý thì phải đăng nhập.
+import TTS_SAMPLES from './samples/tts/samples.json';
+
 const EXAMPLES = {
     master: [
         {
@@ -599,16 +611,189 @@ def tinh_tong(n):
   </div>
 </section>`
         }
+    ],
+
+    wsp: [
+        {
+            title: 'Dán nguyên văn file .json của sketch',
+            note: 'Copy TOÀN BỘ nội dung file .json (kể hai dấu { }) dán vào giữa <wsp> và </wsp>. Mô hình hiện đúng 100% khung vẽ đã thiết kế — kéo thử điểm A, B, C.',
+            code: `<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Ba điểm tự do</h2>
+  <wsp>
+${WSP_DIEM_TU_DO}
+  </wsp>
+</section>`
+        },
+        {
+            title: 'Nút bấm, animation và thanh điều khiển',
+            note: 'Nút và hiệu ứng bên trong sketch chạy đúng như trong Web Sketchpad. Thanh ngang phía dưới (undo/redo, Reset, Widgets) mặc định ẩn — thêm data-bar="true" khi cần.',
+            code: `<section>
+  <h2>Nút và animation</h2>
+  <wsp data-bar="true">
+${WSP_NUT_ANIM}
+  </wsp>
+</section>`
+        },
+        {
+            title: 'Nền trong suốt, viền mảnh, cột công cụ',
+            note: 'Ba thuộc tính độc lập: data-bg="transparent" cho nền hoà vào slide, data-border="1px solid #cbd5e1" để đóng khung mảnh (mặc định không viền), data-style-widget="true" hiện cột nút Style/Trace/Label (mặc định ẩn).',
+            code: `<section-master>
+  <style>
+    /* Nền gradient sáng để thấy rõ mô hình trong suốt nằm liền trên nền slide. */
+    .reveal { background: #f8fafc linear-gradient(135deg, #dbeafe, #fef3c7) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Dựng ngũ giác đều</h2>
+  <wsp data-bg="transparent" data-border="1px solid #cbd5e1" data-style-widget="true">
+${WSP_NGU_GIAC}
+  </wsp>
+</section>`
+        }
+    ],
+
+    tts: [
+        {
+            title: 'Đọc một đoạn văn bằng giọng Việt',
+            note: 'Bấm Nghe: lần đầu HeyShow gọi HeyTTS tạo tệp Opus (vài giây), lần sau phát ngay từ bộ nhớ đệm. data-voice chọn giọng đọc, data-speed nhận 0.5–2. Thanh audio mặc định ẩn — chỉ có nút; thêm data-controls="true" khi cần tua.',
+            code: `<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Nghe lại định lí Pythagore</h2>
+  <tts data-voice="${TTS_SAMPLES[0].voice}" data-speed="${TTS_SAMPLES[0].speed}">
+${TTS_SAMPLES[0].text}
+  </tts>
+</section>`
+        },
+        {
+            title: 'Giọng Anh, chậm để luyện nghe',
+            note: 'Đổi data-voice sang một giọng Anh (af_heart, af_sarah, am_adam, bf_emma…) và hạ data-speed xuống 0.85. Cùng một đoạn chữ với cùng giọng và tốc độ thì chỉ tạo âm thanh một lần.',
+            code: `<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Listening practice</h2>
+  <tts data-voice="${TTS_SAMPLES[1].voice}" data-speed="${TTS_SAMPLES[1].speed}">
+${TTS_SAMPLES[1].text}
+  </tts>
+</section>`
+        },
+        {
+            title: 'Chỉ một biểu tượng, màu và cỡ theo ý',
+            note: 'data-icon-only bỏ chữ, để lại biểu tượng phát/tạm dừng; data-color đổi màu, data-size nhận small / normal / large (hoặc một cỡ CSS như 0.8em). Dòng chú thích giọng đọc tự ẩn khi icon-only — thêm data-caption="true" nếu vẫn muốn hiện.',
+            code: `<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Câu hỏi luyện nghe</h2>
+  <p>Nghe câu hỏi rồi chọn đáp án.</p>
+  <tts data-voice="${TTS_SAMPLES[2].voice}" data-speed="${TTS_SAMPLES[2].speed}"
+       data-icon-only data-color="#0f766e" data-size="large" data-label="Nghe câu hỏi">
+${TTS_SAMPLES[2].text}
+  </tts>
+</section>`
+        },
+        {
+            title: 'Hiện thanh audio để tua và xem thời lượng',
+            note: 'data-controls="true" hiện thanh phát của trình duyệt bên cạnh nút. Nút lớn vẫn là nút phát/tạm dừng, thanh bên dưới dùng để tua; data-caption="false" ẩn dòng giọng đọc.',
+            code: `<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Listening practice</h2>
+  <tts data-voice="${TTS_SAMPLES[3].voice}" data-speed="${TTS_SAMPLES[3].speed}"
+       data-controls="true" data-caption="false">
+${TTS_SAMPLES[3].text}
+  </tts>
+</section>`
+        }
+    ],
+
+    'tts-dialogue': [
+        {
+            title: 'Hội thoại giáo viên – học sinh (tiếng Anh)',
+            note: 'Mỗi lượt mở đầu bằng [giọng]. Cả hội thoại gộp thành MỘT nút và một file Opus, có khoảng lặng 180ms giữa các lượt. data-speed áp cho mọi lượt; chữ trước marker đầu tiên (nếu có) đọc bằng data-voice.',
+            code: `<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Pythagorean dialogue</h2>
+  <tts data-voice="${TTS_SAMPLES[5].voice}" data-speed="${TTS_SAMPLES[5].speed}" data-label="Play the dialogue">
+${TTS_SAMPLES[5].text}
+  </tts>
+</section>`
+        },
+        {
+            title: 'Hội thoại Anh – Việt xen kẽ, nút icon-only',
+            note: 'Trộn giọng Anh và Việt trong cùng một hội thoại; HeyTTS tự chọn engine MLX hoặc PyTorch MPS cho từng lượt. Nút icon-only và màu/cỡ vẫn dùng như mục 4.8.',
+            code: `<section-master>
+  <style>
+    .reveal { background: #fffdf8 linear-gradient(135deg, #f1f5f9, #fff7ed) !important; }
+    .reveal .slides section { color: #1f2937; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { color: #b45309; }
+  </style>
+</section-master>
+
+<section>
+  <h2>Bilingual maths talk</h2>
+  <tts data-speed="${TTS_SAMPLES[6].speed}" data-icon-only data-color="#0f766e"
+       data-size="large" data-label="Play the mixed dialogue">
+${TTS_SAMPLES[6].text}
+  </tts>
+</section>`
+        }
     ]
 };
 
 function renderExamples() {
     document.querySelectorAll('[data-examples]').forEach(holder => {
         const group = EXAMPLES[holder.dataset.examples] || [];
+        // Ví dụ <wsp>: JSON của sketch dài hàng chục nghìn ký tự, nếu xếp dọc như các mục
+        // khác thì trang kéo dài mãi. Xếp 1 dòng 2 cột — mô hình bên trái, hướng dẫn khảo
+        // sát + code (cuộn riêng) bên phải — đúng cảnh dùng thật: mô hình nằm cạnh ý khảo sát.
+        const laWsp = holder.dataset.examples === 'wsp';
         group.forEach((ex, i) => {
             const card = document.createElement('div');
             card.className = 'example';
             card.dataset.index = String(i);
+            if (laWsp) card.classList.add('example-wsp');
 
             const head = document.createElement('div');
             head.className = 'example-head';
@@ -654,14 +839,9 @@ function renderExamples() {
             codeEl.textContent = ex.code;
             pre.appendChild(codeEl);
 
-            card.append(head, pre);
-
-            if (ex.note) {
-                const note = document.createElement('div');
-                note.className = 'note';
-                note.textContent = ex.note;
-                card.appendChild(note);
-            }
+            const note = document.createElement('div');
+            note.className = 'note';
+            note.textContent = ex.note || '';
 
             const preview = document.createElement('div');
             preview.className = 'preview';
@@ -671,7 +851,25 @@ function renderExamples() {
             const iframe = document.createElement('iframe');
             iframe.title = 'Preview: ' + ex.title;
             preview.append(label, iframe);
-            card.appendChild(preview);
+
+            card.appendChild(head);
+            if (laWsp) {
+                const body = document.createElement('div');
+                body.className = 'example-body';
+                const model = document.createElement('div');
+                model.className = 'example-model';
+                const guide = document.createElement('div');
+                guide.className = 'example-guide';
+                if (ex.note) guide.appendChild(note);
+                guide.appendChild(pre);
+                model.appendChild(preview);
+                body.append(model, guide);
+                card.appendChild(body);
+            } else {
+                card.appendChild(pre);
+                if (ex.note) card.appendChild(note);
+                card.appendChild(preview);
+            }
 
             holder.appendChild(card);
         });

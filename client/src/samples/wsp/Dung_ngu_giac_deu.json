@@ -1,0 +1,386 @@
+{
+  "metadata" : {
+    "width" : 874,
+    "height" : 456,
+    "wsp-version" : "4.8.0",
+    "exporter-version" : "5.11",
+    "exporter-build" : "3060",
+    "exporter-debug" : false,
+    "original-document-name" : "Dung_ngu_giac_deu.gsp",
+    "start-page" : "1"
+    },
+  "resources" : {
+    "fontList" : [
+      "\"Times New Roman\", serif"
+      ]
+    },
+  "pages" : [
+    {
+      "metadata" : {
+        "title" : "1",
+        "id" : "1",
+        "sketchRect" : {
+          "top" : 0,
+          "left" : 0,
+          "bottom" : 456,
+          "right" : 874
+          }
+        },
+      "preferences" : {
+        "units" : {
+          "length" : "cm",
+          "angle" : "deg"
+          },
+        "precision" : {
+          "length" : 2,
+          "angle" : 2,
+          "scalar" : 2
+          },
+        "colorableComponents" : {
+          "Selection" : {
+            "color" : "fuchsia"
+            },
+          "ActionButton" : {
+            "color" : "rgb(255,128,0)"
+            }
+          },
+        "text" : {
+          "mathItalicization" : true,
+          "textTypes" : {
+            "Label" : {
+              "font-family" : "\"Times New Roman\", serif"
+              },
+            "Caption" : {
+              "font-family" : "\"Times New Roman\", serif",
+              "font-size" : 24,
+              "font-weight" : "bold",
+              "font-style" : "italic",
+              "color" : "green"
+              },
+            "Measurement" : {
+              "font-family" : "\"Times New Roman\", serif",
+              "font-weight" : "bold",
+              "color" : "purple"
+              },
+            "Action" : {
+              "label" : {
+                "font-family" : "\".AppleSystemUIFont\", ",
+                "font-size" : 18,
+                "font-weight" : "bold"
+                }
+              },
+            "Table" : {
+              "font-family" : "\"Arial\", sans-serif"
+              },
+            "AxisTicksAndOptionalLabel" : {
+              "font-family" : "\"Arial\", sans-serif"
+              }
+            }
+          }
+        },
+      "objects" : {
+        "1" : {
+          "kind" : "Point",
+          "genus" : "Point",
+          "constraint" : "Free",
+          "geom" : {
+            "loc" : {
+              "x" : 249,
+              "y" : 199
+              }
+            },
+          "label" : "O",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 5,
+              "labelOffsetY" : -3
+              }
+            }
+          },
+        "2" : {
+          "kind" : "Point",
+          "genus" : "Point",
+          "constraint" : "Free",
+          "geom" : {
+            "loc" : {
+              "x" : 387,
+              "y" : 198
+              }
+            },
+          "label" : "K",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 4,
+              "labelOffsetY" : -3
+              }
+            }
+          },
+        "3" : {
+          "kind" : "Circle",
+          "genus" : "Circle",
+          "parents" : {
+            "p0" : "1",
+            "p1" : "2"
+            },
+          "constraint" : "CircleFromTwoPoints"
+          },
+        "4" : {
+          "kind" : "Straight",
+          "genus" : "Line",
+          "parents" : {
+            "p0" : "1",
+            "p1" : "2"
+            },
+          "constraint" : "Line"
+          },
+        "5" : {
+          "kind" : "Straight",
+          "genus" : "Perpendicular",
+          "parents" : {
+            "p0" : "1",
+            "line" : "4"
+            },
+          "constraint" : "Perpendicular",
+          "style" : {
+            "line-style" : "dashed"
+            }
+          },
+        "6" : {
+          "kind" : "Point",
+          "genus" : "Intersection",
+          "parents" : {
+            "obj" : "4",
+            "circle" : "3"
+            },
+          "constraint" : "Intersection1",
+          "label" : "A",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : -20,
+              "labelOffsetY" : 1
+              }
+            }
+          },
+        "7" : {
+          "kind" : "Point",
+          "genus" : "Intersection",
+          "parents" : {
+            "obj" : "5",
+            "circle" : "3"
+            },
+          "constraint" : "Intersection1",
+          "label" : "H",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 1,
+              "labelOffsetY" : -29
+              }
+            }
+          },
+        "8" : {
+          "kind" : "Point",
+          "genus" : "Intersection",
+          "parents" : {
+            "obj" : "5",
+            "circle" : "3"
+            },
+          "constraint" : "Intersection2",
+          "label" : "I",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 5,
+              "labelOffsetY" : -3
+              }
+            }
+          },
+        "9" : {
+          "kind" : "Straight",
+          "genus" : "Segment",
+          "parents" : {
+            "p0" : "1",
+            "p1" : "7"
+            },
+          "constraint" : "Segment"
+          },
+        "10" : {
+          "kind" : "Point",
+          "genus" : "Midpoint",
+          "parents" : {
+            "path" : "9"
+            },
+          "constraint" : "Midpoint",
+          "label" : "M",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 8,
+              "labelOffsetY" : -17
+              }
+            }
+          },
+        "11" : {
+          "kind" : "Straight",
+          "genus" : "Segment",
+          "parents" : {
+            "p0" : "6",
+            "p1" : "10"
+            },
+          "constraint" : "Segment"
+          },
+        "12" : {
+          "kind" : "Straight",
+          "genus" : "Bisector",
+          "parents" : {
+            "A" : "6",
+            "B" : "10",
+            "C" : "1"
+            },
+          "constraint" : "AngleBisector"
+          },
+        "13" : {
+          "kind" : "Point",
+          "genus" : "Intersection",
+          "parents" : {
+            "line0" : "4",
+            "line1" : "12"
+            },
+          "constraint" : "Intersection",
+          "label" : "N",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : 8,
+              "labelOffsetY" : -3
+              }
+            }
+          },
+        "14" : {
+          "kind" : "Measure",
+          "genus" : "AngleMeasure",
+          "parents" : {
+            "p0" : "6",
+            "p1" : "10",
+            "p2" : "1"
+            },
+          "constraint" : "MeasurementAngle",
+          "geom" : {
+            "loc" : {
+              "x" : 238,
+              "y" : 7
+              }
+            },
+          "style" : {
+            "precision" : 2,
+            "nameOrigin" : "namedFromTemplate"
+            }
+          },
+        "15" : {
+          "kind" : "Straight",
+          "genus" : "Perpendicular",
+          "parents" : {
+            "p0" : "13",
+            "line" : "4"
+            },
+          "constraint" : "Perpendicular"
+          },
+        "16" : {
+          "kind" : "Point",
+          "genus" : "Intersection",
+          "parents" : {
+            "obj" : "15",
+            "circle" : "3"
+            },
+          "constraint" : "Intersection1",
+          "label" : "H",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : -28,
+              "labelOffsetY" : -21
+              }
+            }
+          },
+        "17" : {
+          "kind" : "Point",
+          "genus" : "Intersection",
+          "parents" : {
+            "obj" : "15",
+            "circle" : "3"
+            },
+          "constraint" : "Intersection2",
+          "label" : "I",
+          "style" : {
+            "label" : {
+              "showLabel" : true,
+              "labelOffsetX" : -15,
+              "labelOffsetY" : 0
+              }
+            }
+          },
+        "18" : {
+          "kind" : "Straight",
+          "genus" : "Segment",
+          "parents" : {
+            "p0" : "6",
+            "p1" : "16"
+            },
+          "constraint" : "Segment"
+          },
+        "19" : {
+          "kind" : "Straight",
+          "genus" : "Segment",
+          "parents" : {
+            "p0" : "6",
+            "p1" : "17"
+            },
+          "constraint" : "Segment"
+          },
+        "20" : {
+          "kind" : "Measure",
+          "genus" : "AngleMeasure",
+          "parents" : {
+            "p0" : "16",
+            "p1" : "6",
+            "p2" : "17"
+            },
+          "constraint" : "MeasurementAngle",
+          "geom" : {
+            "loc" : {
+              "x" : 324,
+              "y" : 33
+              }
+            },
+          "style" : {
+            "precision" : 2,
+            "nameOrigin" : "namedFromTemplate"
+            }
+          },
+        "21" : {
+          "kind" : "Measure",
+          "genus" : "ScalarMeasure",
+          "parents" : {
+            "obj0" : "1",
+            "obj1" : "6",
+            "obj2" : "13"
+            },
+          "constraint" : "MeasurementRatio",
+          "geom" : {
+            "loc" : {
+              "x" : 324,
+              "y" : 59
+              }
+            },
+          "style" : {
+            "precision" : 5,
+            "nameOrigin" : "namedFromTemplate"
+            }
+          }
+        }
+      }
+    ]
+  }

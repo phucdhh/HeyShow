@@ -70,6 +70,97 @@ const SLIDE_JSXGRAPH_STYLE = `<style>${SLIDE_JSXGRAPH_CSS}
 const SLIDE_JSXGRAPH_JS = `<script ${JSXGRAPH_MARKER}="runtime">(${JSXGRAPH_MOUNT_SRC})(${JSON.stringify(JSXGRAPH_CDN)})</script>`;
 
 
+// --- Thẻ <wsp> (Web Sketchpad) ---
+// Khuôn y hệt <jsxgraph>: một bản runtime ở client/src/wsp-runtime.js, server cắt nguyên văn
+// nên khung Preview của giáo viên và bản người xem nhận cùng một chuỗi. Khác mỗi chỗ nạp thư
+// viện: Web Sketchpad không có CDN, file nằm trong client/public/wsp/ và trang slide lấy từ
+// chính origin phục vụ nó, nên WSP_MOUNT được gọi với DIR rỗng để runtime tự suy ra.
+const WSP_SOURCE_FILE = path.join(__dirname, '../../client/src/wsp-runtime.js');
+const WSP_SOURCE = fs.readFileSync(WSP_SOURCE_FILE, 'utf-8');
+
+function catHamWsp(ten) {
+    const mo = WSP_SOURCE.indexOf(`export function ${ten}(`);
+    if (mo < 0) throw new Error(`${WSP_SOURCE_FILE} thiếu 'export function ${ten}('`);
+    const cuoi = WSP_SOURCE.indexOf('\n}', mo);
+    if (cuoi < 0) throw new Error(`${WSP_SOURCE_FILE}: dấu '}' đóng ${ten} phải nằm ở cột 0`);
+    return WSP_SOURCE.slice(WSP_SOURCE.lastIndexOf('\n', mo) + 1, cuoi + 2).replace(/^export /, '');
+}
+
+function catChuWsp(ten) {
+    const giaTri = (WSP_SOURCE.match(new RegExp(`${ten} = '([^']*)'`)) || [])[1];
+    if (giaTri === undefined) throw new Error(`${WSP_SOURCE_FILE} thiếu dòng khai báo ${ten}`);
+    return giaTri;
+}
+
+const WSP_VERSION = catChuWsp('WSP_VERSION');
+const WSP_HOME = catChuWsp('WSP_HOME');
+const WSP_DIR = catChuWsp('WSP_DIR');
+const WSP_MARKER = catChuWsp('WSP_MARKER');
+const WSP_TYPE = catChuWsp('WSP_TYPE');
+
+const WSP_MOUNT_SRC = catHamWsp('WSP_MOUNT');
+if (WSP_MOUNT_SRC.toLowerCase().includes('</scr')) {
+    throw new Error(`${WSP_SOURCE_FILE}: WSP_MOUNT chứa chuỗi đóng thẻ script, nội tuyến vào bài publish sẽ hỏng`);
+}
+
+const WSP_BOC = new Function(`return (${catHamWsp('WSP_BOC')})`)();
+
+const WSP_CSS_MO = WSP_SOURCE.indexOf('export const WSP_CSS = `');
+if (WSP_CSS_MO < 0) throw new Error(`${WSP_SOURCE_FILE} thiếu 'export const WSP_CSS = …'`);
+const WSP_CSS_START = WSP_SOURCE.indexOf('`', WSP_CSS_MO) + 1;
+const SLIDE_WSP_CSS = WSP_SOURCE.slice(WSP_CSS_START, WSP_SOURCE.indexOf('`', WSP_CSS_START));
+
+const SLIDE_WSP_STYLE = `<style>${SLIDE_WSP_CSS}
+    </style>`;
+// DIR rỗng: đúng WSP_SCRIPT('') của client — xem client/src/wsp-runtime.js.
+const SLIDE_WSP_JS = `<script ${WSP_MARKER}="runtime">(${WSP_MOUNT_SRC})("")</script>`;
+
+
+// --- Thẻ <tts> (đọc văn bản bằng HeyTTS) ---
+// Cùng khuôn với <jsxgraph>/<wsp>: một runtime ở client/src/tts-runtime.js, server cắt
+// nguyên văn TTS_BOC / TTS_MOUNT nên preview và bản publish không thể lệch nhau. Khác ở
+// chỗ thứ nằm trong thẻ là CHỮ của người dạy; nó cũng có thể chứa dấu `<` nên phải đổi
+// sang script raw-text trước khi vào DOM.
+const TTS_SOURCE_FILE = path.join(__dirname, '../../client/src/tts-runtime.js');
+const TTS_SOURCE = fs.readFileSync(TTS_SOURCE_FILE, 'utf-8');
+
+function catHamTts(ten) {
+    const mo = TTS_SOURCE.indexOf(`export function ${ten}(`);
+    if (mo < 0) throw new Error(`${TTS_SOURCE_FILE} thiếu 'export function ${ten}('`);
+    const cuoi = TTS_SOURCE.indexOf('\n}', mo);
+    if (cuoi < 0) throw new Error(`${TTS_SOURCE_FILE}: dấu '}' đóng ${ten} phải nằm ở cột 0`);
+    return TTS_SOURCE.slice(TTS_SOURCE.lastIndexOf('\n', mo) + 1, cuoi + 2).replace(/^export /, '');
+}
+
+function catChuTts(ten) {
+    const giaTri = (TTS_SOURCE.match(new RegExp(`${ten} = '([^']*)'`)) || [])[1];
+    if (giaTri === undefined) throw new Error(`${TTS_SOURCE_FILE} thiếu dòng khai báo ${ten}`);
+    return giaTri;
+}
+
+const TTS_HOME = catChuTts('TTS_HOME');
+const TTS_MARKER = catChuTts('TTS_MARKER');
+const TTS_TYPE = catChuTts('TTS_TYPE');
+
+const TTS_MOUNT_SRC = catHamTts('TTS_MOUNT');
+if (TTS_MOUNT_SRC.toLowerCase().includes('</scr')) {
+    throw new Error(`${TTS_SOURCE_FILE}: TTS_MOUNT chứa chuỗi đóng thẻ script, nội tuyến vào bài publish sẽ hỏng`);
+}
+
+const TTS_BOC = new Function(`return (${catHamTts('TTS_BOC')})`)();
+
+const TTS_CSS_MO = TTS_SOURCE.indexOf('export const TTS_CSS = `');
+if (TTS_CSS_MO < 0) throw new Error(`${TTS_SOURCE_FILE} thiếu 'export const TTS_CSS = …'`);
+const TTS_CSS_START = TTS_SOURCE.indexOf('`', TTS_CSS_MO) + 1;
+const SLIDE_TTS_CSS = TTS_SOURCE.slice(TTS_CSS_START, TTS_SOURCE.indexOf('`', TTS_CSS_START));
+
+const SLIDE_TTS_STYLE = `<style>${SLIDE_TTS_CSS}
+    </style>`;
+// GOC rỗng: URL tương đối, đúng TTS_SCRIPT('') của client. TTS_HOME đi kèm để file export
+// mở ở máy khác vẫn tìm được API của HeyShow.
+const SLIDE_TTS_JS = `<script ${TTS_MARKER}="runtime">(${TTS_MOUNT_SRC})("", ${JSON.stringify(TTS_HOME)})</script>`;
+
+
 // Cấu hình nạp cho plugin math của Reveal. Reveal 6 đọc khoá "katex" ở cấp cao nhất của
 // Reveal.initialize rồi truyền thẳng xuống KaTeX (xem plugin/math.js: getConfig().katex).
 // Bài của AI và của người dùng viết chữ Việt ngay trong công thức, kiểu "$đường thẳng$",
@@ -438,6 +529,10 @@ module.exports = {
     REVEAL_SCROLL_MODE_OFF, addRevealOption,
     JSXGRAPH_VERSION, JSXGRAPH_CDN, JSXGRAPH_MARKER, JSXGRAPH_TYPE, JSXGRAPH_BOC,
     SLIDE_JSXGRAPH_STYLE, SLIDE_JSXGRAPH_JS,
+    WSP_VERSION, WSP_HOME, WSP_DIR, WSP_MARKER, WSP_TYPE, WSP_BOC,
+    SLIDE_WSP_STYLE, SLIDE_WSP_JS,
+    TTS_HOME, TTS_MARKER, TTS_TYPE, TTS_BOC,
+    SLIDE_TTS_STYLE, SLIDE_TTS_JS,
     SLIDE_HEAD_GUARD, SLIDE_STORAGE_SHIM, GUARD_MARKER, SHIM_MARKER,
     SLIDE_FULLSCREEN_CSS, SLIDE_FULLSCREEN_BUTTON, SLIDE_FULLSCREEN_JS, FULLSCREEN_MARKER,
     FS_LABEL, FS_LABEL_EXIT, LEGACY_FULLSCREEN_LABELS,

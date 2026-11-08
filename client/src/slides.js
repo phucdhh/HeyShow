@@ -1,6 +1,6 @@
-import { StateField } from "@codemirror/state";
+import { StateField, Prec } from "@codemirror/state";
 import { gutter, GutterMarker } from "@codemirror/view";
-import { foldable, foldedRanges, foldEffect, unfoldEffect } from "@codemirror/language";
+import { foldable, foldedRanges, foldEffect, unfoldEffect, foldService } from "@codemirror/language";
 import { linter } from "@codemirror/lint";
 
 // (?=[\s>]) cũ không bắt được <section-master>, nên dùng \b và xếp alternation dài hơn trước
@@ -135,6 +135,23 @@ export const slidesField = StateField.define({
     create: (state) => scanSections(state.doc),
     update: (value, tr) => (tr.docChanged ? scanSections(tr.newDoc) : value)
 });
+
+// Gập vùng <wsp>/<jsxgraph> theo VĂN BẢN, không theo cây cú pháp HTML.
+//
+// JSON của một sketch WSP mang chuỗi như "<T'Điểm'>", còn code JSXGraph hay có "a < b": bộ
+// phân tích HTML của CodeMirror tưởng đó là thẻ mở và nuốt luôn </wsp> (</jsxgraph>) lẫn
+// </section> phía sau — gập theo cú pháp khi ấy ẩn cả hai thẻ đóng, người soạn tưởng mình
+// chưa đóng thẻ. Tìm đúng thẻ đóng cùng tên bằng văn bản rồi mới gập.
+export const nhungFold = Prec.highest(foldService.of((state, lineStart) => {
+    const line = state.doc.lineAt(lineStart);
+    const mo = /<\s*(wsp|jsxgraph)\b[^>]*>/i.exec(line.text);
+    if (!mo) return null;
+    const ten = mo[1].toLowerCase();
+    const tu = line.from + mo.index + mo[0].length;
+    const dong = new RegExp(`<\\s*/\\s*${ten}\\s*>`, 'i').exec(state.doc.sliceString(tu));
+    if (!dong || dong.index <= 0) return null;
+    return { from: tu, to: tu + dong.index };
+}));
 
 function toggleFoldLine(view, pos) {
     const clamped = Math.min(pos, view.state.doc.length);

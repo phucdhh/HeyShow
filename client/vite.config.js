@@ -22,7 +22,8 @@ export default defineConfig({
         landing: resolve(__dirname, 'landing.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
         help: resolve(__dirname, 'help.html'),
-        templates: resolve(__dirname, 'templates.html')
+        templates: resolve(__dirname, 'templates.html'),
+        reset: resolve(__dirname, 'reset.html')
       }
     }
   }

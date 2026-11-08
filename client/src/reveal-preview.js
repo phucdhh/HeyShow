@@ -2,11 +2,18 @@
 // để preview trong Help/Templates trùng khớp thứ người xem nhận được.
 import { REVEAL_CSS, REVEAL_JS, REVEAL_MATH_JS, REVEAL_KATEX_OPTS, REVEAL_SCROLL_MODE_OFF } from './reveal-cdn.js';
 import { JSXGRAPH_BOC, JSXGRAPH_STYLE, JSXGRAPH_SCRIPT } from './jsxgraph-runtime.js';
+import { WSP_BOC, WSP_STYLE, WSP_SCRIPT, WSP_DIR } from './wsp-runtime.js';
+import { TTS_BOC, TTS_STYLE, TTS_SCRIPT } from './tts-runtime.js';
 
 export function previewHtml(code) {
     // <jsxgraph> phải đổi thành script raw-text trước khi vào DOM, và runtime chỉ được nạp
     // khi mẫu thật sự có hình — đúng điều kiện buildFullHtml của bản publish.
     const coJsxgraph = /<\s*jsxgraph\b/i.test(code);
+    const coWsp = /<\s*wsp\b/i.test(code);
+    const coTts = /<\s*tts\b/i.test(code);
+    // Iframe preview không có URL riêng (viết bằng document.write / srcdoc) nên thư viện
+    // WSP phải được trỏ thẳng tới origin của chính app — bản publish thì tự suy ra.
+    const wspScript = WSP_SCRIPT(window.location.origin + WSP_DIR);
     const template = `<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -28,7 +35,7 @@ export function previewHtml(code) {
         .reveal .slides section .fragment {
             opacity: 1 !important; visibility: visible !important; transform: none !important;
         }
-    </style>${coJsxgraph ? `\n    ${JSXGRAPH_STYLE}` : ''}
+    </style>${coJsxgraph ? `\n    ${JSXGRAPH_STYLE}` : ''}${coWsp ? `\n    ${WSP_STYLE}` : ''}${coTts ? `\n    ${TTS_STYLE}` : ''}
 </head>
 <body>
     <div class="reveal">
@@ -37,7 +44,7 @@ export function previewHtml(code) {
         </div>
     </div>
     ${REVEAL_JS}
-    ${REVEAL_MATH_JS}${coJsxgraph ? `\n    ${JSXGRAPH_SCRIPT}` : ''}
+    ${REVEAL_MATH_JS}${coJsxgraph ? `\n    ${JSXGRAPH_SCRIPT}` : ''}${coWsp ? `\n    ${wspScript}` : ''}${coTts ? `\n    ${TTS_SCRIPT(window.location.origin)}` : ''}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const masters = document.querySelectorAll('section-master');
@@ -69,5 +76,7 @@ export function previewHtml(code) {
 </body>
 </html>`;
     // split/join thay vì replace: code mẫu chứa "$$" của KaTeX sẽ bị hiểu nhầm là mẫu thay thế
-    return template.split('__HEYSHOW_CODE__').join(coJsxgraph ? JSXGRAPH_BOC(code) : code);
+    const bai1 = coJsxgraph ? JSXGRAPH_BOC(code) : code;
+    const bai2 = coWsp ? WSP_BOC(bai1) : bai1;
+    return template.split('__HEYSHOW_CODE__').join(coTts ? TTS_BOC(bai2) : bai2);
 }

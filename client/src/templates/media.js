@@ -7,8 +7,8 @@
 // - Script BẮT BUỘC nằm trong <section>, chuyển vào <section-master> là chết: nội dung master
 //   được chèn bằng insertAdjacentHTML sau khi trang đã chạy, mà HTML chèn kiểu đó thì <script>
 //   chỉ tồn tại trên giấy, không bao giờ được thực thi.
-// - AudioContext và speechSynthesis chỉ được khởi tạo bên trong hàm xử lý bấm (user gesture).
-//   Tạo sẵn lúc trang load thì trình duyệt chặn, bấm không ra tiếng.
+// - AudioContext chỉ được khởi tạo bên trong hàm xử lý bấm (user gesture). Tạo sẵn lúc
+//   trang load thì trình duyệt chặn, bấm không ra tiếng. Thẻ <tts> đã tự lo phần này.
 // - Video: thẻ <video> (.mp4 hoặc .m3u8 + hls.js) phát được trên CẢ trang publish, vì CSP sandbox
 //   của /show chỉ siết script, không chạm quyền media. iframe YouTube thì khác — sandbox lan xuống
 //   iframe con nên trang publish chỉ còn một ô đen đặc. Mẫu video vì thế nhận ra sandbox và ẩn khung
@@ -21,9 +21,11 @@
 //   bài thì <style> của chúng là toàn cục, trùng tên là mẫu này ghi đè mẫu kia.
 
 // Danh mục trên sidebar: Âm thanh & video
+import TTS_SAMPLES from '../samples/tts/samples.json';
+
 export const GROUP = {
     id: 'am-thanh-video', kind: 'slide', label: 'Âm thanh & video',
-    lead: 'Slide có tiếng và hình động: âm báo đúng/sai khi làm trắc nghiệm, chuông điều khiển lớp học, luyện nghe tiếng Anh bằng giọng đọc của trình duyệt, và video tự dừng ở các mốc thời gian để học sinh trả lời câu hỏi. Với video, chỉ cần dán link Gan Jing World vào data-gjw — HeyShow tự tìm nguồn phát. HeyShow không hỗ trợ chèn video từ YouTube.'
+    lead: 'Slide có tiếng và hình động: âm báo đúng/sai khi làm trắc nghiệm, chuông điều khiển lớp học, đọc văn bản và luyện nghe bằng giọng HeyTTS (nút loa icon-only, thanh tua, hai tốc độ), hội thoại nhiều giọng kể cả Anh–Việt, và video tự dừng ở các mốc thời gian để học sinh trả lời câu hỏi. Với video, chỉ cần dán link Gan Jing World vào data-gjw — HeyShow tự tìm nguồn phát. HeyShow không hỗ trợ chèn video từ YouTube.'
 };
 
 export const SAMPLES = [
@@ -181,85 +183,85 @@ export const SAMPLES = [
     {
         id: 'luyen-nghe-tts',
         group: 'am-thanh-video',
-        title: 'Luyện nghe – nói tiếng Anh không cần file',
-        desc: 'Mỗi câu có hai nút: ▶ đọc chuẩn và 🐢 đọc chậm. Học sinh nghe rồi đọc lại, giáo viên có thể thêm bao nhiêu câu tùy bài.',
-        note: 'Giọng đọc lấy từ trình duyệt (Web Speech API), không cần mạng và không cần file. Âm sắc tuỳ máy: Chrome/Edge có giọng en-GB, Safari dùng giọng của macOS/iOS. Máy chưa cài giọng tiếng Anh thì slide báo "máy chưa có giọng đọc" — trường hợp đó hãy dùng mẫu "Nghe từ file âm thanh".',
+        title: 'Luyện nghe tiếng Anh với HeyTTS — hai tốc độ',
+        desc: 'Một câu tiếng Anh có hai cách nghe: tốc độ bình thường (kèm thanh tua) và chậm hơn (nút loa icon-only). Giọng đọc ổn định trên mọi máy.',
+        note: 'Giọng Anh af_heart của HeyTTS, không phụ thuộc giọng cài trong trình duyệt. data-speed từ 0.5 đến 2; đổi câu bằng cách sửa chữ trong hai thẻ <tts>. Lần nghe đầu máy tạo âm thanh, các lần sau phát ngay. data-controls="true" hiện thanh tua; data-icon-only chỉ để lại biểu tượng.',
         code: String.raw`<section data-background-gradient="linear-gradient(135deg,#ecfeff,#f0f9ff)" style="color:#1f2937">
   <style>
-    .tt .row { display:flex; align-items:center; gap:12px; width:640px; margin:10px auto; padding:8px 14px;
-               background:#ffffff; border:1px solid #a5f3fc; border-radius:12px; text-align:left; }
-    .tt .cau { flex:1; }
-    .tt .en { font-size:0.6em; color:#0e7490; }
-    .tt .vi { font-size:0.42em; color:#6b7280; }
-    .tt .noi { width:52px; height:52px; flex:0 0 52px; border-radius:50%; border:2px solid #06b6d4;
-               background:#ecfeff; cursor:pointer; font-family:inherit; font-size:0.6em; }
-    .tt .noi:hover { background:#cffafe; }
-    .tt .dung { font-size:0.45em; padding:6px 16px; border-radius:10px; border:2px solid #0e7490;
-                background:#ffffff; color:#0e7490; cursor:pointer; font-family:inherit; }
-    .tt .thai { font-size:0.45em; color:#6b7280; }
+    .nghe .cau { width:660px; margin:0 auto 10px; padding:14px 18px; background:#ffffff;
+                 border:1px solid #a5f3fc; border-radius:12px; text-align:left; }
+    .nghe .en { font-size:0.62em; color:#0e7490; }
+    .nghe .vi { font-size:0.42em; color:#6b7280; }
+    .nghe .hang { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px; }
   </style>
-  <h2 style="color:#0e7490;">🎧 Listen and repeat</h2>
-  <div class="tt">
-    <div class="row" data-en="She sells seashells by the seashore.">
-      <div class="cau"><div class="en">She sells seashells by the seashore.</div>
-        <div class="vi">Cô ấy bán vỏ sò bên bờ biển.</div></div>
-      <button type="button" class="noi" data-tocdo="1">▶</button>
-      <button type="button" class="noi" data-tocdo="0.6">🐢</button>
+  <h2 style="color:#0e7490;">Listen and repeat</h2>
+  <div class="nghe">
+    <div class="cau">
+      <div class="en">${TTS_SAMPLES[3].text}</div>
+      <div class="vi">Hãy nghe kỹ. Đạo hàm của hàm số tại một điểm là hệ số góc của tiếp tuyến
+        với đồ thị tại điểm đó.</div>
     </div>
-    <div class="row" data-en="Could you tell me the way to the museum?">
-      <div class="cau"><div class="en">Could you tell me the way to the museum?</div>
-        <div class="vi">Bạn chỉ giúp tôi đường tới bảo tàng được không?</div></div>
-      <button type="button" class="noi" data-tocdo="1">▶</button>
-      <button type="button" class="noi" data-tocdo="0.6">🐢</button>
+    <div class="hang">
+      <tts data-voice="${TTS_SAMPLES[3].voice}" data-speed="${TTS_SAMPLES[3].speed}" data-controls="true" data-caption="false">
+        ${TTS_SAMPLES[3].text}
+      </tts>
+      <tts data-voice="${TTS_SAMPLES[4].voice}" data-speed="${TTS_SAMPLES[4].speed}" data-icon-only data-color="#0e7490"
+           data-size="large" data-label="Nghe chậm">
+        ${TTS_SAMPLES[4].text}
+      </tts>
     </div>
-    <div class="row" data-en="I have been studying English for three years.">
-      <div class="cau"><div class="en">I have been studying English for three years.</div>
-        <div class="vi">Tôi đã học tiếng Anh được ba năm rồi.</div></div>
-      <button type="button" class="noi" data-tocdo="1">▶</button>
-      <button type="button" class="noi" data-tocdo="0.6">🐢</button>
-    </div>
-    <p><button type="button" class="dung">Dừng</button></p>
-    <p class="thai">Bấm ▶ để nghe, 🐢 để nghe chậm, rồi đọc to theo.</p>
+    <p style="font-size:0.42em; color:#6b7280; text-align:center;">
+      Nghe câu bình thường, rồi bấm nút loa để nghe chậm và đọc to theo.
+    </p>
   </div>
-  <script>
-    (function () {
-      var sec = document.currentScript.closest('section');
-      var box = sec.querySelector('.tt');
-      var thai = box.querySelector('.thai');
-      var co = window.speechSynthesis && window.SpeechSynthesisUtterance;
-      var giong = [];
-      function timGiong() {
-        if (!co) return;
-        giong = speechSynthesis.getVoices().filter(function (v) { return /^en/i.test(v.lang); });
-      }
-      timGiong();
-      if (co) speechSynthesis.addEventListener('voiceschanged', timGiong);
-      function noi(row, tocDo) {
-        if (!co) { thai.textContent = 'Máy này chưa có giọng đọc tiếng Anh — mở bằng Chrome hoặc Edge.'; return; }
-        if (!giong.length) timGiong();
-        var text = row.getAttribute('data-en');
-        var u = new SpeechSynthesisUtterance(text);
-        u.lang = 'en-GB';
-        u.rate = tocDo;
-        u.pitch = 1;
-        var anh = giong.filter(function (v) { return /en[-_]GB/i.test(v.lang); })[0] || giong[0];
-        if (anh) u.voice = anh;
-        u.onend = function () { thai.textContent = 'Xong — đọc to lại một lần nữa theo.'; };
-        thai.textContent = (tocDo < 1 ? 'Đọc chậm: ' : 'Đang đọc: ') + text;
-        speechSynthesis.cancel();
-        speechSynthesis.speak(u);
-      }
-      box.querySelectorAll('.noi').forEach(function (b) {
-        b.addEventListener('click', function () {
-          noi(b.closest('.row'), parseFloat(b.getAttribute('data-tocdo')));
-        });
-      });
-      box.querySelector('.dung').addEventListener('click', function () {
-        if (co) speechSynthesis.cancel();
-        thai.textContent = 'Đã dừng.';
-      });
-    })();
-  </script>
+</section>`
+    },
+
+    {
+        id: 'cau-hoi-nghe-tts',
+        group: 'am-thanh-video',
+        title: 'Câu hỏi luyện nghe có nút loa',
+        desc: 'Một câu hỏi Toán đọc bằng giọng HeyTTS, chỉ hiện nút loa cạnh hình vẽ; đáp án hiện sau khi bấm (fragment của Reveal).',
+        note: 'Nút chỉ có biểu tượng nhờ data-icon-only; data-color và data-size đổi màu, cỡ. Đáp án là một fragment nên bấm phím phải (hoặc chạm) mới hiện. Đổi câu hỏi bằng cách sửa chữ trong thẻ; giữ data-speed trong 0.5–2.',
+        code: String.raw`<section data-background-gradient="linear-gradient(135deg,#fffbeb,#fefce8)" style="color:#1f2937">
+  <style>
+    .ch .hop { display:flex; align-items:center; gap:26px; width:760px; margin:6px auto; text-align:left; }
+    .ch .hinh { flex:0 0 230px; }
+    .ch .hoi { flex:1; }
+    .ch .luachon { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:620px; margin:12px auto 0; }
+    .ch .luachon span { padding:8px 12px; border:1px solid #fcd34d; border-radius:10px;
+                        background:#ffffff; font-size:0.5em; }
+    .ch .dapan { width:620px; margin:12px auto 0; padding:8px 14px; border-left:4px solid #b45309;
+                 background:#ffffff; border-radius:8px; font-size:0.45em; color:#92400e; }
+  </style>
+  <h2 style="color:#b45309;">Câu hỏi luyện nghe</h2>
+  <div class="ch">
+    <div class="hop">
+      <svg class="hinh" viewBox="0 0 230 165" role="img" aria-label="Tam giác ABC vuông tại A">
+        <polygon points="30,130 190,130 30,25" fill="#fef3c7" stroke="#b45309" stroke-width="3"/>
+        <path d="M30 112 h18 v18" fill="none" stroke="#b45309" stroke-width="2"/>
+        <text x="15" y="150" font-size="16" fill="#92400e">A</text>
+        <text x="196" y="150" font-size="16" fill="#92400e">B</text>
+        <text x="15" y="22" font-size="16" fill="#92400e">C</text>
+      </svg>
+      <div class="hoi">
+        <p style="font-size:0.52em; color:#6b7280; margin:0 0 6px;">
+          Bấm nút loa, nghe câu hỏi rồi chọn đáp án.
+        </p>
+        <tts data-voice="${TTS_SAMPLES[2].voice}" data-speed="${TTS_SAMPLES[2].speed}"
+             data-icon-only data-color="#b45309" data-size="large" data-label="Nghe câu hỏi">
+          ${TTS_SAMPLES[2].text}
+        </tts>
+      </div>
+    </div>
+    <div class="luachon">
+      <span>A. Cạnh AB</span>
+      <span>B. Cạnh BC</span>
+      <span>C. Cạnh AC</span>
+      <span>D. Cả ba cạnh</span>
+    </div>
+    <p class="fragment dapan"><b>Đáp án:</b> B. Cạnh BC — cạnh đối diện góc vuông tại A.</p>
+  </div>
 </section>`
     },
 
@@ -983,6 +985,81 @@ export const SAMPLES = [
       video.addEventListener('error', function () { hong('Không tải được clip (link hết hạn hoặc mạng chặn).'); });
     })();
   </script>
+</section>`
+    },
+
+    {
+        id: 'doc-van-ban-heytts',
+        group: 'am-thanh-video',
+        title: 'Đọc đoạn văn bằng giọng HeyTTS',
+        desc: 'Một nút Nghe đọc đoạn văn bằng giọng Việt (hoặc giọng Anh); âm thanh được tạo ở lần nghe đầu rồi dùng lại từ bộ nhớ đệm.',
+        note: 'data-voice chọn giọng (diem_trinh, duc_duy, mai_linh… hoặc af_heart, am_adam…), data-speed từ 0.5 đến 2. Bên trong thẻ chỉ là chữ thuần. Cùng một đoạn chữ với cùng giọng và tốc độ thì chỉ tạo âm thanh một lần, mọi bài dùng chung.',
+        code: `<section data-background-gradient="linear-gradient(135deg,#f0fdfa,#eff6ff)" style="color:#1f2937">
+  <h2 style="color:#0f766e;">Nghe lại định lí Pythagore</h2>
+  <p style="font-size:0.7em; color:#475569;">Bấm Nghe — lần đầu máy tạo âm thanh, các lần sau phát ngay.</p>
+  <tts data-voice="${TTS_SAMPLES[0].voice}" data-speed="${TTS_SAMPLES[0].speed}">
+${TTS_SAMPLES[0].text}
+  </tts>
+</section>`
+    },
+
+    {
+        id: 'hoi-thoai-giao-vien-hoc-sinh',
+        group: 'am-thanh-video',
+        title: 'Hội thoại giáo viên – học sinh về Pythagore',
+        desc: 'Một nút phát cả hội thoại ba lượt; transcript có tên người nói hiện dần sau khi nghe.',
+        note: 'Mỗi lượt mở đầu bằng [giọng], ví dụ [am_adam] … [af_heart] …. Cả hội thoại là một file Opus, có khoảng lặng 180ms; data-speed áp cho mọi lượt. Sửa lời thoại ngay trong thẻ.',
+        code: `<section data-background-gradient="linear-gradient(135deg,#ecfeff,#f0fdf4)" style="color:#1f2937">
+  <style>
+    .dd-nhan { display:inline-block; background:#0f766e; color:#ecfeff; padding:3px 14px;
+               border-radius:999px; font-size:0.32em; font-weight:bold; }
+    .dd .loi { display:flex; gap:12px; width:700px; margin:7px auto; padding:8px 14px; text-align:left;
+               background:#ffffff; border:1px solid #a5f3fc; border-radius:12px; font-size:0.42em; }
+    .dd .ai { flex:0 0 84px; font-weight:bold; color:#0e7490; }
+    .dd .hv { flex:0 0 84px; font-weight:bold; color:#b45309; }
+  </style>
+  <span class="dd-nhan">HỘI THOẠI · LISTENING</span>
+  <h2 style="font-size:0.72em;">Teacher and student</h2>
+  <div class="dd">
+    <tts data-voice="${TTS_SAMPLES[5].voice}" data-speed="${TTS_SAMPLES[5].speed}" data-label="Play the dialogue">
+${TTS_SAMPLES[5].text}
+    </tts>
+    <div class="loi fragment"><span class="ai">Teacher</span><span>Good morning, class. Today we will review the Pythagorean theorem.</span></div>
+    <div class="loi fragment"><span class="hv">Student</span><span>Excuse me, sir. Is the hypotenuse always the longest side?</span></div>
+    <div class="loi fragment"><span class="ai">Teacher</span><span>Yes, it is. The hypotenuse is opposite the right angle.</span></div>
+  </div>
+  <p style="font-size:0.38em; color:#64748b; text-align:center;">Nghe một lần không nhìn transcript, rồi mở từng lượt để kiểm tra.</p>
+</section>`
+    },
+
+    {
+        id: 'hoi-thoai-toan-song-ngu',
+        group: 'am-thanh-video',
+        title: 'Hội thoại Toán song ngữ Anh – Việt',
+        desc: 'Giáo viên hỏi tiếng Anh, học sinh trả lời tiếng Việt; một nút icon-only phát cả hội thoại.',
+        note: 'Trộn giọng Anh và Việt trong cùng một thẻ; HeyTTS tự chọn engine. data-icon-only giữ nút gọn; transcript song ngữ hiện dần.',
+        code: `<section data-background-gradient="linear-gradient(135deg,#fffbeb,#eff6ff)" style="color:#1f2937">
+  <style>
+    .sn-nhan { display:inline-block; background:#b45309; color:#fffbeb; padding:3px 14px;
+               border-radius:999px; font-size:0.32em; font-weight:bold; }
+    .sn .loi { display:flex; gap:12px; width:700px; margin:7px auto; padding:8px 14px; text-align:left;
+               background:#ffffff; border:1px solid #fcd34d; border-radius:12px; font-size:0.42em; }
+    .sn .en { flex:0 0 42px; font-weight:bold; color:#0e7490; }
+    .sn .vi { flex:0 0 42px; font-weight:bold; color:#b45309; }
+  </style>
+  <span class="sn-nhan">HỘI THOẠI SONG NGỮ</span>
+  <h2 style="font-size:0.72em;">Bilingual maths talk</h2>
+  <div class="sn">
+    <tts data-speed="${TTS_SAMPLES[6].speed}" data-icon-only data-color="#0f766e"
+         data-size="large" data-label="Play the mixed dialogue">
+${TTS_SAMPLES[6].text}
+    </tts>
+    <div class="loi fragment"><span class="en">EN</span><span>What is the area of a circle?</span></div>
+    <div class="loi fragment"><span class="vi">VI</span><span>Diện tích bằng pi nhân bán kính bình phương.</span></div>
+    <div class="loi fragment"><span class="en">EN</span><span>Excellent. And what is the circumference?</span></div>
+    <div class="loi fragment"><span class="vi">VI</span><span>Chu vi bằng hai pi r.</span></div>
+  </div>
+  <p style="font-size:0.38em; color:#64748b; text-align:center;">Nghe và nhắc lại; chú ý chỗ chuyển giọng Anh – Việt.</p>
 </section>`
     }
 ]
