@@ -206,7 +206,7 @@ export function TTS_MOUNT(GOC, NHA) {
 
         // Tuỳ biến hiển thị. Mặc định chỉ có nút (thanh audio ẩn): nút đã là nút phát/tạm
         // dừng, thanh audio của trình duyệt lại co rất nhỏ theo phép thu nhỏ của slide.
-        const nhanGoc = docThuocTinh(o, 'data-label') || 'Nghe';
+        const nhanGoc = docThuocTinh(o, 'data-label') || 'Play';
         const chiBieuTuong = coBat(o, 'data-icon-only');
         const hienThanhAudio = coBat(o, 'data-controls');
         // Chỉ có biểu tượng thì mặc định cũng ẩn dòng "Giọng … · 1×" cho thật gọn; muốn
@@ -271,7 +271,7 @@ export function TTS_MOUNT(GOC, NHA) {
             const dangPhat = daCo && !audio.paused;
             bieuTuong.innerHTML = dangPhat ? ICON_PAUSE : ICON_PLAY;
             nut.classList.toggle('dang-phat', dangPhat);
-            datNhan(dangPhat ? 'Tạm dừng' : nhanGoc);
+            datNhan(dangPhat ? 'Pause' : nhanGoc);
         }
 
         bieuTuong.innerHTML = ICON_PLAY;
@@ -299,7 +299,6 @@ export function TTS_MOUNT(GOC, NHA) {
             dangChay = true;
             nut.disabled = true;
             datNhan('Đang tạo…');
-            trangThai.textContent = 'Đang tạo âm thanh…';
             const loiCu = hop.querySelector('.heyshow-tts-loi');
             if (loiCu) loiCu.remove();
 
@@ -336,10 +335,6 @@ export function TTS_MOUNT(GOC, NHA) {
                 if (hienThanhAudio) audio.style.display = '';
                 daCo = true;
                 nut.disabled = false;
-                trangThai.textContent = data.cached ? '' : 'Đã tạo xong — lần sau phát ngay.';
-                if (!data.cached) {
-                    setTimeout(() => { trangThai.textContent = ''; }, 5000);
-                }
                 // Giữ thao tác phát trong cùng một lượt bấm khi trình duyệt cho phép; nếu bị
                 // chặn (chủ yếu Safari sau khi chờ mạng) thì nút (hoặc thanh audio) vẫn ở đó.
                 try {
